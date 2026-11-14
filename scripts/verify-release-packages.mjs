@@ -34,7 +34,7 @@ try {
     [
       "--input-type=module",
       "--eval",
-      `await Promise.all(${JSON.stringify([...PACKAGE_NAMES.map((name) => `@doco/${name}`), "@doco/db/schema", "@doco/db/test-support"])}.map((name) => import(name)))`,
+      `await Promise.all(${JSON.stringify([...PACKAGE_NAMES.map((name) => `@doco/${name}`), "@doco/db/schema", "@doco/db/test-support", "@doco/shared/i18n"])}.map((name) => import(name)))`,
     ],
     { cwd: smokeDir, encoding: "utf8" },
   );
