@@ -5,6 +5,7 @@ import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCollectionForUser } from "~/lib/collection-access.server";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { metaTranslator } from "~/locales/catalog";
 
 interface RecordView {
   id: string;
@@ -39,9 +40,16 @@ export async function loader({
   return { collection, record };
 }
 
-export function meta({ data }: { data?: Awaited<ReturnType<typeof loader>> }) {
+export function meta({
+  data,
+  matches,
+}: {
+  data?: Awaited<ReturnType<typeof loader>>;
+  matches: Parameters<typeof metaTranslator>[0];
+}) {
+  const t = metaTranslator(matches);
   const title = data?.record.prose.split("\n", 1)[0]?.trim();
-  return [{ title: title ? `${title} · Braino` : "Record · Braino" }];
+  return [{ title: title ? `${title} · Braino` : t("Record · Braino") }];
 }
 
 export default function RecordPage() {
@@ -56,7 +64,7 @@ export default function RecordPage() {
         breadcrumb={
           <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <Link to="/" className="hover:underline">
-              Braino
+              {"Braino"}
             </Link>
             <span aria-hidden>›</span>
             <Link to={`/${data.collection.handle}`} className="hover:underline">

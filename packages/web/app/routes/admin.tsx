@@ -11,6 +11,8 @@ import {
   listPluginInstallations,
   updateWorkspaceSettings,
 } from "@doco/host";
+import { type Translator, msg } from "@doco/shared/i18n";
+import { type ReactTranslator, useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
@@ -26,6 +28,7 @@ import {
   RequestBodyError,
   readBoundedUrlEncodedForm,
 } from "~/lib/request-body.server";
+import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
 interface ActionData {
   saved?: boolean;
@@ -36,18 +39,18 @@ interface ActionData {
 interface DeploymentStatus {
   version: string;
   publicHost: string;
-  postgres: "Connected";
-  qdrant: "Configured" | "Not configured";
-  codeLinker: "Configured" | "Not configured";
+  postgres: string;
+  qdrant: string;
+  codeLinker: string;
   search: string;
-  models: "Ready" | "Setup required";
-  transport: "HTTPS" | "Loopback HTTP" | "HTTP";
+  models: string;
+  transport: string;
 }
 
 const METRIC_PERIODS = [
-  { value: "24h", label: "24 hours" },
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
+  { value: "24h", label: msg("24 hours") },
+  { value: "7d", label: msg("7 days") },
+  { value: "30d", label: msg("30 days") },
 ] as const satisfies readonly { value: ActivityPeriod; label: string }[];
 
 function metricPeriod(request: Request): ActivityPeriod {
@@ -57,13 +60,15 @@ function metricPeriod(request: Request): ActivityPeriod {
     : "24h";
 }
 
-export function meta() {
-  return [{ title: "Workspace administration · Braino" }];
+export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
+  const t = metaTranslator(matches);
+  return [{ title: t("Workspace administration · Braino") }];
 }
 
 function deploymentStatus(
   request: Request,
   plugins: { ready: boolean; embedding: boolean },
+  t: Translator,
 ): DeploymentStatus {
   const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
     /\/$/,
@@ -76,22 +81,24 @@ function deploymentStatus(
   return {
     version: process.env.DOCO_VERSION?.trim() || "local",
     publicHost,
-    postgres: "Connected",
-    qdrant: process.env.QDRANT_URL?.trim() ? "Configured" : "Not configured",
+    postgres: t("Connected"),
+    qdrant: process.env.QDRANT_URL?.trim() ? t("Configured") : t("Not configured"),
     codeLinker:
       process.env.BRAINO_CODELINKER_URL?.trim() && process.env.BRAINO_CODELINKER_API_TOKEN?.trim()
-        ? "Configured"
-        : "Not configured",
+        ? t("Configured")
+        : t("Not configured"),
     search: plugins.embedding
-      ? "Plugin embeddings"
+      ? t("Plugin embeddings")
       : embeddingProvider === "none" || (!embeddingProvider && !hasEmbeddingKey)
-        ? "Keyword search"
-        : `${embeddingProvider || "automatic"} embeddings`,
-    models: plugins.ready ? "Ready" : "Setup required",
+        ? t("Keyword search")
+        : embeddingProvider
+          ? t("{provider} embeddings", { provider: embeddingProvider })
+          : t("automatic embeddings"),
+    models: plugins.ready ? t("Ready") : t("Setup required"),
     transport: publicHost.startsWith("https://")
       ? "HTTPS"
       : publicHost.startsWith("http://localhost") || publicHost.startsWith("http://127.0.0.1")
-        ? "Loopback HTTP"
+        ? t("Loopback HTTP")
         : "HTTP",
   };
 }
@@ -108,6 +115,7 @@ export async function loader({ request }: { request: Request }) {
   if (!user) throw redirect("/");
   const state = await withClient(getSingleWorkspaceState);
   if (!state.initialized) throw redirect("/");
+  const t = await requestTranslator(request);
   try {
     const loaded = await withClient(async (client) => ({
       overview: await getWorkspaceAdminOverview(client, {
@@ -127,10 +135,14 @@ export async function loader({ request }: { request: Request }) {
       embeddingPlugin: loaded.plugins.find(
         (plugin) => plugin.manifest.id === OLLAMA_EMBEDDING_PLUGIN_ID,
       ),
-      deployment: deploymentStatus(request, {
-        ready: loaded.readiness.ready,
-        embedding: loaded.readiness.embedding === "ready",
-      }),
+      deployment: deploymentStatus(
+        request,
+        {
+          ready: loaded.readiness.ready,
+          embedding: loaded.readiness.embedding === "ready",
+        },
+        t,
+      ),
     };
   } catch (error) {
     adminResponse(error);
@@ -151,16 +163,18 @@ function encryptionKey(): string {
 }
 
 export async function action({ request }: { request: Request }): Promise<ActionData | Response> {
+  const t = await requestTranslator(request);
   const user = await getCurrentUser(request);
-  if (!user) return Response.json({ error: "Sign in first." }, { status: 401 });
+  if (!user) return Response.json({ error: t("Sign in first.") }, { status: 401 });
   const state = await withClient(getSingleWorkspaceState);
-  if (!state.initialized) return Response.json({ error: "Finish setup first." }, { status: 409 });
+  if (!state.initialized)
+    return Response.json({ error: t("Finish setup first.") }, { status: 409 });
   let form: FormData;
   try {
     form = await readBoundedUrlEncodedForm(request, MAX_FORM_BODY_BYTES);
   } catch (error) {
     if (error instanceof RequestBodyError) {
-      return Response.json({ error: error.message }, { status: error.status });
+      return Response.json({ error: t(error.message) }, { status: error.status });
     }
     throw error;
   }
@@ -177,7 +191,7 @@ export async function action({ request }: { request: Request }): Promise<ActionD
           configuration: { model: text(form, "chat_model") },
         }),
       );
-      return { message: "Ollama chat plugin installed." };
+      return { message: t("Ollama chat plugin installed.") };
     }
     if (intent === "configure_ollama_chat") {
       await withClient((client) =>
@@ -190,7 +204,7 @@ export async function action({ request }: { request: Request }): Promise<ActionD
           encryptionKey: encryptionKey(),
         }),
       );
-      return { message: "Chat model configuration saved." };
+      return { message: t("Chat model configuration saved.") };
     }
     if (intent === "install_ollama_embedding") {
       const bundled = await bundledOllamaModelPlugin("embedding");
@@ -206,7 +220,7 @@ export async function action({ request }: { request: Request }): Promise<ActionD
           },
         }),
       );
-      return { message: "Ollama embedding plugin installed." };
+      return { message: t("Ollama embedding plugin installed.") };
     }
     if (intent === "configure_ollama_embedding") {
       await withClient((client) =>
@@ -222,10 +236,10 @@ export async function action({ request }: { request: Request }): Promise<ActionD
           encryptionKey: encryptionKey(),
         }),
       );
-      return { message: "Embedding model configuration saved." };
+      return { message: t("Embedding model configuration saved.") };
     }
     if (intent !== "update_workspace") {
-      return Response.json({ error: "Unknown admin action." }, { status: 400 });
+      return Response.json({ error: t("Unknown admin action.") }, { status: 400 });
     }
     await withClient((client) =>
       updateWorkspaceSettings(client, {
@@ -240,25 +254,26 @@ export async function action({ request }: { request: Request }): Promise<ActionD
     return { saved: true };
   } catch (error) {
     if (error instanceof WorkspaceAdminError) {
-      return Response.json({ error: error.message }, { status: error.status });
+      return Response.json({ error: t(error.message) }, { status: error.status });
     }
-    if (error instanceof PluginInstallationError) return { error: error.message };
+    if (error instanceof PluginInstallationError) return { error: t(error.message) };
     throw error;
   }
 }
 
 function Breadcrumb({ handle }: { handle: string }) {
+  const t = useT();
   return (
     <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
       <Link to="/" className="hover:underline">
-        Braino
+        {"Braino"}
       </Link>
       <span aria-hidden>›</span>
       <Link to="/" className="hover:underline">
         {handle}
       </Link>
       <span aria-hidden>›</span>
-      <span>Admin</span>
+      <span>{t("Admin")}</span>
     </nav>
   );
 }
@@ -288,10 +303,18 @@ function Metric({
   );
 }
 
-function comparison(value: number, previous: number, period: string): string {
+function comparison(
+  t: ReactTranslator,
+  value: number,
+  previous: number,
+  period: ActivityPeriod,
+): string {
   const difference = value - previous;
   const change = difference > 0 ? `+${difference}` : difference < 0 ? `−${-difference}` : "±0";
-  return `${change} vs previous ${period}`;
+  return t("{change} vs previous {period, select, 24h {24 hours} 7d {7 days} other {30 days}}", {
+    change,
+    period,
+  });
 }
 
 function AdminLink({
@@ -315,12 +338,13 @@ function StatusRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-border py-2 last:border-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="break-all text-right font-mono text-xs">{value}</dd>
+      <dd className="break-all text-end font-mono text-xs">{value}</dd>
     </div>
   );
 }
 
 export default function AdminPage() {
+  const t = useT();
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as ActionData | undefined;
   const { overview, chatPlugin, embeddingPlugin, deployment } = data;
@@ -330,10 +354,10 @@ export default function AdminPage() {
     <PageMain className="space-y-6 py-6">
       <PageHeader
         breadcrumb={<Breadcrumb handle={overview.workspace.handle} />}
-        title="Workspace administration"
+        title={t("Workspace administration")}
       >
         <p className="text-xs text-muted-foreground">
-          Operate this Braino deployment and its one workspace.
+          {t("Operate this Braino deployment and its one workspace.")}
         </p>
       </PageHeader>
 
@@ -341,11 +365,13 @@ export default function AdminPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="metrics-title" className="text-lg font-semibold">
-              Metrics
+              {t("Metrics")}
             </h2>
-            <p className="text-xs text-muted-foreground">Rolling activity for this workspace.</p>
+            <p className="text-xs text-muted-foreground">
+              {t("Rolling activity for this workspace.")}
+            </p>
           </div>
-          <nav aria-label="Metrics time period" className="flex flex-wrap gap-2">
+          <nav aria-label={t("Metrics time period")} className="flex flex-wrap gap-2">
             {METRIC_PERIODS.map((option) => (
               <Link
                 key={option.value}
@@ -357,79 +383,94 @@ export default function AdminPage() {
                     : "text-muted-foreground"
                 }`}
               >
-                {option.label}
+                {t(option.label)}
               </Link>
             ))}
           </nav>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric
-            label={`Active agents · last ${period.label}`}
+            label={t(
+              "Active agents · last {period, select, 24h {24 hours} 7d {7 days} other {30 days}}",
+              { period: period.value },
+            )}
             value={overview.activity.activeAgents.current}
             comparison={comparison(
+              t,
               overview.activity.activeAgents.current,
               overview.activity.activeAgents.previous,
-              period.label,
+              period.value,
             )}
-            note="Distinct agents that read or wrote"
+            note={t("Distinct agents that read or wrote")}
           />
           <Metric
-            label={`Queries · last ${period.label}`}
+            label={t(
+              "Queries · last {period, select, 24h {24 hours} 7d {7 days} other {30 days}}",
+              { period: period.value },
+            )}
             value={overview.activity.queries.current}
             comparison={comparison(
+              t,
               overview.activity.queries.current,
               overview.activity.queries.previous,
-              period.label,
+              period.value,
             )}
-            note={`${overview.activity.queries.byAgents} by agents`}
+            note={t("{count} by agents", { count: overview.activity.queries.byAgents })}
           />
           <Metric
-            label={`Writes · last ${period.label}`}
+            label={t("Writes · last {period, select, 24h {24 hours} 7d {7 days} other {30 days}}", {
+              period: period.value,
+            })}
             value={overview.activity.writes.current}
             comparison={comparison(
+              t,
               overview.activity.writes.current,
               overview.activity.writes.previous,
-              period.label,
+              period.value,
             )}
-            note={`${overview.activity.writes.byAgents} by agents`}
+            note={t("{count} by agents", { count: overview.activity.writes.byAgents })}
           />
           <Metric
-            label={`Imports · last ${period.label}`}
+            label={t(
+              "Imports · last {period, select, 24h {24 hours} 7d {7 days} other {30 days}}",
+              { period: period.value },
+            )}
             value={overview.activity.imports.current}
             comparison={comparison(
+              t,
               overview.activity.imports.current,
               overview.activity.imports.previous,
-              period.label,
+              period.value,
             )}
-            note="What connected sources brought in"
+            note={t("What connected sources brought in")}
           />
         </div>
         <div>
-          <h3 className="text-sm font-semibold">Workspace totals</h3>
-          <p className="text-xs text-muted-foreground">Current totals for this workspace.</p>
+          <h3 className="text-sm font-semibold">{t("Workspace totals")}</h3>
+          <p className="text-xs text-muted-foreground">{t("Current totals for this workspace.")}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Metric label="Collections" value={overview.counts.collections} />
-          <Metric label="Records" value={overview.counts.records} />
-          <Metric label="Collaborators" value={overview.counts.collaborators} />
-          <Metric label="Connections" value={overview.counts.connections} />
-          <Metric label="Active MCP tokens" value={overview.counts.mcpTokens} />
+          <Metric label={t("Collections")} value={overview.counts.collections} />
+          <Metric label={t("Records")} value={overview.counts.records} />
+          <Metric label={t("Collaborators")} value={overview.counts.collaborators} />
+          <Metric label={t("Connections")} value={overview.counts.connections} />
+          <Metric label={t("Active MCP tokens")} value={overview.counts.mcpTokens} />
         </div>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Workspace settings</CardTitle>
+            <CardTitle>{t("Workspace settings")}</CardTitle>
             <CardDescription>
-              The handle is permanent because it anchors collection names and agent URLs.
+              {t("The handle is permanent because it anchors collection names and agent URLs.")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form method="post" className="space-y-3">
               <input type="hidden" name="intent" value="update_workspace" />
               <label className="block text-xs">
-                <span className="mb-1 block text-muted-foreground">Workspace name</span>
+                <span className="mb-1 block text-muted-foreground">{t("Workspace name")}</span>
                 <input
                   name="name"
                   defaultValue={overview.workspace.name}
@@ -438,7 +479,7 @@ export default function AdminPage() {
                 />
               </label>
               <label className="block text-xs">
-                <span className="mb-1 block text-muted-foreground">Workspace handle</span>
+                <span className="mb-1 block text-muted-foreground">{t("Workspace handle")}</span>
                 <input
                   value={overview.workspace.handle}
                   readOnly
@@ -447,7 +488,7 @@ export default function AdminPage() {
                 />
               </label>
               <label className="block text-xs">
-                <span className="mb-1 block text-muted-foreground">Constitution</span>
+                <span className="mb-1 block text-muted-foreground">{t("Constitution")}</span>
                 <textarea
                   name="constitution"
                   defaultValue={overview.workspace.constitution}
@@ -456,13 +497,17 @@ export default function AdminPage() {
                 />
               </label>
               <fieldset className="neu-well space-y-3 rounded-lg p-4">
-                <legend className="px-1 text-sm font-semibold">Braino Times</legend>
+                <legend className="px-1 text-sm font-semibold">{t("Braino Times")}</legend>
                 <p className="text-xs text-muted-foreground">
-                  Publish one local edition each calendar day. Use an IANA timezone such as
-                  Africa/Lagos or America/Los_Angeles.
+                  {t(
+                    "Publish one local edition each calendar day. Use an IANA timezone such as {first} or {second}.",
+                    { first: "Africa/Lagos", second: "America/Los_Angeles" },
+                  )}
                 </p>
                 <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">Publication timezone</span>
+                  <span className="mb-1 block text-muted-foreground">
+                    {t("Publication timezone")}
+                  </span>
                   <input
                     name="times_timezone"
                     defaultValue={overview.workspace.timesTimeZone}
@@ -478,11 +523,13 @@ export default function AdminPage() {
                     className="mt-0.5"
                   />
                   <span>
-                    Make Times public. Signed-out readers see stories from public collections only.
+                    {t(
+                      "Make Times public. Signed-out readers see stories from public collections only.",
+                    )}
                   </span>
                 </label>
                 <Link to="/times" className="inline-block text-xs font-semibold hover:underline">
-                  View Braino Times
+                  {t("View Braino Times")}
                 </Link>
               </fieldset>
               {actionData?.error ? (
@@ -492,14 +539,14 @@ export default function AdminPage() {
               ) : null}
               {actionData?.saved ? (
                 <output className="block text-xs text-muted-foreground">
-                  Workspace settings saved.
+                  {t("Workspace settings saved.")}
                 </output>
               ) : null}
               <button
                 type="submit"
                 className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
               >
-                Save workspace
+                {t("Save workspace")}
               </button>
             </Form>
           </CardContent>
@@ -508,52 +555,52 @@ export default function AdminPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Administration</CardTitle>
+              <CardTitle>{t("Administration")}</CardTitle>
               <CardDescription>
-                Manage the team and the systems connected to its knowledge.
+                {t("Manage the team and the systems connected to its knowledge.")}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <AdminLink
                 to="/collaborators"
-                title="People and access"
-                description="Add collaborators and manage roles."
+                title={t("People and access")}
+                description={t("Add collaborators and manage roles.")}
               />
               <AdminLink
                 to="/integrations"
-                title="Connections"
-                description="Connect sources, GitHub, and webhooks."
+                title={t("Connections")}
+                description={t("Connect sources, GitHub, and webhooks.")}
               />
               <AdminLink
                 to="/mcp-tokens"
-                title="Connect Señor Braino"
-                description="Connect ChatGPT directly with instance-local OAuth."
+                title={t("Connect Señor Braino")}
+                description={t("Connect ChatGPT directly with instance-local OAuth.")}
               />
               <AdminLink
                 to="/"
-                title="Workspace"
-                description="Return to collections and the constitution."
+                title={t("Workspace")}
+                description={t("Return to collections and the constitution.")}
               />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Deployment</CardTitle>
+              <CardTitle>{t("Deployment")}</CardTitle>
               <CardDescription>
-                Configuration status without exposing secret values.
+                {t("Configuration status without exposing secret values.")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <dl>
-                <StatusRow label="Version" value={deployment.version} />
-                <StatusRow label="Public URL" value={deployment.publicHost} />
-                <StatusRow label="PostgreSQL" value={deployment.postgres} />
-                <StatusRow label="Qdrant" value={deployment.qdrant} />
-                <StatusRow label="CodeLinker" value={deployment.codeLinker} />
-                <StatusRow label="Model plugins" value={deployment.models} />
-                <StatusRow label="Search" value={deployment.search} />
-                <StatusRow label="Transport" value={deployment.transport} />
+                <StatusRow label={t("Version")} value={deployment.version} />
+                <StatusRow label={t("Public URL")} value={deployment.publicHost} />
+                <StatusRow label={"PostgreSQL"} value={deployment.postgres} />
+                <StatusRow label={"Qdrant"} value={deployment.qdrant} />
+                <StatusRow label={"CodeLinker"} value={deployment.codeLinker} />
+                <StatusRow label={t("Model plugins")} value={deployment.models} />
+                <StatusRow label={t("Search")} value={deployment.search} />
+                <StatusRow label={t("Transport")} value={deployment.transport} />
               </dl>
             </CardContent>
           </Card>
@@ -563,18 +610,20 @@ export default function AdminPage() {
       <section id="model-plugins" className="space-y-3" aria-labelledby="model-plugins-title">
         <div>
           <h2 id="model-plugins-title" className="text-lg font-semibold">
-            Required model plugins
+            {t("Required model plugins")}
           </h2>
           <p className="text-xs text-muted-foreground">
-            The workspace opens only when one chat plugin and one embedding plugin are configured.
+            {t(
+              "The workspace opens only when one chat plugin and one embedding plugin are configured.",
+            )}
           </p>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Chat model plugin</CardTitle>
+              <CardTitle>{t("Chat model plugin")}</CardTitle>
               <CardDescription>
-                Run chat completions inside this deployment with Ollama.
+                {t("Run chat completions inside this deployment with Ollama.")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -588,7 +637,7 @@ export default function AdminPage() {
                   <input type="hidden" name="installation_id" value={chatPlugin.id} />
                 ) : null}
                 <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">Ollama model</span>
+                  <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
                   <input
                     name="chat_model"
                     defaultValue={chatPlugin?.configuration.model ?? "qwen3:0.6b"}
@@ -600,7 +649,7 @@ export default function AdminPage() {
                   type="submit"
                   className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
                 >
-                  {chatPlugin ? "Save model" : "Install plugin"}
+                  {chatPlugin ? t("Save model") : t("Install plugin")}
                 </button>
               </Form>
             </CardContent>
@@ -608,9 +657,9 @@ export default function AdminPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Embedding model plugin</CardTitle>
+              <CardTitle>{t("Embedding model plugin")}</CardTitle>
               <CardDescription>
-                Keep search content and vectors inside this Braino deployment.
+                {t("Keep search content and vectors inside this Braino deployment.")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -626,7 +675,7 @@ export default function AdminPage() {
                   <input type="hidden" name="installation_id" value={embeddingPlugin.id} />
                 ) : null}
                 <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">Ollama model</span>
+                  <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
                   <input
                     name="embedding_model"
                     defaultValue={embeddingPlugin?.configuration.model ?? "embeddinggemma"}
@@ -635,7 +684,7 @@ export default function AdminPage() {
                   />
                 </label>
                 <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">Dimensions</span>
+                  <span className="mb-1 block text-muted-foreground">{t("Dimensions")}</span>
                   <input
                     name="embedding_dimensions"
                     type="number"
@@ -649,7 +698,7 @@ export default function AdminPage() {
                   type="submit"
                   className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
                 >
-                  {embeddingPlugin ? "Save model" : "Install plugin"}
+                  {embeddingPlugin ? t("Save model") : t("Install plugin")}
                 </button>
               </Form>
             </CardContent>
@@ -662,9 +711,9 @@ export default function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Operations</CardTitle>
+          <CardTitle>{t("Operations")}</CardTitle>
           <CardDescription>
-            Run privileged maintenance on the host, outside the web process.
+            {t("Run privileged maintenance on the host, outside the web process.")}
           </CardDescription>
         </CardHeader>
         <CardContent>

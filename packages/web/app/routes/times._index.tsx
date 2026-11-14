@@ -1,12 +1,15 @@
 import { withClient } from "@doco/db";
 import { getSingleWorkspaceState, latestTimesEditionDay, loadTimesEdition } from "@doco/host";
+import { useT } from "@doco/shared/i18n/react";
 import { Link, redirect, useLoaderData } from "react-router";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { metaTranslator } from "~/locales/catalog";
 
-export function meta() {
-  return [{ title: "Braino Times" }];
+export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
+  const t = metaTranslator(matches);
+  return [{ title: t("Braino Times") }];
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -30,18 +33,19 @@ export async function loader({ request }: { request: Request }) {
 
 export default function EmptyTimesPage() {
   const { workspaceName } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
+  const t = useT();
   return (
     <PageMain className="space-y-6 py-8">
       <PageHeader
         breadcrumb={
           <Link to="/" className="font-mono text-[11px] text-muted-foreground hover:underline">
-            Braino
+            {"Braino"}
           </Link>
         }
-        title={`The ${workspaceName} Times`}
+        title={t("The {workspace} Times", { workspace: workspaceName })}
       >
         <p className="text-sm text-muted-foreground">
-          The first edition will appear after the scheduler publishes today’s activity.
+          {t("The first edition will appear after the scheduler publishes today’s activity.")}
         </p>
       </PageHeader>
     </PageMain>

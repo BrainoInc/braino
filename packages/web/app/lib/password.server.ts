@@ -1,4 +1,5 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import type { Translator } from "@doco/shared/i18n";
 
 const KEY_LENGTH = 64;
 const MIN_LENGTH = 12;
@@ -12,9 +13,14 @@ function derive(password: string, salt: Buffer): Promise<Buffer> {
   );
 }
 
-export function passwordError(password: string): string | null {
-  if (password.length < MIN_LENGTH) return `Use at least ${MIN_LENGTH} characters.`;
-  if (password.length > MAX_LENGTH) return `Use at most ${MAX_LENGTH} characters.`;
+/** Why a password can't be used, in the reader's language: `passwordError(password, t)`. */
+export function passwordError(password: string, t: Translator): string | null {
+  if (password.length < MIN_LENGTH) {
+    return t("Use at least {count} characters.", { count: MIN_LENGTH });
+  }
+  if (password.length > MAX_LENGTH) {
+    return t("Use at most {count} characters.", { count: MAX_LENGTH });
+  }
   return null;
 }
 

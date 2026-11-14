@@ -1,6 +1,9 @@
+import { msg } from "@doco/shared/i18n";
+
 export const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 export const MAX_FORM_BODY_BYTES = 64 * 1024;
 
+/** A page that shows `message` to a person passes it through `t`; the HTTP API sends it as is. */
 export class RequestBodyError extends Error {
   constructor(
     message: string,
@@ -16,7 +19,7 @@ export async function readBoundedText(request: Request, maxBytes: number): Promi
   if (declared) {
     const length = Number(declared);
     if (Number.isFinite(length) && length > maxBytes) {
-      throw new RequestBodyError("Request body is too large.", 413);
+      throw new RequestBodyError(msg("Request body is too large."), 413);
     }
   }
   if (!request.body) return "";
@@ -31,7 +34,7 @@ export async function readBoundedText(request: Request, maxBytes: number): Promi
       total += value.byteLength;
       if (total > maxBytes) {
         await reader.cancel();
-        throw new RequestBodyError("Request body is too large.", 413);
+        throw new RequestBodyError(msg("Request body is too large."), 413);
       }
       chunks.push(value);
     }
@@ -60,7 +63,7 @@ export async function readBoundedUrlEncodedForm(
 ): Promise<FormData> {
   const contentType = request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
   if (contentType !== "application/x-www-form-urlencoded") {
-    throw new RequestBodyError("Content-Type must be application/x-www-form-urlencoded.", 415);
+    throw new RequestBodyError(msg("Content-Type must be application/x-www-form-urlencoded."), 415);
   }
   const form = new FormData();
   for (const [name, value] of new URLSearchParams(await readBoundedText(request, maxBytes))) {

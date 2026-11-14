@@ -1,13 +1,19 @@
 import { withClient } from "@doco/db";
 import { getSingleWorkspaceState, loadTimesEdition } from "@doco/host";
+import { useT } from "@doco/shared/i18n/react";
 import { Link, redirect, useLoaderData } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
-export function meta({ data }: { data?: { title?: string } }) {
-  return [{ title: data?.title ?? "Braino Times" }];
+export function meta({
+  data,
+  matches,
+}: { data?: { title?: string }; matches: Parameters<typeof metaTranslator>[0] }) {
+  const t = metaTranslator(matches);
+  return [{ title: data?.title ?? t("Braino Times") }];
 }
 
 export async function loader({ request, params }: { request: Request; params: { day?: string } }) {
@@ -24,22 +30,24 @@ export async function loader({ request, params }: { request: Request; params: { 
     }),
   );
   if (edition.kind !== "edition") throw new Response("Edition not found.", { status: 404 });
-  return edition;
+  const t = await requestTranslator(request);
+  return { ...edition, title: t("The {workspace} Times", { workspace: state.workspace.name }) };
 }
 
 export default function TimesEditionPage() {
   const edition = useLoaderData() as Awaited<ReturnType<typeof loader>>;
+  const t = useT();
   return (
     <PageMain className="space-y-6 py-8">
       <PageHeader
         breadcrumb={
           <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <Link to="/" className="hover:underline">
-              Braino
+              {"Braino"}
             </Link>
             <span aria-hidden>›</span>
             <Link to="/times" className="hover:underline">
-              Times
+              {t("Times")}
             </Link>
           </nav>
         }
@@ -47,12 +55,12 @@ export default function TimesEditionPage() {
       >
         <p className="text-sm text-muted-foreground">
           {edition.day}
-          {edition.public ? " · Public edition" : ""}
+          {edition.public ? ` · ${t("Public edition")}` : ""}
         </p>
       </PageHeader>
 
       {edition.stories.length ? (
-        <section className="grid gap-4 md:grid-cols-2" aria-label="Front page stories">
+        <section className="grid gap-4 md:grid-cols-2" aria-label={t("Front page stories")}>
           {edition.stories.map((story, index) => (
             <Card key={story.id} className={index === 0 ? "md:col-span-2" : undefined}>
               <CardHeader>
@@ -76,7 +84,7 @@ export default function TimesEditionPage() {
       ) : (
         <Card>
           <CardContent className="py-8 text-sm text-muted-foreground">
-            No publishable records were added during this edition’s period.
+            {t("No publishable records were added during this edition’s period.")}
           </CardContent>
         </Card>
       )}
