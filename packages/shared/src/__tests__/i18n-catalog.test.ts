@@ -8,6 +8,7 @@ import {
   extractMessages,
   sourceProblems,
   syncLocales,
+  untranslatedText,
 } from "../i18n-catalog.js";
 import { LOCALES } from "../i18n.js";
 
@@ -76,6 +77,41 @@ describe("sourceProblems", () => {
     expect(problems[0]).toMatch(/a\.ts:1 Expected \} or ,/);
     expect(problems[1]).toMatch(/a\.ts:1.*values/);
     expect(problems[2]).toMatch(/a\.ts:1.*t\.rich/);
+  });
+});
+
+describe("untranslatedText", () => {
+  it("names words written straight into a component", () => {
+    expect(
+      untranslatedText(
+        "page.tsx",
+        `export const Page = () => (
+          <Card title="Workspace settings" className="p-4">
+            <input placeholder="Search workspace" aria-label="Search" name="q" type="search" />
+            Sign in
+          </Card>
+        );`,
+      ),
+    ).toEqual([
+      'page.tsx:2 shows "Workspace settings" untranslated',
+      'page.tsx:3 shows "Search workspace" untranslated',
+      'page.tsx:3 shows "Search" untranslated',
+      'page.tsx:4 shows "Sign in" untranslated',
+    ]);
+  });
+
+  it("accepts translated text, symbols, and text marked as the same in every language", () => {
+    expect(
+      untranslatedText(
+        "page.tsx",
+        `export const Page = () => (
+          <Card title={t("Workspace settings")} confirmLabel={label}>
+            {t("Sign in")} · › {count} <code>{"pnpm verify"}</code> {"Braino"}
+            <Link to="/admin" title={"MCP"}>{t("Admin")}</Link>
+          </Card>
+        );`,
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -167,5 +203,16 @@ describe("the catalogs on disk", () => {
       );
     }
     expect(checkLocales(options)).toEqual([]);
+  });
+
+  it("check reports untranslated components, except those still waiting their turn", () => {
+    const root = project({
+      "app/routes/new.tsx": "export const New = () => <p>Sign in</p>;",
+      "app/routes/old.tsx": "export const Old = () => <p>Sign out</p>;",
+    });
+    const options = { sourceDirs: [join(root, "app")], localesDir: join(root, "app/locales") };
+    expect(checkLocales({ ...options, notYetTranslated: ["app/routes/old.tsx"] })).toEqual([
+      `${join(root, "app/routes/new.tsx")}:1 shows "Sign in" untranslated`,
+    ]);
   });
 });

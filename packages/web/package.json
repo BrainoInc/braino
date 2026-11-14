@@ -10,7 +10,8 @@
     "build": "react-router build",
     "start": "node node_modules/@doco/db/dist/migrate.js && node server.mjs",
     "typecheck": "react-router typegen && tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "i18n:sync": "node ../shared/dist/i18n-cli.js sync app/locales app"
   },
   "dependencies": {
     "@doco/connector-plugins": "workspace:*",

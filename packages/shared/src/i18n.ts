@@ -82,13 +82,13 @@ export function negotiateLocale(input: {
   return SOURCE_LOCALE;
 }
 
-/** `?lang=<code>` on any page shows it in that language and saves the choice. */
+/**
+ * `?lang=<code>` on any page shows it in that language. The browser then saves
+ * the choice with `document.cookie = localeCookie(locale)`, so later pages
+ * need no parameter.
+ */
 export const LOCALE_PARAM = "lang";
 const LOCALE_COOKIE = "braino_locale";
-
-export function requestedLocale(request: Request): Locale | null {
-  return matchLocale(new URL(request.url).searchParams.get(LOCALE_PARAM));
-}
 
 export function localeFromRequest(request: Request): Locale {
   const saved = (request.headers.get("cookie") ?? "")
@@ -103,7 +103,7 @@ export function localeFromRequest(request: Request): Locale {
 }
 
 export function localeCookie(locale: Locale): string {
-  return `${LOCALE_COOKIE}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly`;
+  return `${LOCALE_COOKIE}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
 
 /**

@@ -4,6 +4,8 @@ import {
   getWorkspaceModelPluginReadiness,
   getWorkspaceRole,
 } from "@doco/host";
+import { type Locale, SOURCE_LOCALE, localeDirection, localeFromRequest } from "@doco/shared/i18n";
+import { I18nProvider, useT } from "@doco/shared/i18n/react";
 import {
   Form,
   Link,
@@ -15,14 +17,18 @@ import {
   isRouteErrorResponse,
   useLoaderData,
   useRouteError,
+  useRouteLoaderData,
 } from "react-router";
 import { BrainoMark } from "~/components/braino-mark";
+import { LanguageMenu } from "~/components/language-menu";
 import { PageMain } from "~/components/page-main";
 import { type CurrentUser, getCurrentUser } from "~/lib/current-user.server";
 import { securityHeaders } from "~/lib/security-headers.server";
+import { catalogOf, loadCatalog } from "~/locales/catalog";
 import "./app.css";
 
 interface RootData {
+  locale: Locale;
   initialized: boolean;
   user: CurrentUser | null;
   isOwner: boolean;
@@ -30,15 +36,18 @@ interface RootData {
 }
 
 export async function loader({ request }: { request: Request }): Promise<RootData> {
+  const locale = localeFromRequest(request);
+  await loadCatalog(locale);
   const state = await withClient(getSingleWorkspaceState);
   if (!state.initialized) {
-    return { initialized: false, user: null, isOwner: false, modelsReady: false };
+    return { locale, initialized: false, user: null, isOwner: false, modelsReady: false };
   }
   const user = await getCurrentUser(request);
   const modelsReady = (
     await withClient((client) => getWorkspaceModelPluginReadiness(client, state.workspace.id))
   ).ready;
   return {
+    locale,
     initialized: true,
     user,
     modelsReady,
@@ -58,8 +67,10 @@ export function headers() {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  // The root loader's data is missing only when the root itself failed to load.
+  const locale = (useRouteLoaderData("root") as RootData | undefined)?.locale ?? SOURCE_LOCALE;
   return (
-    <html lang="en">
+    <html lang={locale} dir={localeDirection(locale)}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -67,7 +78,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="min-h-screen antialiased">
-        {children}
+        <I18nProvider locale={locale} catalog={catalogOf(locale)}>
+          {children}
+        </I18nProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -88,54 +101,60 @@ export default function App() {
 }
 
 function SiteHeader({ data }: { data: RootData }) {
+  const t = useT();
   return (
     <header className="h-14 border-b border-border bg-card">
       <div className="flex h-full w-full items-center gap-6 px-6">
-        <Link to="/" className="inline-flex items-center hover:opacity-80" aria-label="Braino home">
+        <Link
+          to="/"
+          className="inline-flex items-center hover:opacity-80"
+          aria-label={t("Braino home")}
+        >
           <BrainoMark height={28} />
         </Link>
         {data.user && data.modelsReady ? (
           <Form
             method="get"
             action="/search"
-            className="ml-auto hidden min-w-0 max-w-md flex-1 sm:flex"
+            className="ms-auto hidden min-w-0 max-w-md flex-1 sm:flex"
           >
             <label className="sr-only" htmlFor="workspace-search">
-              Search workspace records
+              {t("Search workspace records")}
             </label>
             <input
               id="workspace-search"
               name="q"
               type="search"
-              placeholder="Search workspace"
-              className="min-w-0 flex-1 rounded-l-md px-3 py-1.5 text-xs"
+              placeholder={t("Search workspace")}
+              className="min-w-0 flex-1 rounded-s-md px-3 py-1.5 text-xs"
             />
             <button
               type="submit"
-              className="neu-button rounded-r-md px-3 py-1.5 text-xs font-semibold"
+              className="neu-button rounded-e-md px-3 py-1.5 text-xs font-semibold"
             >
-              Search
+              {t("Search")}
             </button>
           </Form>
         ) : null}
-        <div className={`${data.user ? "" : "ml-auto"} flex shrink-0 items-center gap-2 text-xs`}>
+        <div className={`${data.user ? "" : "ms-auto"} flex shrink-0 items-center gap-2 text-xs`}>
+          <LanguageMenu />
           {data.user ? (
             <>
               {data.isOwner ? (
                 <Link to="/admin" className="neu-button rounded-md px-2.5 py-1.5 font-semibold">
-                  Admin
+                  {t("Admin")}
                 </Link>
               ) : null}
               {data.modelsReady ? (
                 <>
                   <Link to="/times" className="neu-button rounded-md px-2.5 py-1.5 font-semibold">
-                    Times
+                    {t("Times")}
                   </Link>
                   <Link
                     to="/"
                     className="neu-button neu-pressed rounded-md px-2.5 py-1.5 font-semibold"
                   >
-                    Workspace
+                    {t("Workspace")}
                   </Link>
                 </>
               ) : null}
@@ -143,13 +162,13 @@ function SiteHeader({ data }: { data: RootData }) {
               <Form method="post" action="/">
                 <input type="hidden" name="intent" value="signout" />
                 <button type="submit" className="neu-button rounded-md px-2.5 py-1.5 font-semibold">
-                  Sign out everywhere
+                  {t("Sign out everywhere")}
                 </button>
               </Form>
             </>
           ) : data.initialized ? (
             <Link to="/" className="neu-button neu-pressed rounded-md px-3 py-1.5 font-semibold">
-              Sign in
+              {t("Sign in")}
             </Link>
           ) : null}
         </div>
@@ -159,13 +178,14 @@ function SiteHeader({ data }: { data: RootData }) {
 }
 
 export function ErrorBoundary() {
+  const t = useT();
   const error = useRouteError();
   const status = isRouteErrorResponse(error) ? error.status : 500;
   const message = isRouteErrorResponse(error)
-    ? error.statusText
+    ? t(error.statusText)
     : error instanceof Error
-      ? error.message
-      : "Unexpected error";
+      ? t(error.message)
+      : t("Unexpected error");
   return (
     <PageMain className="space-y-4 py-10">
       <p className="font-mono text-xs text-muted-foreground">Braino</p>
@@ -176,7 +196,7 @@ export function ErrorBoundary() {
           className="neu-button mt-4 inline-flex rounded-md px-4 py-2 text-sm font-semibold"
           to="/"
         >
-          Return home
+          {t("Return home")}
         </Link>
       </div>
     </PageMain>

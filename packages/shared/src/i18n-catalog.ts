@@ -64,6 +64,40 @@ export function extractMessages(file: string, code: string): MessageUse[] {
   return uses;
 }
 
+const HAS_WORDS = /\p{L}{2}/u;
+const TEXT_ATTRIBUTE =
+  /^(aria-(label|description|placeholder|valuetext)|alt|placeholder|title|label|.*(Label|Title|Text|Message|Placeholder|Description|Heading))$/;
+
+/**
+ * Words a component shows without translating them: text written straight into
+ * JSX, or given as a plain string to an attribute people read. Text that reads
+ * the same in every language (a brand, a code sample) goes in braces instead,
+ * `{"Braino"}`, which says so on purpose.
+ */
+export function untranslatedText(file: string, code: string): string[] {
+  const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const problems: string[] = [];
+  const report = (node: ts.Node, text: string) => {
+    const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+    problems.push(`${file}:${line} shows "${text.trim().replace(/\s+/g, " ")}" untranslated`);
+  };
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxText(node) && HAS_WORDS.test(node.text)) report(node, node.text);
+    if (
+      ts.isJsxAttribute(node) &&
+      node.initializer &&
+      ts.isStringLiteral(node.initializer) &&
+      TEXT_ATTRIBUTE.test(node.name.getText(source)) &&
+      HAS_WORDS.test(node.initializer.text)
+    ) {
+      report(node.initializer, node.initializer.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return problems;
+}
+
 /** What a sentence expects to be given: `{name}` values and `<name>` parts. */
 function signature(nodes: MessageNode[], found = new Set<string>()): Set<string> {
   for (const node of nodes) {
@@ -190,12 +224,24 @@ export interface LocaleFolders {
   sourceDirs: string[];
   /** Folder holding one `<code>.json` catalog per language. */
   localesDir: string;
+  /**
+   * Components still waiting to be translated, as path endings. Only a codebase
+   * part-way through its first translation lists any; the list only shrinks.
+   */
+  notYetTranslated?: string[];
 }
 
 function readUses(sourceDirs: string[]): MessageUse[] {
   return sourceDirs
     .flatMap(sourceFiles)
     .flatMap((file) => extractMessages(file, readFileSync(file, "utf8")));
+}
+
+function readUntranslated(sourceDirs: string[], notYetTranslated: string[]): string[] {
+  return sourceDirs
+    .flatMap(sourceFiles)
+    .filter((file) => file.endsWith(".tsx") && !notYetTranslated.some((end) => file.endsWith(end)))
+    .flatMap((file) => untranslatedText(file, readFileSync(file, "utf8")));
 }
 
 function catalogPath(localesDir: string, locale: Locale): string {
@@ -209,10 +255,15 @@ function readCatalog(localesDir: string, locale: Locale): Catalog {
 
 const TRANSLATED = LOCALES.map((locale) => locale.code).filter((code) => code !== SOURCE_LOCALE);
 
-export function checkLocales({ sourceDirs, localesDir }: LocaleFolders): string[] {
+export function checkLocales({
+  sourceDirs,
+  localesDir,
+  notYetTranslated = [],
+}: LocaleFolders): string[] {
   const uses = readUses(sourceDirs);
   const sources = [...new Set(uses.map((use) => use.text))];
   return [
+    ...readUntranslated(sourceDirs, notYetTranslated),
     ...sourceProblems(uses),
     ...TRANSLATED.flatMap((locale) =>
       catalogProblems(locale, sources, readCatalog(localesDir, locale)),

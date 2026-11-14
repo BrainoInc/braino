@@ -74,9 +74,9 @@ describe("localeFromRequest", () => {
     ).toBe("fr");
   });
 
-  it("saves a language for a year in a cookie the page's own scripts can't read", () => {
+  it("saves a language for a year", () => {
     expect(localeCookie("pt-BR")).toBe(
-      "braino_locale=pt-BR; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly",
+      "braino_locale=pt-BR; Path=/; Max-Age=31536000; SameSite=Lax",
     );
   });
 });
