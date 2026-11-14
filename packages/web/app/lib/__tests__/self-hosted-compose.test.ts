@@ -81,6 +81,7 @@ describe("the supported self-hosted stack", () => {
       "plugin-host",
       "ollama",
       "ollama-model",
+      "ollama-chat-model",
       "postgres",
       "qdrant",
       "caddy",
@@ -127,6 +128,10 @@ describe("the supported self-hosted stack", () => {
     expect(compose.services["ollama-model"]?.depends_on).toEqual({
       ollama: { condition: "service_healthy" },
     });
+    expect(compose.services["ollama-chat-model"]?.profiles).toEqual(["models"]);
+    expect(compose.services["ollama-chat-model"]?.depends_on).toEqual({
+      ollama: { condition: "service_healthy" },
+    });
     expect(compose.services.app?.ports).toEqual(["127.0.0.1:${DOCO_HTTP_PORT:-3000}:3000"]);
     expect(compose.services.postgres?.ports).toBeUndefined();
     expect(compose.services.qdrant?.ports).toBeUndefined();
@@ -153,7 +158,9 @@ describe("the supported self-hosted stack", () => {
     expect(env).toContain("BRAINO_PLUGIN_HOST_API_TOKEN=");
     expect(dockerfile).toContain("pnpm --filter @doco/web build");
     expect(dockerfile).toContain("plugins/ollama-embedding");
+    expect(dockerfile).toContain("plugins/ollama-chat");
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_embedding.wasm");
+    expect(runtimeStage).toContain("/app/plugins/braino_ollama_chat.wasm");
     expect(runtimeStage).toContain("ARG DOCO_VERSION");
     expect(runtimeStage).toContain("ENV DOCO_VERSION=$DOCO_VERSION");
     expect(dockerfile).toContain("USER node");
@@ -207,6 +214,7 @@ describe("the supported self-hosted stack", () => {
       "/services/plugin-host",
       "/services/plugin-host/fixtures/echo-plugin",
       "/plugins/ollama-embedding",
+      "/plugins/ollama-chat",
     ]) {
       expect(dependabot.updates).toContainEqual(
         expect.objectContaining({ "package-ecosystem": "cargo", directory }),
@@ -396,6 +404,7 @@ describe("the supported self-hosted stack", () => {
     expect(workflow).toContain("rustup target add wasm32-wasip2");
     expect(workflow).toContain("services/plugin-host/fixtures/echo-plugin/Cargo.toml");
     expect(workflow).toContain("plugins/ollama-embedding/Cargo.toml");
+    expect(workflow).toContain("plugins/ollama-chat/Cargo.toml");
   });
 
   it("publishes every versioned core package beside each release image", () => {

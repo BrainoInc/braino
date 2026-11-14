@@ -1,5 +1,9 @@
 import { withClient } from "@doco/db";
-import { getSingleWorkspaceState, getWorkspaceRole } from "@doco/host";
+import {
+  getSingleWorkspaceState,
+  getWorkspaceModelPluginReadiness,
+  getWorkspaceRole,
+} from "@doco/host";
 import {
   Form,
   Link,
@@ -22,15 +26,22 @@ interface RootData {
   initialized: boolean;
   user: CurrentUser | null;
   isOwner: boolean;
+  modelsReady: boolean;
 }
 
 export async function loader({ request }: { request: Request }): Promise<RootData> {
   const state = await withClient(getSingleWorkspaceState);
-  if (!state.initialized) return { initialized: false, user: null, isOwner: false };
+  if (!state.initialized) {
+    return { initialized: false, user: null, isOwner: false, modelsReady: false };
+  }
   const user = await getCurrentUser(request);
+  const modelsReady = (
+    await withClient((client) => getWorkspaceModelPluginReadiness(client, state.workspace.id))
+  ).ready;
   return {
     initialized: true,
     user,
+    modelsReady,
     isOwner: user
       ? (await withClient((client) => getWorkspaceRole(client, state.workspace.id, user.id))) ===
         "owner"
@@ -83,7 +94,7 @@ function SiteHeader({ data }: { data: RootData }) {
         <Link to="/" className="inline-flex items-center hover:opacity-80" aria-label="Braino home">
           <BrainoMark height={28} />
         </Link>
-        {data.user ? (
+        {data.user && data.modelsReady ? (
           <Form
             method="get"
             action="/search"
@@ -115,15 +126,19 @@ function SiteHeader({ data }: { data: RootData }) {
                   Admin
                 </Link>
               ) : null}
-              <Link to="/times" className="neu-button rounded-md px-2.5 py-1.5 font-semibold">
-                Times
-              </Link>
-              <Link
-                to="/"
-                className="neu-button neu-pressed rounded-md px-2.5 py-1.5 font-semibold"
-              >
-                Workspace
-              </Link>
+              {data.modelsReady ? (
+                <>
+                  <Link to="/times" className="neu-button rounded-md px-2.5 py-1.5 font-semibold">
+                    Times
+                  </Link>
+                  <Link
+                    to="/"
+                    className="neu-button neu-pressed rounded-md px-2.5 py-1.5 font-semibold"
+                  >
+                    Workspace
+                  </Link>
+                </>
+              ) : null}
               <span className="font-mono text-muted-foreground">@{data.user.username}</span>
               <Form method="post" action="/">
                 <input type="hidden" name="intent" value="signout" />

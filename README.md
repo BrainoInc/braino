@@ -57,19 +57,23 @@ people and roles, source connections, webhooks, GitHub sync, and agent/MCP
 access. It reports configuration readiness without displaying secret values;
 privileged backup, restore, and upgrade commands stay on the host.
 
-To keep embeddings on the same machine, start the optional model profile and
-install the bundled Ollama plugin from **Admin → Embedding model plugin**:
+Every workspace requires one chat model plugin and one embedding model plugin.
+To keep both on the same machine, start the model profile; first-run setup
+installs the bundled Ollama plugins, and **Admin → Required model plugins** is
+the single place to change either model later:
 
 ```sh
 docker compose --profile models up -d
 ```
 
-The profile pulls the 300M `embeddinggemma` model into its own local volume.
-The plugin runs as a digest-pinned WebAssembly Component and can reach only the
-operator-approved `ollama:11434` service on the private Compose network. The
-retrieval scheduler embeds pending source documents and projects the resulting
-vectors to Qdrant; workspace content, model input, and vectors do not pass
-through Braino Cloud or another Braino instance.
+The profile pulls the `qwen3:0.6b` chat model and the 300M `embeddinggemma`
+model into its own local volume. Each plugin runs as a digest-pinned WebAssembly
+Component and can reach only the operator-approved `ollama:11434` service on
+the private Compose network. The retrieval scheduler embeds pending source
+documents and projects the resulting vectors to Qdrant; workspace content,
+model input, completions, and vectors do not pass through Braino Cloud or
+another Braino instance. The workspace dashboard remains unavailable until
+exactly one enabled, valid provider for each required model capability exists.
 
 Señor Braino and other agents connect directly to the deployment over stateless
 MCP. Open **MCP** on the workspace page, copy this instance's `/mcp` URL, then
