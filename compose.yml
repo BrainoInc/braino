@@ -139,6 +139,19 @@ services:
         condition: service_healthy
     networks: [private]
 
+  ollama-chat-model:
+    image: ${BRAINO_OLLAMA_IMAGE:-ollama/ollama:0.40.16}
+    profiles: ["models"]
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama"]
+    command: ["pull", "${BRAINO_OLLAMA_CHAT_MODEL:-qwen3:0.6b}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks: [private]
+
   postgres:
     image: postgres:16.10-bookworm
     restart: unless-stopped

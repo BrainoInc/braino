@@ -29,6 +29,13 @@ updates:
       plugin-fixture-rust:
         patterns: ["*"]
   - package-ecosystem: cargo
+    directory: /plugins/ollama-chat
+    schedule:
+      interval: weekly
+    groups:
+      ollama-chat-plugin-rust:
+        patterns: ["*"]
+  - package-ecosystem: cargo
     directory: /plugins/ollama-embedding
     schedule:
       interval: weekly

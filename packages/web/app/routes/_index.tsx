@@ -2,7 +2,9 @@ import { withClient } from "@doco/db";
 import {
   clearPasswordSignInAttempts,
   getSingleWorkspaceState,
+  getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace,
+  installRequiredModelPlugins,
   reservePasswordSignInAttempt,
   revokeUserSessions,
 } from "@doco/host";
@@ -11,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { CollectionTypeIcon } from "~/components/collection-type-icon";
 import { PageHeader } from "~/components/page-header";
 import { NarrowPageMain, PageMain } from "~/components/page-main";
+import { bundledOllamaModelPlugins } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { hashPassword, passwordError, verifyPassword } from "~/lib/password.server";
 import {
@@ -43,6 +46,12 @@ type LoaderData =
   | { screen: "setup" }
   | { screen: "signin"; workspaceName: string; next: string }
   | {
+      screen: "models-required";
+      workspaceName: string;
+      chat: "missing" | "invalid" | "ambiguous" | "ready";
+      embedding: "missing" | "invalid" | "ambiguous" | "ready";
+    }
+  | {
       screen: "dashboard";
       workspace: WorkspaceView;
       user: { id: string; email: string; username: string; name: string };
@@ -62,6 +71,17 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
       screen: "signin",
       workspaceName: state.workspace.name,
       next: safeReturnPath(new URL(request.url).searchParams.get("next")),
+    };
+  }
+  const modelPlugins = await withClient((client) =>
+    getWorkspaceModelPluginReadiness(client, state.workspace.id),
+  );
+  if (!modelPlugins.ready) {
+    return {
+      screen: "models-required",
+      workspaceName: state.workspace.name,
+      chat: modelPlugins.chat,
+      embedding: modelPlugins.embedding,
     };
   }
   return withClient(async (client) => {
@@ -126,18 +146,39 @@ export async function action({ request }: { request: Request }) {
     const password = rawText(form, "password");
     const error = passwordError(password);
     if (error) return formError(error);
+    const chatModel = text(form, "chat_model");
+    const embeddingModel = text(form, "embedding_model");
+    const embeddingDimensions = text(form, "embedding_dimensions");
+    if (!chatModel || !embeddingModel) return formError("Both model plugins require a model.");
+    if (!Number.isInteger(Number(embeddingDimensions)) || Number(embeddingDimensions) < 1) {
+      return formError("Embedding dimensions must be a positive integer.");
+    }
     try {
+      const plugins = await bundledOllamaModelPlugins();
       const ownerPasswordHash = await hashPassword(password);
-      const initialized = await withClient((client) =>
-        initializeSingleWorkspace(client, {
+      const initialized = await withClient(async (client) => {
+        const created = await initializeSingleWorkspace(client, {
           workspaceHandle: text(form, "workspace_handle"),
           workspaceName: text(form, "workspace_name"),
           ownerEmail: text(form, "owner_email"),
           ownerUsername: text(form, "owner_username"),
           ownerName: text(form, "owner_name"),
           ownerPasswordHash,
-        }),
-      );
+        });
+        await installRequiredModelPlugins(client, {
+          workspaceId: created.workspace.id,
+          userId: created.owner.id,
+          chat: {
+            ...plugins.chat,
+            configuration: { model: chatModel },
+          },
+          embedding: {
+            ...plugins.embedding,
+            configuration: { model: embeddingModel, dimensions: embeddingDimensions },
+          },
+        });
+        return created;
+      });
       return redirect("/", {
         headers: {
           "Set-Cookie": createSessionCookie({
@@ -205,6 +246,7 @@ export default function Home() {
   if (data.screen === "signin") {
     return <SignIn workspaceName={data.workspaceName} next={data.next} error={actionData?.error} />;
   }
+  if (data.screen === "models-required") return <ModelsRequired data={data} />;
   return <WorkspaceHome data={data} />;
 }
 
@@ -248,7 +290,7 @@ function Setup({ error }: { error?: string }) {
     <PageMain className="space-y-4 py-6">
       <PageHeader breadcrumb={<Breadcrumb>First run</Breadcrumb>} title="Set up Braino">
         <p className="text-xs text-muted-foreground">
-          Create the owner and the one workspace served by this deployment.
+          Create the owner, the one workspace, and its required local model plugins.
         </p>
       </PageHeader>
       <Card>
@@ -288,6 +330,21 @@ function Setup({ error }: { error?: string }) {
                 autoComplete="new-password"
                 required
               />
+              <Field label="Chat model" name="chat_model" defaultValue="qwen3:0.6b" required />
+              <Field
+                label="Embedding model"
+                name="embedding_model"
+                defaultValue="embeddinggemma"
+                required
+              />
+              <Field
+                label="Embedding dimensions"
+                name="embedding_dimensions"
+                type="number"
+                min="1"
+                defaultValue="768"
+                required
+              />
             </div>
             <ErrorMessage error={error} />
             <button
@@ -300,6 +357,41 @@ function Setup({ error }: { error?: string }) {
         </CardContent>
       </Card>
     </PageMain>
+  );
+}
+
+function ModelsRequired({
+  data,
+}: {
+  data: Extract<LoaderData, { screen: "models-required" }>;
+}) {
+  return (
+    <NarrowPageMain className="space-y-4 py-10">
+      <Breadcrumb>Model setup</Breadcrumb>
+      <Card>
+        <CardHeader>
+          <CardTitle>Finish model setup</CardTitle>
+          <CardDescription>
+            {data.workspaceName} cannot open until exactly one chat plugin and one embedding plugin
+            are configured.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <dl className="grid grid-cols-[1fr_auto] gap-2 text-xs">
+            <dt>Chat plugin</dt>
+            <dd className="font-mono">{data.chat}</dd>
+            <dt>Embedding plugin</dt>
+            <dd className="font-mono">{data.embedding}</dd>
+          </dl>
+          <Link
+            to="/admin#model-plugins"
+            className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Configure model plugins
+          </Link>
+        </CardContent>
+      </Card>
+    </NarrowPageMain>
   );
 }
 

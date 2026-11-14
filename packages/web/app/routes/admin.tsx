@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { withClient } from "@doco/db";
 import {
   type ActivityPeriod,
@@ -8,6 +6,7 @@ import {
   configurePluginInstallation,
   getSingleWorkspaceState,
   getWorkspaceAdminOverview,
+  getWorkspaceModelPluginReadiness,
   installPlugin,
   listPluginInstallations,
   updateWorkspaceSettings,
@@ -16,6 +15,11 @@ import { Form, Link, redirect, useActionData, useLoaderData } from "react-router
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
+import {
+  OLLAMA_CHAT_PLUGIN_ID,
+  OLLAMA_EMBEDDING_PLUGIN_ID,
+  bundledOllamaModelPlugin,
+} from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
 import {
   MAX_FORM_BODY_BYTES,
@@ -29,8 +33,6 @@ interface ActionData {
   error?: string;
 }
 
-const OLLAMA_PLUGIN_ID = "braino.ollama-embedding";
-
 interface DeploymentStatus {
   version: string;
   publicHost: string;
@@ -38,6 +40,7 @@ interface DeploymentStatus {
   qdrant: "Configured" | "Not configured";
   codeLinker: "Configured" | "Not configured";
   search: string;
+  models: "Ready" | "Setup required";
   transport: "HTTPS" | "Loopback HTTP" | "HTTP";
 }
 
@@ -58,7 +61,10 @@ export function meta() {
   return [{ title: "Workspace administration · Braino" }];
 }
 
-function deploymentStatus(request: Request, embeddingPluginInstalled: boolean): DeploymentStatus {
+function deploymentStatus(
+  request: Request,
+  plugins: { ready: boolean; embedding: boolean },
+): DeploymentStatus {
   const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
     /\/$/,
     "",
@@ -76,11 +82,12 @@ function deploymentStatus(request: Request, embeddingPluginInstalled: boolean): 
       process.env.BRAINO_CODELINKER_URL?.trim() && process.env.BRAINO_CODELINKER_API_TOKEN?.trim()
         ? "Configured"
         : "Not configured",
-    search: embeddingPluginInstalled
+    search: plugins.embedding
       ? "Plugin embeddings"
       : embeddingProvider === "none" || (!embeddingProvider && !hasEmbeddingKey)
         ? "Keyword search"
         : `${embeddingProvider || "automatic"} embeddings`,
+    models: plugins.ready ? "Ready" : "Setup required",
     transport: publicHost.startsWith("https://")
       ? "HTTPS"
       : publicHost.startsWith("http://localhost") || publicHost.startsWith("http://127.0.0.1")
@@ -112,16 +119,18 @@ export async function loader({ request }: { request: Request }) {
         workspaceId: state.workspace.id,
         userId: user.id,
       }),
+      readiness: await getWorkspaceModelPluginReadiness(client, state.workspace.id),
     }));
     return {
       overview: loaded.overview,
-      embeddingPlugin: loaded.plugins.find((plugin) => plugin.manifest.id === OLLAMA_PLUGIN_ID),
-      deployment: deploymentStatus(
-        request,
-        loaded.plugins.some(
-          (plugin) => plugin.enabled && plugin.manifest.capabilities.includes("embedding.embed"),
-        ),
+      chatPlugin: loaded.plugins.find((plugin) => plugin.manifest.id === OLLAMA_CHAT_PLUGIN_ID),
+      embeddingPlugin: loaded.plugins.find(
+        (plugin) => plugin.manifest.id === OLLAMA_EMBEDDING_PLUGIN_ID,
       ),
+      deployment: deploymentStatus(request, {
+        ready: loaded.readiness.ready,
+        embedding: loaded.readiness.embedding === "ready",
+      }),
     };
   } catch (error) {
     adminResponse(error);
@@ -141,15 +150,6 @@ function encryptionKey(): string {
   return value;
 }
 
-async function bundledOllamaPlugin() {
-  const directory = process.env.BRAINO_PLUGIN_BUNDLE_DIR?.trim() || "/app/plugins";
-  const [manifest, component] = await Promise.all([
-    readFile(resolve(directory, "braino_ollama_embedding.manifest.json"), "utf8"),
-    readFile(resolve(directory, "braino_ollama_embedding.wasm")),
-  ]);
-  return { manifest: JSON.parse(manifest) as unknown, component };
-}
-
 export async function action({ request }: { request: Request }): Promise<ActionData | Response> {
   const user = await getCurrentUser(request);
   if (!user) return Response.json({ error: "Sign in first." }, { status: 401 });
@@ -166,8 +166,34 @@ export async function action({ request }: { request: Request }): Promise<ActionD
   }
   const intent = text(form, "intent");
   try {
+    if (intent === "install_ollama_chat") {
+      const bundled = await bundledOllamaModelPlugin("chat");
+      await withClient((client) =>
+        installPlugin(client, {
+          workspaceId: state.workspace.id,
+          userId: user.id,
+          manifest: bundled.manifest,
+          component: bundled.component,
+          configuration: { model: text(form, "chat_model") },
+        }),
+      );
+      return { message: "Ollama chat plugin installed." };
+    }
+    if (intent === "configure_ollama_chat") {
+      await withClient((client) =>
+        configurePluginInstallation(client, {
+          workspaceId: state.workspace.id,
+          userId: user.id,
+          installationId: text(form, "installation_id"),
+          configuration: { model: text(form, "chat_model") },
+          secrets: {},
+          encryptionKey: encryptionKey(),
+        }),
+      );
+      return { message: "Chat model configuration saved." };
+    }
     if (intent === "install_ollama_embedding") {
-      const bundled = await bundledOllamaPlugin();
+      const bundled = await bundledOllamaModelPlugin("embedding");
       await withClient((client) =>
         installPlugin(client, {
           workspaceId: state.workspace.id,
@@ -297,7 +323,7 @@ function StatusRow({ label, value }: { label: string; value: string }) {
 export default function AdminPage() {
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as ActionData | undefined;
-  const { overview, embeddingPlugin, deployment } = data;
+  const { overview, chatPlugin, embeddingPlugin, deployment } = data;
   const period =
     METRIC_PERIODS.find((option) => option.value === overview.activity.period) ?? METRIC_PERIODS[0];
   return (
@@ -525,6 +551,7 @@ export default function AdminPage() {
                 <StatusRow label="PostgreSQL" value={deployment.postgres} />
                 <StatusRow label="Qdrant" value={deployment.qdrant} />
                 <StatusRow label="CodeLinker" value={deployment.codeLinker} />
+                <StatusRow label="Model plugins" value={deployment.models} />
                 <StatusRow label="Search" value={deployment.search} />
                 <StatusRow label="Transport" value={deployment.transport} />
               </dl>
@@ -533,58 +560,105 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Embedding model plugin</CardTitle>
-          <CardDescription>
-            Run embeddings inside this deployment with Ollama. Content and vectors stay on this
-            Braino instance.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form method="post" className="grid gap-3 sm:grid-cols-[1fr_12rem_auto] sm:items-end">
-            <input
-              type="hidden"
-              name="intent"
-              value={embeddingPlugin ? "configure_ollama_embedding" : "install_ollama_embedding"}
-            />
-            {embeddingPlugin ? (
-              <input type="hidden" name="installation_id" value={embeddingPlugin.id} />
-            ) : null}
-            <label className="block text-xs">
-              <span className="mb-1 block text-muted-foreground">Ollama model</span>
-              <input
-                name="embedding_model"
-                defaultValue={embeddingPlugin?.configuration.model ?? "embeddinggemma"}
-                required
-                className="w-full rounded-md px-3 py-2 font-mono text-sm"
-              />
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block text-muted-foreground">Dimensions</span>
-              <input
-                name="embedding_dimensions"
-                type="number"
-                min="1"
-                defaultValue={embeddingPlugin?.configuration.dimensions ?? "768"}
-                required
-                className="w-full rounded-md px-3 py-2 font-mono text-sm"
-              />
-            </label>
-            <button
-              type="submit"
-              className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              {embeddingPlugin ? "Save model" : "Install plugin"}
-            </button>
-          </Form>
-          {actionData?.message ? (
-            <output className="mt-3 block text-xs text-muted-foreground">
-              {actionData.message}
-            </output>
-          ) : null}
-        </CardContent>
-      </Card>
+      <section id="model-plugins" className="space-y-3" aria-labelledby="model-plugins-title">
+        <div>
+          <h2 id="model-plugins-title" className="text-lg font-semibold">
+            Required model plugins
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            The workspace opens only when one chat plugin and one embedding plugin are configured.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Chat model plugin</CardTitle>
+              <CardDescription>
+                Run chat completions inside this deployment with Ollama.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form method="post" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <input
+                  type="hidden"
+                  name="intent"
+                  value={chatPlugin ? "configure_ollama_chat" : "install_ollama_chat"}
+                />
+                {chatPlugin ? (
+                  <input type="hidden" name="installation_id" value={chatPlugin.id} />
+                ) : null}
+                <label className="block text-xs">
+                  <span className="mb-1 block text-muted-foreground">Ollama model</span>
+                  <input
+                    name="chat_model"
+                    defaultValue={chatPlugin?.configuration.model ?? "qwen3:0.6b"}
+                    required
+                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  {chatPlugin ? "Save model" : "Install plugin"}
+                </button>
+              </Form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Embedding model plugin</CardTitle>
+              <CardDescription>
+                Keep search content and vectors inside this Braino deployment.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form method="post" className="grid gap-3 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
+                <input
+                  type="hidden"
+                  name="intent"
+                  value={
+                    embeddingPlugin ? "configure_ollama_embedding" : "install_ollama_embedding"
+                  }
+                />
+                {embeddingPlugin ? (
+                  <input type="hidden" name="installation_id" value={embeddingPlugin.id} />
+                ) : null}
+                <label className="block text-xs">
+                  <span className="mb-1 block text-muted-foreground">Ollama model</span>
+                  <input
+                    name="embedding_model"
+                    defaultValue={embeddingPlugin?.configuration.model ?? "embeddinggemma"}
+                    required
+                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                  />
+                </label>
+                <label className="block text-xs">
+                  <span className="mb-1 block text-muted-foreground">Dimensions</span>
+                  <input
+                    name="embedding_dimensions"
+                    type="number"
+                    min="1"
+                    defaultValue={embeddingPlugin?.configuration.dimensions ?? "768"}
+                    required
+                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  {embeddingPlugin ? "Save model" : "Install plugin"}
+                </button>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
+        {actionData?.message ? (
+          <output className="block text-xs text-muted-foreground">{actionData.message}</output>
+        ) : null}
+      </section>
 
       <Card>
         <CardHeader>
