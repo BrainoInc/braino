@@ -6,6 +6,7 @@ import {
   getSingleWorkspaceState,
   issueMcpOauthAuthorizationCode,
 } from "@doco/host";
+import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { NarrowPageMain } from "~/components/page-main";
@@ -16,6 +17,7 @@ import {
   RequestBodyError,
   readBoundedUrlEncodedForm,
 } from "~/lib/request-body.server";
+import { metaTranslator } from "~/locales/catalog";
 
 interface AuthorizeParams {
   responseType: string;
@@ -137,29 +139,37 @@ export async function action({ request }: { request: Request }) {
   }
 }
 
-export function meta() {
-  return [{ title: "Connect an agent · Braino" }];
+export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
+  const t = metaTranslator(matches);
+  return [{ title: t("Connect an agent · Braino") }];
 }
 
 export default function AuthorizePage() {
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
+  const t = useT();
   return (
     <NarrowPageMain className="space-y-4 py-10">
       <nav className="font-mono text-[11px] text-muted-foreground">
-        <Link to="/">Braino</Link> <span aria-hidden>›</span> Connect an agent
+        <Link to="/">{"Braino"}</Link> <span aria-hidden>›</span> {t("Connect an agent")}
       </nav>
       <Card>
         <CardHeader>
-          <CardTitle>Connect {data.clientName}</CardTitle>
+          <CardTitle>{t("Connect {client}", { client: data.clientName })}</CardTitle>
           <CardDescription>
-            Allow this client to use the {data.workspace.name} workspace on this Braino instance.
+            {t("Allow this client to use the {workspace} workspace on this Braino instance.", {
+              workspace: data.workspace.name,
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm">
-            The connection uses your live workspace role. Its OAuth credentials, requests, and
-            records stay on <span className="font-mono">{data.instance}</span>; Braino production is
-            not in the path.
+            {t.rich(
+              "The connection uses your live workspace role. Its OAuth credentials, requests, and records stay on <instance>{origin}</instance>; Braino production is not in the path.",
+              {
+                instance: (children) => <span className="font-mono">{children}</span>,
+                origin: data.instance,
+              },
+            )}
           </p>
           <Form method="post" action={data.authorizePath} className="mt-4 flex gap-2">
             <button
@@ -168,7 +178,7 @@ export default function AuthorizePage() {
               value="allow"
               className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
-              Allow
+              {t("Allow")}
             </button>
             <button
               type="submit"
@@ -176,7 +186,7 @@ export default function AuthorizePage() {
               value="deny"
               className="neu-button rounded-md px-4 py-2 text-sm font-semibold"
             >
-              Cancel
+              {t("Cancel")}
             </button>
           </Form>
         </CardContent>

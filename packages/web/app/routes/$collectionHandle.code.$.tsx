@@ -1,4 +1,5 @@
 import { withClient } from "@doco/db";
+import { useT } from "@doco/shared/i18n/react";
 import { ExternalLink } from "lucide-react";
 import { Link, redirect, useLoaderData } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/card";
@@ -6,6 +7,7 @@ import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCollectionForUser } from "~/lib/collection-access.server";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { metaTranslator } from "~/locales/catalog";
 
 interface CodeFileRow {
   repo: string;
@@ -80,21 +82,29 @@ export async function loader({
   });
 }
 
-export function meta({ data }: { data?: Awaited<ReturnType<typeof loader>> }) {
-  const title = data?.selected?.path ?? "Codebase";
+export function meta({
+  data,
+  matches,
+}: {
+  data?: Awaited<ReturnType<typeof loader>>;
+  matches: Parameters<typeof metaTranslator>[0];
+}) {
+  const t = metaTranslator(matches);
+  const title = data?.selected?.path ?? t("Codebase");
   return [{ title: `${title} · Braino` }];
 }
 
 export default function CodebasePage() {
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const file = data.selected ? data.files[0] : null;
+  const t = useT();
   return (
     <PageMain className="space-y-6 py-6">
       <PageHeader
         breadcrumb={
           <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <Link to="/" className="hover:underline">
-              Braino
+              {"Braino"}
             </Link>
             <span aria-hidden>›</span>
             <Link to={`/${data.collection.handle}/code`} className="hover:underline">
@@ -108,10 +118,10 @@ export default function CodebasePage() {
             ) : null}
           </nav>
         }
-        title={file?.path ?? "Codebase"}
+        title={file?.path ?? t("Codebase")}
       >
         <p className="text-sm text-muted-foreground">
-          {file ? file.repo : "Repository files and deterministic CodeLinker relationships."}
+          {file ? file.repo : t("Repository files and deterministic CodeLinker relationships.")}
         </p>
       </PageHeader>
 
@@ -126,14 +136,17 @@ export default function CodebasePage() {
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 text-xs hover:underline"
               >
-                GitHub <ExternalLink className="size-3" />
+                {"GitHub"} <ExternalLink className="size-3" />
               </a>
             </div>
           </CardHeader>
           <CardContent>
             {file.omitted ? (
               <p className="text-sm text-muted-foreground">
-                Content omitted: {file.omitted.replaceAll("_", " ")}.
+                {t(
+                  "Content omitted: {reason, select, binary {binary} too_large {too large} other {unavailable}}.",
+                  { reason: file.omitted },
+                )}
               </p>
             ) : (
               <pre className="neu-well max-h-[70vh] overflow-auto rounded-md p-4 text-xs leading-5">
@@ -145,7 +158,7 @@ export default function CodebasePage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Repository files</CardTitle>
+            <CardTitle>{t("Repository files")}</CardTitle>
           </CardHeader>
           <CardContent>
             {data.files.length ? (
@@ -163,7 +176,7 @@ export default function CodebasePage() {
               </ul>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Sync GitHub to import repository code.
+                {t("Sync GitHub to import repository code.")}
               </p>
             )}
           </CardContent>
@@ -172,7 +185,7 @@ export default function CodebasePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Code relationships</CardTitle>
+          <CardTitle>{t("Code relationships")}</CardTitle>
         </CardHeader>
         <CardContent>
           {data.relationships.length ? (
@@ -186,7 +199,7 @@ export default function CodebasePage() {
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No relationships were found for this selection.
+              {t("No relationships were found for this selection.")}
             </p>
           )}
         </CardContent>

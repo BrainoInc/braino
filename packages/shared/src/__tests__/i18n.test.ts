@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   LOCALES,
+  catalogStore,
   createTranslator,
   localeCookie,
   localeDirection,
@@ -162,5 +163,42 @@ describe("createTranslator", () => {
     expect(() => t("Signed in as {name}", {})).toThrow(/name/);
     expect(() => t.rich("Read the <guide>guide</guide>.", {})).toThrow(/guide/);
     expect(() => t("Read the <guide>guide</guide>.", {})).toThrow(/rich/);
+  });
+});
+
+describe("catalogStore", () => {
+  const files = {
+    "./es.json": async () => ({ "Sign in": "Iniciar sesión" }),
+  };
+
+  it("loads a language once and then answers without waiting", async () => {
+    let loads = 0;
+    const catalogs = catalogStore({
+      "./es.json": async () => {
+        loads += 1;
+        return { "Sign in": "Iniciar sesión" };
+      },
+    });
+    expect(catalogs.of("es")).toEqual({});
+    expect(await catalogs.load("es")).toEqual({ "Sign in": "Iniciar sesión" });
+    await catalogs.load("es");
+    expect(loads).toBe(1);
+    expect(catalogs.of("es")).toEqual({ "Sign in": "Iniciar sesión" });
+    expect(await catalogs.load("en")).toEqual({});
+  });
+
+  it("gives a loader the translator for its request's language", async () => {
+    const t = await catalogStore(files).requestTranslator(
+      new Request("https://braino.test/?lang=es"),
+    );
+    expect(t("Sign in")).toBe("Iniciar sesión");
+  });
+
+  it("gives a route's meta the translator for the language the root loader chose", async () => {
+    const catalogs = catalogStore(files);
+    await catalogs.load("es");
+    const matches = [{ id: "root", data: { locale: "es" } }, { id: "routes/search" }, undefined];
+    expect(catalogs.metaTranslator(matches)("Sign in")).toBe("Iniciar sesión");
+    expect(catalogs.metaTranslator([{ id: "root" }])("Sign in")).toBe("Sign in");
   });
 });

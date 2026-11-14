@@ -1,13 +1,16 @@
 import { withClient } from "@doco/db";
 import { getSingleWorkspaceState, searchWorkspaceRecords } from "@doco/host";
+import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useLoaderData } from "react-router";
 import { Card, CardContent } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { metaTranslator } from "~/locales/catalog";
 
-export function meta() {
-  return [{ title: "Search · Braino" }];
+export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
+  const t = metaTranslator(matches);
+  return [{ title: t("Search · Braino") }];
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -30,24 +33,25 @@ export async function loader({ request }: { request: Request }) {
 
 export default function SearchPage() {
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
+  const t = useT();
   return (
     <PageMain className="space-y-6 py-6">
       <PageHeader
         breadcrumb={
           <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <Link to="/" className="hover:underline">
-              Braino
+              {"Braino"}
             </Link>
             <span aria-hidden>›</span>
             <span>{data.workspace.handle}</span>
             <span aria-hidden>›</span>
-            <span>Search</span>
+            <span>{t("Search")}</span>
           </nav>
         }
-        title="Search"
+        title={t("Search")}
       >
         <p className="text-xs text-muted-foreground">
-          Deterministic PostgreSQL search. No model or embedding provider is required.
+          {t("Deterministic PostgreSQL search. No model or embedding provider is required.")}
         </p>
       </PageHeader>
 
@@ -55,21 +59,21 @@ export default function SearchPage() {
         <CardContent className="pt-4">
           <Form method="get" className="flex gap-2">
             <label className="sr-only" htmlFor="search-query">
-              Search workspace records
+              {t("Search workspace records")}
             </label>
             <input
               id="search-query"
               name="q"
               type="search"
               defaultValue={data.query}
-              placeholder="Record text, title, locator, or ID"
+              placeholder={t("Record text, title, locator, or ID")}
               className="min-w-0 flex-1 rounded-md px-3 py-2 text-sm"
             />
             <button
               type="submit"
               className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
-              Search
+              {t("Search")}
             </button>
           </Form>
         </CardContent>
@@ -78,8 +82,10 @@ export default function SearchPage() {
       {data.query ? (
         <section>
           <h2 className="font-mono text-xs text-muted-foreground">
-            {data.results.length} {data.results.length === 1 ? "result" : "results"} for “
-            {data.query}”
+            {t("{count, plural, one {# result} other {# results}} for “{query}”", {
+              count: data.results.length,
+              query: data.query,
+            })}
           </h2>
           {data.results.length ? (
             <ul className="mt-3 space-y-3">
@@ -106,7 +112,7 @@ export default function SearchPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm italic text-muted-foreground">No matching records.</p>
+            <p className="mt-4 text-sm italic text-muted-foreground">{t("No matching records.")}</p>
           )}
         </section>
       ) : null}

@@ -325,3 +325,46 @@ export function createTranslator(locale: Locale, catalog: Catalog): Translator {
     },
   });
 }
+
+/**
+ * An app's catalogs, each loaded the first time a reader asks for its language.
+ * An app makes one beside its catalog files:
+ *
+ *   export const catalogs = catalogStore(import.meta.glob("./*.json", { import: "default" }));
+ */
+export function catalogStore(files: Readonly<Record<string, () => Promise<unknown>>>) {
+  const loaded = new Map<Locale, Catalog>([[SOURCE_LOCALE, {}]]);
+
+  /** Loads a language. The server awaits it for each request; the browser before it hydrates. */
+  async function load(locale: Locale): Promise<Catalog> {
+    let catalog = loaded.get(locale);
+    if (!catalog) {
+      catalog = ((await files[`./${locale}.json`]?.()) ?? {}) as Catalog;
+      loaded.set(locale, catalog);
+    }
+    return catalog;
+  }
+
+  /** A language `load` has already loaded: the reader's, wherever a page is rendering. */
+  function of(locale: Locale): Catalog {
+    return loaded.get(locale) ?? {};
+  }
+
+  return {
+    load,
+    of,
+    /** The translator for a loader or an action: `const t = await requestTranslator(request)`. */
+    async requestTranslator(request: Request): Promise<Translator> {
+      const locale = localeFromRequest(request);
+      return createTranslator(locale, await load(locale));
+    },
+    /** The translator for a route's `meta`, read from the root loader's `locale`. */
+    metaTranslator(matches: readonly ({ id: string; data?: unknown } | undefined)[]): Translator {
+      const root = matches.find((match) => match?.id === "root")?.data as
+        | { locale?: Locale }
+        | undefined;
+      const locale = root?.locale ?? SOURCE_LOCALE;
+      return createTranslator(locale, of(locale));
+    },
+  };
+}

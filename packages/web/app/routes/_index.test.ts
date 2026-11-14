@@ -164,7 +164,7 @@ describe("first-run setup password", () => {
       }),
     });
 
-    expect(mocks.passwordError).toHaveBeenCalledWith(password);
+    expect(mocks.passwordError).toHaveBeenCalledWith(password, expect.any(Function));
     expect(mocks.hashPassword).toHaveBeenCalledWith(password);
   });
 

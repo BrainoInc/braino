@@ -8,6 +8,7 @@ import {
   reservePasswordSignInAttempt,
   revokeUserSessions,
 } from "@doco/host";
+import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { CollectionTypeIcon } from "~/components/collection-type-icon";
@@ -25,6 +26,7 @@ import { safeReturnPath } from "~/lib/safe-return-path";
 import { clearSessionCookie, createSessionCookie } from "~/lib/session.server";
 import { setupTokenError } from "~/lib/setup-token.server";
 import { passwordAttemptBuckets } from "~/lib/sign-in.server";
+import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
 interface DashboardCollection {
   id: string;
@@ -58,8 +60,9 @@ type LoaderData =
       collections: DashboardCollection[];
     };
 
-export function meta() {
-  return [{ title: "Braino" }, { name: "description", content: "Decisions that stay aligned." }];
+export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
+  const t = metaTranslator(matches);
+  return [{ title: "Braino" }, { name: "description", content: t("Decisions that stay aligned.") }];
 }
 
 export async function loader({ request }: { request: Request }): Promise<LoaderData> {
@@ -122,12 +125,13 @@ function formError(error: string): { error: string } {
 }
 
 export async function action({ request }: { request: Request }) {
+  const t = await requestTranslator(request);
   let form: FormData;
   try {
     form = await readBoundedUrlEncodedForm(request, MAX_FORM_BODY_BYTES);
   } catch (error) {
     if (error instanceof RequestBodyError) {
-      return formError(error.message);
+      return formError(t(error.message));
     }
     throw error;
   }
@@ -140,18 +144,20 @@ export async function action({ request }: { request: Request }) {
 
   const state = await withClient(getSingleWorkspaceState);
   if (intent === "setup") {
-    if (state.initialized) return formError("Braino is already initialized.");
+    if (state.initialized) return formError(t("Braino is already initialized."));
     const invalidSetupToken = setupTokenError(text(form, "setup_token"));
-    if (invalidSetupToken) return formError(invalidSetupToken);
+    if (invalidSetupToken) return formError(t(invalidSetupToken));
     const password = rawText(form, "password");
-    const error = passwordError(password);
+    const error = passwordError(password, t);
     if (error) return formError(error);
     const chatModel = text(form, "chat_model");
     const embeddingModel = text(form, "embedding_model");
     const embeddingDimensions = text(form, "embedding_dimensions");
-    if (!chatModel || !embeddingModel) return formError("Both model plugins require a model.");
+    if (!chatModel || !embeddingModel) {
+      return formError(t("Both model plugins require a model."));
+    }
     if (!Number.isInteger(Number(embeddingDimensions)) || Number(embeddingDimensions) < 1) {
-      return formError("Embedding dimensions must be a positive integer.");
+      return formError(t("Embedding dimensions must be a positive integer."));
     }
     try {
       const plugins = await bundledOllamaModelPlugins();
@@ -188,12 +194,12 @@ export async function action({ request }: { request: Request }) {
         },
       });
     } catch (caught) {
-      return formError(caught instanceof Error ? caught.message : "Setup failed.");
+      return formError(caught instanceof Error ? t(caught.message) : t("Setup failed."));
     }
   }
 
   if (intent === "signin") {
-    if (!state.initialized) return formError("Finish setup first.");
+    if (!state.initialized) return formError(t("Finish setup first."));
     const email = text(form, "email").toLowerCase();
     const password = rawText(form, "password");
     const attemptBuckets = passwordAttemptBuckets(request, email);
@@ -216,13 +222,13 @@ export async function action({ request }: { request: Request }) {
       };
     });
     if (!signIn.reservation.allowed) {
-      return formError("Too many sign-in attempts. Try again later.");
+      return formError(t("Too many sign-in attempts. Try again later."));
     }
     if (
       !(await verifyPassword(password, signIn.account?.password_hash ?? null)) ||
       !signIn.account
     ) {
-      return formError("Email or password is incorrect.");
+      return formError(t("Email or password is incorrect."));
     }
     await withClient((client) => clearPasswordSignInAttempts(client, attemptBuckets));
     return redirect(safeReturnPath(text(form, "next")), {
@@ -235,7 +241,7 @@ export async function action({ request }: { request: Request }) {
     });
   }
 
-  return formError("Unknown action.");
+  return formError(t("Unknown action."));
 }
 
 export default function Home() {
@@ -254,7 +260,7 @@ function Breadcrumb({ children }: { children: React.ReactNode }) {
   return (
     <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
       <Link to="/" className="hover:underline">
-        Braino
+        {"Braino"}
       </Link>
       <span aria-hidden>›</span>
       <span>{children}</span>
@@ -286,11 +292,12 @@ function ErrorMessage({ error }: { error?: string }) {
 }
 
 function Setup({ error }: { error?: string }) {
+  const t = useT();
   return (
     <PageMain className="space-y-4 py-6">
-      <PageHeader breadcrumb={<Breadcrumb>First run</Breadcrumb>} title="Set up Braino">
+      <PageHeader breadcrumb={<Breadcrumb>{t("First run")}</Breadcrumb>} title={t("Set up Braino")}>
         <p className="text-xs text-muted-foreground">
-          Create the owner, the one workspace, and its required local model plugins.
+          {t("Create the owner, the one workspace, and its required local model plugins.")}
         </p>
       </PageHeader>
       <Card>
@@ -298,31 +305,31 @@ function Setup({ error }: { error?: string }) {
           <Form method="post" className="space-y-4">
             <input type="hidden" name="intent" value="setup" />
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Workspace name" name="workspace_name" required />
+              <Field label={t("Workspace name")} name="workspace_name" required />
               <Field
-                label="Workspace handle"
+                label={t("Workspace handle")}
                 name="workspace_handle"
                 required
                 pattern="[a-z0-9][a-z0-9_-]*"
-                placeholder="my-workspace"
+                placeholder={"my-workspace"}
               />
-              <Field label="Your name" name="owner_name" required />
+              <Field label={t("Your name")} name="owner_name" required />
               <Field
-                label="Username"
+                label={t("Username")}
                 name="owner_username"
                 required
                 pattern="[a-z0-9][a-z0-9_-]*"
               />
-              <Field label="Email" name="owner_email" type="email" required />
+              <Field label={t("Email")} name="owner_email" type="email" required />
               <Field
-                label="Setup token"
+                label={t("Setup token")}
                 name="setup_token"
                 type="password"
                 autoComplete="off"
                 required
               />
               <Field
-                label="Password"
+                label={t("Password")}
                 name="password"
                 type="password"
                 minLength={12}
@@ -330,15 +337,15 @@ function Setup({ error }: { error?: string }) {
                 autoComplete="new-password"
                 required
               />
-              <Field label="Chat model" name="chat_model" defaultValue="qwen3:0.6b" required />
+              <Field label={t("Chat model")} name="chat_model" defaultValue="qwen3:0.6b" required />
               <Field
-                label="Embedding model"
+                label={t("Embedding model")}
                 name="embedding_model"
                 defaultValue="embeddinggemma"
                 required
               />
               <Field
-                label="Embedding dimensions"
+                label={t("Embedding dimensions")}
                 name="embedding_dimensions"
                 type="number"
                 min="1"
@@ -351,7 +358,7 @@ function Setup({ error }: { error?: string }) {
               type="submit"
               className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
-              Create workspace
+              {t("Create workspace")}
             </button>
           </Form>
         </CardContent>
@@ -365,29 +372,32 @@ function ModelsRequired({
 }: {
   data: Extract<LoaderData, { screen: "models-required" }>;
 }) {
+  const t = useT();
   return (
     <NarrowPageMain className="space-y-4 py-10">
-      <Breadcrumb>Model setup</Breadcrumb>
+      <Breadcrumb>{t("Model setup")}</Breadcrumb>
       <Card>
         <CardHeader>
-          <CardTitle>Finish model setup</CardTitle>
+          <CardTitle>{t("Finish model setup")}</CardTitle>
           <CardDescription>
-            {data.workspaceName} cannot open until exactly one chat plugin and one embedding plugin
-            are configured.
+            {t(
+              "{workspace} cannot open until exactly one chat plugin and one embedding plugin are configured.",
+              { workspace: data.workspaceName },
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <dl className="grid grid-cols-[1fr_auto] gap-2 text-xs">
-            <dt>Chat plugin</dt>
+            <dt>{t("Chat plugin")}</dt>
             <dd className="font-mono">{data.chat}</dd>
-            <dt>Embedding plugin</dt>
+            <dt>{t("Embedding plugin")}</dt>
             <dd className="font-mono">{data.embedding}</dd>
           </dl>
           <Link
             to="/admin#model-plugins"
             className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           >
-            Configure model plugins
+            {t("Configure model plugins")}
           </Link>
         </CardContent>
       </Card>
@@ -404,21 +414,24 @@ function SignIn({
   next: string;
   error?: string;
 }) {
+  const t = useT();
   return (
     <NarrowPageMain className="space-y-4 py-10">
-      <Breadcrumb>Sign in</Breadcrumb>
+      <Breadcrumb>{t("Sign in")}</Breadcrumb>
       <Card>
         <CardHeader>
-          <CardTitle>Sign in</CardTitle>
-          <CardDescription>Type the email and password of your Braino account.</CardDescription>
+          <CardTitle>{t("Sign in")}</CardTitle>
+          <CardDescription>
+            {t("Type the email and password of your Braino account.")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form method="post" className="space-y-3">
             <input type="hidden" name="intent" value="signin" />
             <input type="hidden" name="next" value={next} />
-            <Field label="Email" name="email" type="email" autoComplete="username" required />
+            <Field label={t("Email")} name="email" type="email" autoComplete="username" required />
             <Field
-              label="Password"
+              label={t("Password")}
               name="password"
               type="password"
               autoComplete="current-password"
@@ -428,7 +441,7 @@ function SignIn({
               type="submit"
               className="neu-button flex w-full items-center justify-center rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
-              Sign in
+              {t("Sign in")}
             </button>
             <ErrorMessage error={error} />
           </Form>
@@ -440,6 +453,7 @@ function SignIn({
 }
 
 function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboard" }> }) {
+  const t = useT();
   const paragraphs = data.workspace.constitution
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
@@ -447,7 +461,11 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
   return (
     <PageMain className="space-y-6 py-6">
       <PageHeader
-        breadcrumb={<Breadcrumb>Workspaces › {data.workspace.handle}</Breadcrumb>}
+        breadcrumb={
+          <Breadcrumb>
+            {t("Workspaces")} › {data.workspace.handle}
+          </Breadcrumb>
+        }
         title={data.workspace.handle}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -457,13 +475,13 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
               to="/mcp-tokens"
               className="neu-button rounded-md px-3 py-1.5 text-xs font-semibold"
             >
-              MCP
+              {"MCP"}
             </Link>
             <Link
               to="/collaborators"
               className="neu-button rounded-md px-3 py-1.5 text-xs font-semibold"
             >
-              Collaborators
+              {t("Collaborators")}
             </Link>
           </div>
         </div>
@@ -485,13 +503,16 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            {data.collections.length} collections · Signed in as {data.user.name}
+            {t("{count, plural, one {# collection} other {# collections}}", {
+              count: data.collections.length,
+            })}{" "}
+            · {t("Signed in as {name}", { name: data.user.name })}
           </p>
         </CardContent>
       </Card>
 
       <section className="neu-surface rounded-lg bg-card px-4 py-3">
-        <h2 className="text-sm font-semibold">Collections in this workspace</h2>
+        <h2 className="text-sm font-semibold">{t("Collections in this workspace")}</h2>
         <ul className="mt-3 space-y-1.5">
           {data.collections.map((collection) => (
             <li className="flex min-w-0 items-baseline gap-2" key={collection.id}>
@@ -503,10 +524,12 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
                 {collection.handle}
               </Link>
               <span className="text-[11px] text-muted-foreground">
-                ({collection.items} {collection.items === 1 ? "record" : "records"})
+                {t("({count, plural, one {# record} other {# records}})", {
+                  count: collection.items,
+                })}
               </span>
-              <span className="ml-auto hidden text-[11px] text-muted-foreground sm:block">
-                {collection.last_updated_at ? "has activity" : "no activity yet"}
+              <span className="ms-auto hidden text-[11px] text-muted-foreground sm:block">
+                {collection.last_updated_at ? t("has activity") : t("no activity yet")}
               </span>
             </li>
           ))}
@@ -516,12 +539,19 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
       <Card>
         <CardContent className="px-6 py-7 sm:px-10 sm:py-9">
           <article>
-            <h2 className="text-center text-lg font-semibold uppercase tracking-[0.2em] sm:text-2xl sm:tracking-[0.25em]">
-              Constitution
-            </h2>
-            <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-              of {data.workspace.handle}
-            </p>
+            {t.rich("<title>Constitution</title><subtitle>of {workspace}</subtitle>", {
+              title: (children) => (
+                <h2 className="text-center text-lg font-semibold uppercase tracking-[0.2em] sm:text-2xl sm:tracking-[0.25em]">
+                  {children}
+                </h2>
+              ),
+              subtitle: (children) => (
+                <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                  {children}
+                </p>
+              ),
+              workspace: data.workspace.handle,
+            })}
             <div className="mx-auto mt-4 h-px w-24 bg-border" />
             {paragraphs.length ? (
               <div className="mt-6 space-y-4 hyphens-auto text-sm leading-7">
@@ -530,7 +560,7 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
                     key={paragraph}
                     className={
                       index === 0
-                        ? "flow-root first-letter:float-left first-letter:mr-2 first-letter:mt-1 first-letter:text-5xl first-letter:font-semibold first-letter:leading-none"
+                        ? "flow-root first-letter:float-start first-letter:me-2 first-letter:mt-1 first-letter:text-5xl first-letter:font-semibold first-letter:leading-none"
                         : undefined
                     }
                   >
@@ -540,7 +570,7 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
               </div>
             ) : (
               <p className="mt-6 text-center text-sm italic text-muted-foreground">
-                No constitution has been written yet.
+                {t("No constitution has been written yet.")}
               </p>
             )}
           </article>

@@ -17,11 +17,14 @@ import {
   syncConnectorConnection,
   syncGithubConnection,
 } from "@doco/host";
+import { msg } from "@doco/shared/i18n";
+import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
 interface ActionData {
   webhookUrl?: string;
@@ -29,8 +32,9 @@ interface ActionData {
   error?: string;
 }
 
-export function meta() {
-  return [{ title: "Integrations · Braino" }];
+export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
+  const t = metaTranslator(matches);
+  return [{ title: t("Integrations · Braino") }];
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -76,16 +80,18 @@ function text(form: FormData, name: string) {
 function encryptionKey(): string {
   const value = process.env.DOCO_ENCRYPTION_KEY?.trim();
   if (!value || value.length < 32) {
-    throw new Error("DOCO_ENCRYPTION_KEY must contain at least 32 characters.");
+    throw new Error(msg("DOCO_ENCRYPTION_KEY must contain at least 32 characters."));
   }
   return value;
 }
 
 export async function action({ request }: { request: Request }): Promise<ActionData | Response> {
+  const t = await requestTranslator(request);
   const user = await getCurrentUser(request);
-  if (!user) return Response.json({ error: "Sign in first." }, { status: 401 });
+  if (!user) return Response.json({ error: t("Sign in first.") }, { status: 401 });
   const state = await withClient(getSingleWorkspaceState);
-  if (!state.initialized) return Response.json({ error: "Finish setup first." }, { status: 409 });
+  if (!state.initialized)
+    return Response.json({ error: t("Finish setup first.") }, { status: 409 });
   const form = await request.formData();
   const intent = text(form, "intent");
 
@@ -106,10 +112,13 @@ export async function action({ request }: { request: Request }): Promise<ActionD
         adapter: plugin.adapter,
       });
       return {
-        message: `Connected ${connected.sourceName}. Imported ${synced.created} Slack messages.`,
+        message: t(
+          "Connected {name}. Imported {count, plural, one {# Slack message} other {# Slack messages}}.",
+          { name: connected.sourceName, count: synced.created },
+        ),
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not connect Slack." };
+      return { error: error instanceof Error ? t(error.message) : t("Could not connect Slack.") };
     }
   }
 
@@ -130,10 +139,13 @@ export async function action({ request }: { request: Request }): Promise<ActionD
         adapter: plugin.adapter,
       });
       return {
-        message: `Connected ${connected.sourceName}. Imported ${synced.created} Notion pages.`,
+        message: t(
+          "Connected {name}. Imported {count, plural, one {# Notion page} other {# Notion pages}}.",
+          { name: connected.sourceName, count: synced.created },
+        ),
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not connect Notion." };
+      return { error: error instanceof Error ? t(error.message) : t("Could not connect Notion.") };
     }
   }
 
@@ -154,10 +166,15 @@ export async function action({ request }: { request: Request }): Promise<ActionD
         adapter: plugin.adapter,
       });
       return {
-        message: `Connected ${connected.sourceName}. Imported ${synced.created} Google Drive files.`,
+        message: t(
+          "Connected {name}. Imported {count, plural, one {# Google Drive file} other {# Google Drive files}}.",
+          { name: connected.sourceName, count: synced.created },
+        ),
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not connect Google Drive." };
+      return {
+        error: error instanceof Error ? t(error.message) : t("Could not connect Google Drive."),
+      };
     }
   }
 
@@ -172,10 +189,19 @@ export async function action({ request }: { request: Request }): Promise<ActionD
         adapter: plugin.adapter,
       });
       return {
-        message: `${plugin.label} sync complete: ${synced.created} created, ${synced.updated} updated, ${synced.retired} retired, ${synced.unchanged} unchanged.`,
+        message: t(
+          "{connector} sync complete: {created} created, {updated} updated, {retired} retired, {unchanged} unchanged.",
+          {
+            connector: plugin.label,
+            created: synced.created,
+            updated: synced.updated,
+            retired: synced.retired,
+            unchanged: synced.unchanged,
+          },
+        ),
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not sync connector." };
+      return { error: error instanceof Error ? t(error.message) : t("Could not sync connector.") };
     }
   }
 
@@ -190,10 +216,14 @@ export async function action({ request }: { request: Request }): Promise<ActionD
         }),
       );
       return {
-        message: `${plugin.label} disconnected. Imported records and history were kept.`,
+        message: t("{connector} disconnected. Imported records and history were kept.", {
+          connector: plugin.label,
+        }),
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not disconnect connector." };
+      return {
+        error: error instanceof Error ? t(error.message) : t("Could not disconnect connector."),
+      };
     }
   }
 
@@ -225,18 +255,23 @@ export async function action({ request }: { request: Request }): Promise<ActionD
             encryptionKey: encryptionKey(),
           });
         } catch (error) {
-          webhookError = error instanceof Error ? error.message : "Automatic sync setup failed.";
+          webhookError =
+            error instanceof Error ? t(error.message) : t("Automatic sync setup failed.");
         }
       } else {
-        webhookError =
-          "Automatic sync needs DOCO_PUBLIC_HOST set to this deployment's public HTTPS URL.";
+        webhookError = t(
+          "Automatic sync needs DOCO_PUBLIC_HOST set to this deployment's public HTTPS URL.",
+        );
       }
       return {
-        message: `Connected ${connected.repository}. Imported ${synced.created} and updated ${synced.updated} records.`,
+        message: t(
+          "Connected {repository}. Imported {created} and updated {updated, plural, one {# record} other {# records}}.",
+          { repository: connected.repository, created: synced.created, updated: synced.updated },
+        ),
         ...(webhookError ? { error: webhookError } : {}),
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not connect GitHub." };
+      return { error: error instanceof Error ? t(error.message) : t("Could not connect GitHub.") };
     }
   }
 
@@ -252,10 +287,11 @@ export async function action({ request }: { request: Request }): Promise<ActionD
         publicHost,
         encryptionKey: encryptionKey(),
       });
-      return { message: "Automatic GitHub sync is enabled." };
+      return { message: t("Automatic GitHub sync is enabled.") };
     } catch (error) {
       return {
-        error: error instanceof Error ? error.message : "Could not enable automatic GitHub sync.",
+        error:
+          error instanceof Error ? t(error.message) : t("Could not enable automatic GitHub sync."),
       };
     }
   }
@@ -268,10 +304,13 @@ export async function action({ request }: { request: Request }): Promise<ActionD
         userId: user.id,
       });
       return {
-        message: `GitHub sync complete: ${synced.created} created, ${synced.updated} updated, ${synced.unchanged} unchanged.`,
+        message: t(
+          "GitHub sync complete: {created} created, {updated} updated, {unchanged} unchanged.",
+          { created: synced.created, updated: synced.updated, unchanged: synced.unchanged },
+        ),
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not sync GitHub." };
+      return { error: error instanceof Error ? t(error.message) : t("Could not sync GitHub.") };
     }
   }
 
@@ -282,9 +321,11 @@ export async function action({ request }: { request: Request }): Promise<ActionD
         userId: user.id,
         encryptionKey: encryptionKey(),
       });
-      return { message: "GitHub disconnected. Imported records and history were kept." };
+      return { message: t("GitHub disconnected. Imported records and history were kept.") };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not disconnect GitHub." };
+      return {
+        error: error instanceof Error ? t(error.message) : t("Could not disconnect GitHub."),
+      };
     }
   }
 
@@ -304,7 +345,7 @@ export async function action({ request }: { request: Request }): Promise<ActionD
       );
       return { webhookUrl: `${publicHost}/api/v1/webhooks/${created.accessToken}` };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Could not create webhook." };
+      return { error: error instanceof Error ? t(error.message) : t("Could not create webhook.") };
     }
   }
 
@@ -314,10 +355,11 @@ export async function action({ request }: { request: Request }): Promise<ActionD
     );
     return redirect("/integrations");
   }
-  return Response.json({ error: "Unknown integration action." }, { status: 400 });
+  return Response.json({ error: t("Unknown integration action.") }, { status: 400 });
 }
 
 function NotionConnectionForm({ reconnect = false }: { reconnect?: boolean }) {
+  const t = useT();
   const navigation = useNavigation();
   const connecting =
     navigation.state !== "idle" && navigation.formData?.get("intent") === "connect_notion";
@@ -325,27 +367,32 @@ function NotionConnectionForm({ reconnect = false }: { reconnect?: boolean }) {
     <Form method="post" className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="intent" value="connect_notion" />
       <label className="text-xs sm:col-span-2">
-        <span className="mb-1 block text-muted-foreground">Notion integration token</span>
+        <span className="mb-1 block text-muted-foreground">{t("Notion integration token")}</span>
         <input
           name="notion_token"
           type="password"
           required
           autoComplete="new-password"
-          placeholder="ntn_… or secret_…"
+          placeholder={t("ntn_… or secret_…")}
           className="w-full rounded-md px-3 py-2 font-mono text-sm"
         />
       </label>
       <p className="text-xs text-muted-foreground sm:col-span-2">
-        Create an internal Notion integration with read content access, share the pages you want
-        with it, then paste its token here. Only pages shared with that integration are copied.
+        {t(
+          "Create an internal Notion integration with read content access, share the pages you want with it, then paste its token here. Only pages shared with that integration are copied.",
+        )}
       </p>
-      <div className="sm:col-span-2 sm:text-right">
+      <div className="sm:col-span-2 sm:text-end">
         <button
           type="submit"
           disabled={connecting}
           className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {connecting ? "Connecting…" : reconnect ? "Reconnect Notion" : "Connect and sync"}
+          {connecting
+            ? t("Connecting…")
+            : reconnect
+              ? t("Reconnect Notion")
+              : t("Connect and sync")}
         </button>
       </div>
     </Form>
@@ -353,6 +400,7 @@ function NotionConnectionForm({ reconnect = false }: { reconnect?: boolean }) {
 }
 
 function GoogleDriveConnectionForm({ reconnect = false }: { reconnect?: boolean }) {
+  const t = useT();
   const navigation = useNavigation();
   const connecting =
     navigation.state !== "idle" && navigation.formData?.get("intent") === "connect_google_drive";
@@ -360,7 +408,7 @@ function GoogleDriveConnectionForm({ reconnect = false }: { reconnect?: boolean 
     <Form method="post" className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="intent" value="connect_google_drive" />
       <label className="text-xs sm:col-span-2">
-        <span className="mb-1 block text-muted-foreground">Google service-account JSON</span>
+        <span className="mb-1 block text-muted-foreground">{t("Google service-account JSON")}</span>
         <textarea
           name="service_account_json"
           required
@@ -371,17 +419,21 @@ function GoogleDriveConnectionForm({ reconnect = false }: { reconnect?: boolean 
         />
       </label>
       <p className="text-xs text-muted-foreground sm:col-span-2">
-        Enable the Google Drive API, create a service-account key, and share the folders or files
-        with its client_email address. Braino imports Google Docs, Sheets, Slides, and text files;
-        the private key is encrypted at rest.
+        {t(
+          "Enable the Google Drive API, create a service-account key, and share the folders or files with its client_email address. Braino imports Google Docs, Sheets, Slides, and text files; the private key is encrypted at rest.",
+        )}
       </p>
-      <div className="sm:col-span-2 sm:text-right">
+      <div className="sm:col-span-2 sm:text-end">
         <button
           type="submit"
           disabled={connecting}
           className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {connecting ? "Connecting…" : reconnect ? "Reconnect Google Drive" : "Connect and sync"}
+          {connecting
+            ? t("Connecting…")
+            : reconnect
+              ? t("Reconnect Google Drive")
+              : t("Connect and sync")}
         </button>
       </div>
     </Form>
@@ -389,6 +441,7 @@ function GoogleDriveConnectionForm({ reconnect = false }: { reconnect?: boolean 
 }
 
 function SlackConnectionForm({ reconnect = false }: { reconnect?: boolean }) {
+  const t = useT();
   const navigation = useNavigation();
   const connecting =
     navigation.state !== "idle" && navigation.formData?.get("intent") === "connect_slack";
@@ -396,27 +449,28 @@ function SlackConnectionForm({ reconnect = false }: { reconnect?: boolean }) {
     <Form method="post" className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="intent" value="connect_slack" />
       <label className="text-xs sm:col-span-2">
-        <span className="mb-1 block text-muted-foreground">Slack bot token</span>
+        <span className="mb-1 block text-muted-foreground">{t("Slack bot token")}</span>
         <input
           name="bot_token"
           type="password"
           required
           autoComplete="new-password"
-          placeholder="xoxb-…"
+          placeholder={"xoxb-…"}
           className="w-full rounded-md px-3 py-2 font-mono text-sm"
         />
       </label>
       <p className="text-xs text-muted-foreground sm:col-span-2">
-        Use a bot token with channels:read, channels:history, and users:read. Braino copies public,
-        non-shared channels only and encrypts the token with this deployment&apos;s encryption key.
+        {t(
+          "Use a bot token with channels:read, channels:history, and users:read. Braino copies public, non-shared channels only and encrypts the token with this deployment's encryption key.",
+        )}
       </p>
-      <div className="sm:col-span-2 sm:text-right">
+      <div className="sm:col-span-2 sm:text-end">
         <button
           type="submit"
           disabled={connecting}
           className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {connecting ? "Connecting…" : reconnect ? "Reconnect Slack" : "Connect and sync"}
+          {connecting ? t("Connecting…") : reconnect ? t("Reconnect Slack") : t("Connect and sync")}
         </button>
       </div>
     </Form>
@@ -432,6 +486,7 @@ function ConnectorConnection({
   collectionLabel: string;
   reconnect: "slack" | "notion" | "google_drive";
 }) {
+  const t = useT();
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start gap-3">
@@ -440,9 +495,11 @@ function ConnectorConnection({
           <p className="font-mono text-xs text-muted-foreground">
             {connection.active
               ? connection.lastSyncedAt
-                ? `Last synced ${new Date(connection.lastSyncedAt).toLocaleString()}`
-                : "Connected; first sync pending"
-              : "Disconnected"}
+                ? t("Last synced {when}", {
+                    when: new Date(connection.lastSyncedAt).toLocaleString(t.locale),
+                  })
+                : t("Connected; first sync pending")
+              : t("Disconnected")}
           </p>
           {connection.lastError ? (
             <p className="mt-1 text-xs text-destructive">{connection.lastError}</p>
@@ -458,7 +515,7 @@ function ConnectorConnection({
                 type="submit"
                 className="neu-button rounded-md px-3 py-2 text-xs font-semibold"
               >
-                Sync now
+                {t("Sync now")}
               </button>
             </Form>
             <Form method="post">
@@ -469,7 +526,7 @@ function ConnectorConnection({
                 type="submit"
                 className="neu-button rounded-md px-3 py-2 text-xs font-semibold text-destructive"
               >
-                Disconnect
+                {t("Disconnect")}
               </button>
             </Form>
           </div>
@@ -501,6 +558,7 @@ function GithubConnectionForm({
   repository?: string;
   submitLabel: string;
 }) {
+  const t = useT();
   const navigation = useNavigation();
   const connecting =
     navigation.state !== "idle" && navigation.formData?.get("intent") === "connect_github";
@@ -508,18 +566,20 @@ function GithubConnectionForm({
     <Form method="post" className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="intent" value="connect_github" />
       <label className="text-xs">
-        <span className="mb-1 block text-muted-foreground">Repository</span>
+        <span className="mb-1 block text-muted-foreground">{t("Repository")}</span>
         <input
           name="repository"
           required
           defaultValue={repository}
           readOnly={Boolean(repository)}
-          placeholder="owner/repository"
+          placeholder={t("owner/repository")}
           className="w-full rounded-md px-3 py-2 font-mono text-sm"
         />
       </label>
       <label className="text-xs">
-        <span className="mb-1 block text-muted-foreground">Fine-grained personal access token</span>
+        <span className="mb-1 block text-muted-foreground">
+          {t("Fine-grained personal access token")}
+        </span>
         <input
           name="access_token"
           type="password"
@@ -529,16 +589,17 @@ function GithubConnectionForm({
         />
       </label>
       <p className="text-xs text-muted-foreground sm:col-span-2">
-        Grant read access to Metadata, Contents, Issues, and Pull requests, plus Webhooks write
-        access for automatic sync. Scope the token to this repository only.
+        {t(
+          "Grant read access to Metadata, Contents, Issues, and Pull requests, plus Webhooks write access for automatic sync. Scope the token to this repository only.",
+        )}
       </p>
-      <div className="sm:col-span-2 sm:text-right">
+      <div className="sm:col-span-2 sm:text-end">
         <button
           type="submit"
           disabled={connecting}
           className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {connecting ? "Connecting…" : submitLabel}
+          {connecting ? t("Connecting…") : submitLabel}
         </button>
       </div>
     </Form>
@@ -546,6 +607,7 @@ function GithubConnectionForm({
 }
 
 function GithubConnection({ connection }: { connection: GithubConnectionSummary }) {
+  const t = useT();
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start gap-3">
@@ -554,16 +616,20 @@ function GithubConnection({ connection }: { connection: GithubConnectionSummary 
           <p className="text-xs text-muted-foreground">
             {connection.active
               ? connection.lastSyncedAt
-                ? `Last synced ${new Date(connection.lastSyncedAt).toLocaleString()}`
-                : "Connected; first sync pending"
-              : "Disconnected"}
+                ? t("Last synced {when}", {
+                    when: new Date(connection.lastSyncedAt).toLocaleString(t.locale),
+                  })
+                : t("Connected; first sync pending")
+              : t("Disconnected")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {connection.webhookConfigured
               ? connection.webhookLastDeliveryAt
-                ? `Automatic sync · last delivery ${new Date(connection.webhookLastDeliveryAt).toLocaleString()}`
-                : "Automatic sync enabled"
-              : "Manual sync only"}
+                ? t("Automatic sync · last delivery {when}", {
+                    when: new Date(connection.webhookLastDeliveryAt).toLocaleString(t.locale),
+                  })
+                : t("Automatic sync enabled")
+              : t("Manual sync only")}
           </p>
           {connection.lastError ? (
             <p className="mt-1 text-xs text-destructive">{connection.lastError}</p>
@@ -579,7 +645,7 @@ function GithubConnection({ connection }: { connection: GithubConnectionSummary 
                   type="submit"
                   className="neu-button rounded-md px-3 py-2 text-xs font-semibold"
                 >
-                  Enable automatic sync
+                  {t("Enable automatic sync")}
                 </button>
               </Form>
             ) : null}
@@ -590,7 +656,7 @@ function GithubConnection({ connection }: { connection: GithubConnectionSummary 
                 type="submit"
                 className="neu-button rounded-md px-3 py-2 text-xs font-semibold"
               >
-                Sync now
+                {t("Sync now")}
               </button>
             </Form>
             <Form method="post">
@@ -600,7 +666,7 @@ function GithubConnection({ connection }: { connection: GithubConnectionSummary 
                 type="submit"
                 className="neu-button rounded-md px-3 py-2 text-xs font-semibold text-destructive"
               >
-                Disconnect
+                {t("Disconnect")}
               </button>
             </Form>
           </div>
@@ -611,29 +677,33 @@ function GithubConnection({ connection }: { connection: GithubConnectionSummary 
           className="neu-button rounded-md px-3 py-2 font-semibold"
           to={`/${connection.issuesCollectionHandle}`}
         >
-          GitHub issues
+          {t("GitHub issues")}
         </Link>
         <Link
           className="neu-button rounded-md px-3 py-2 font-semibold"
           to={`/${connection.pullRequestsCollectionHandle}`}
         >
-          GitHub pull requests
+          {t("GitHub pull requests")}
         </Link>
         <Link
           className="neu-button rounded-md px-3 py-2 font-semibold"
           to={`/${connection.codeCollectionHandle}`}
         >
-          Codebase
+          {t("Codebase")}
         </Link>
       </div>
       {!connection.active ? (
-        <GithubConnectionForm repository={connection.repository} submitLabel="Reconnect GitHub" />
+        <GithubConnectionForm
+          repository={connection.repository}
+          submitLabel={t("Reconnect GitHub")}
+        />
       ) : null}
     </div>
   );
 }
 
 export default function IntegrationsPage() {
+  const t = useT();
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as ActionData | undefined;
   const slackConnection = data.connectorConnections.find(
@@ -651,32 +721,33 @@ export default function IntegrationsPage() {
         breadcrumb={
           <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <Link to="/" className="hover:underline">
-              Braino
+              {"Braino"}
             </Link>
             <span aria-hidden>›</span>
             <span>{data.workspace.handle}</span>
             <span aria-hidden>›</span>
             <Link to="/admin" className="hover:underline">
-              Admin
+              {t("Admin")}
             </Link>
             <span aria-hidden>›</span>
-            <span>Integrations</span>
+            <span>{t("Integrations")}</span>
           </nav>
         }
-        title="Integrations"
+        title={t("Integrations")}
       >
         <p className="text-xs text-muted-foreground">
-          Bring external systems into Braino through retry-safe, policy-checked changesets.
+          {t("Bring external systems into Braino through retry-safe, policy-checked changesets.")}
         </p>
       </PageHeader>
 
       {actionData?.webhookUrl ? (
         <Card>
           <CardHeader>
-            <CardTitle>Copy this webhook URL now</CardTitle>
+            <CardTitle>{t("Copy this webhook URL now")}</CardTitle>
             <CardDescription>
-              The secret URL is shown once. Send JSON changesets with a unique Idempotency-Key
-              header.
+              {t(
+                "The secret URL is shown once. Send JSON changesets with a unique Idempotency-Key header.",
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -684,7 +755,7 @@ export default function IntegrationsPage() {
               readOnly
               rows={3}
               value={actionData.webhookUrl}
-              aria-label="Incoming webhook URL"
+              aria-label={t("Incoming webhook URL")}
               className="w-full rounded-md px-3 py-2 font-mono text-xs"
             />
           </CardContent>
@@ -695,17 +766,18 @@ export default function IntegrationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Slack</CardTitle>
+          <CardTitle>{"Slack"}</CardTitle>
           <CardDescription>
-            Copy one Slack workspace&apos;s public channels into a private Braino collection.
-            Private, archived, and Slack Connect channels are never imported.
+            {t(
+              "Copy one Slack workspace's public channels into a private Braino collection. Private, archived, and Slack Connect channels are never imported.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {slackConnection ? (
             <ConnectorConnection
               connection={slackConnection}
-              collectionLabel="Slack messages"
+              collectionLabel={t("Slack messages")}
               reconnect="slack"
             />
           ) : (
@@ -716,17 +788,18 @@ export default function IntegrationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Notion</CardTitle>
+          <CardTitle>{"Notion"}</CardTitle>
           <CardDescription>
-            Copy the pages shared with one Notion integration into a private Braino collection,
-            including nested block content and page properties.
+            {t(
+              "Copy the pages shared with one Notion integration into a private Braino collection, including nested block content and page properties.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {notionConnection ? (
             <ConnectorConnection
               connection={notionConnection}
-              collectionLabel="Notion pages"
+              collectionLabel={t("Notion pages")}
               reconnect="notion"
             />
           ) : (
@@ -737,17 +810,18 @@ export default function IntegrationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Google Drive</CardTitle>
+          <CardTitle>{"Google Drive"}</CardTitle>
           <CardDescription>
-            Copy the Workspace documents and text files shared with one service account into a
-            private Braino collection. Binary files and folders are ignored.
+            {t(
+              "Copy the Workspace documents and text files shared with one service account into a private Braino collection. Binary files and folders are ignored.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {googleDriveConnection ? (
             <ConnectorConnection
               connection={googleDriveConnection}
-              collectionLabel="Google Drive files"
+              collectionLabel={t("Google Drive files")}
               reconnect="google_drive"
             />
           ) : (
@@ -758,11 +832,11 @@ export default function IntegrationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>GitHub</CardTitle>
+          <CardTitle>{"GitHub"}</CardTitle>
           <CardDescription>
-            Import one repository&apos;s code, issues, and pull requests into dedicated Braino
-            collections. Signed GitHub webhooks refresh changes automatically when DOCO_PUBLIC_HOST
-            is public HTTPS; Sync now remains available as a fallback.
+            {t(
+              "Import one repository's code, issues, and pull requests into dedicated Braino collections. Signed GitHub webhooks refresh changes automatically when DOCO_PUBLIC_HOST is public HTTPS; Sync now remains available as a fallback.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -771,24 +845,25 @@ export default function IntegrationsPage() {
               <GithubConnection key={connection.id} connection={connection} />
             ))
           ) : (
-            <GithubConnectionForm submitLabel="Connect and sync" />
+            <GithubConnectionForm submitLabel={t("Connect and sync")} />
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>New incoming webhook</CardTitle>
+          <CardTitle>{t("New incoming webhook")}</CardTitle>
           <CardDescription>
-            Choose its destination. Every delivery uses that collection&apos;s authoring policies
-            and immutable history.
+            {t(
+              "Choose its destination. Every delivery uses that collection's authoring policies and immutable history.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form method="post" className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="intent" value="create_webhook" />
             <label className="text-xs">
-              <span className="mb-1 block text-muted-foreground">Name</span>
+              <span className="mb-1 block text-muted-foreground">{t("Name")}</span>
               <input
                 name="label"
                 required
@@ -797,7 +872,7 @@ export default function IntegrationsPage() {
               />
             </label>
             <label className="text-xs">
-              <span className="mb-1 block text-muted-foreground">Collection</span>
+              <span className="mb-1 block text-muted-foreground">{t("Collection")}</span>
               <select name="collection_id" className="w-full rounded-md px-3 py-2 text-sm">
                 {data.collections.map((collection) => (
                   <option key={collection.id} value={collection.id}>
@@ -806,12 +881,12 @@ export default function IntegrationsPage() {
                 ))}
               </select>
             </label>
-            <div className="sm:col-span-2 sm:text-right">
+            <div className="sm:col-span-2 sm:text-end">
               <button
                 type="submit"
                 className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
               >
-                Create webhook
+                {t("Create webhook")}
               </button>
             </div>
           </Form>
@@ -819,7 +894,7 @@ export default function IntegrationsPage() {
       </Card>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Incoming webhooks</h2>
+        <h2 className="text-sm font-semibold">{t("Incoming webhooks")}</h2>
         {data.webhooks.length ? (
           data.webhooks.map((webhook) => (
             <Card key={webhook.tokenId}>
@@ -829,10 +904,12 @@ export default function IntegrationsPage() {
                   <p className="font-mono text-[11px] text-muted-foreground">
                     {webhook.collectionHandle} ·{" "}
                     {webhook.revoked
-                      ? "revoked"
+                      ? t("revoked")
                       : webhook.lastUsedAt
-                        ? `last used ${new Date(webhook.lastUsedAt).toLocaleString()}`
-                        : "never used"}
+                        ? t("last used {when}", {
+                            when: new Date(webhook.lastUsedAt).toLocaleString(t.locale),
+                          })
+                        : t("never used")}
                   </p>
                 </div>
                 {!webhook.revoked ? (
@@ -843,7 +920,7 @@ export default function IntegrationsPage() {
                       type="submit"
                       className="neu-button rounded-md px-3 py-2 text-xs font-semibold text-destructive"
                     >
-                      Revoke
+                      {t("Revoke")}
                     </button>
                   </Form>
                 ) : null}
@@ -851,7 +928,7 @@ export default function IntegrationsPage() {
             </Card>
           ))
         ) : (
-          <p className="text-sm italic text-muted-foreground">No incoming webhooks yet.</p>
+          <p className="text-sm italic text-muted-foreground">{t("No incoming webhooks yet.")}</p>
         )}
       </section>
     </PageMain>

@@ -1,5 +1,8 @@
+import { createTranslator } from "@doco/shared/i18n";
 import { describe, expect, it } from "vitest";
 import { hashPassword, passwordError, verifyPassword } from "./password.server.js";
+
+const t = createTranslator("en", {});
 
 describe("passwords", () => {
   it("stores a salted scrypt hash and verifies only the original password", async () => {
@@ -10,7 +13,7 @@ describe("passwords", () => {
   });
 
   it("requires a useful first-run password", () => {
-    expect(passwordError("short")).toBe("Use at least 12 characters.");
-    expect(passwordError("long enough password")).toBeNull();
+    expect(passwordError("short", t)).toBe("Use at least 12 characters.");
+    expect(passwordError("long enough password", t)).toBeNull();
   });
 });

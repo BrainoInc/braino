@@ -9,12 +9,15 @@ import {
   updateWorkspaceCollaborator,
 } from "@doco/host";
 import { WRITABLE_TYPES } from "@doco/shared";
+import { msg } from "@doco/shared/i18n";
+import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { hashPassword, passwordError } from "~/lib/password.server";
+import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
 interface LoaderData {
   workspace: { id: string; handle: string };
@@ -27,8 +30,15 @@ interface ActionData {
   error?: string;
 }
 
-export function meta() {
-  return [{ title: "Collaborators · Braino" }];
+const ROLE_LABELS: Record<CollectionRole, string> = {
+  owner: msg("Owner"),
+  writer: msg("Writer"),
+  reader: msg("Reader"),
+};
+
+export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
+  const t = metaTranslator(matches);
+  return [{ title: t("Collaborators · Braino") }];
 }
 
 export async function loader({ request }: { request: Request }): Promise<LoaderData | Response> {
@@ -65,16 +75,19 @@ function writeTypes(form: FormData): string[] {
 }
 
 export async function action({ request }: { request: Request }): Promise<Response | ActionData> {
+  const t = await requestTranslator(request);
   const user = await getCurrentUser(request);
-  if (!user) return Response.json({ error: "Sign in to manage collaborators." }, { status: 401 });
+  if (!user)
+    return Response.json({ error: t("Sign in to manage collaborators.") }, { status: 401 });
   const state = await withClient(getSingleWorkspaceState);
-  if (!state.initialized) return Response.json({ error: "Finish setup first." }, { status: 409 });
+  if (!state.initialized)
+    return Response.json({ error: t("Finish setup first.") }, { status: 409 });
   const form = await request.formData();
   const intent = text(form, "intent");
   try {
     if (intent === "add") {
       const password = text(form, "password");
-      const invalidPassword = passwordError(password);
+      const invalidPassword = passwordError(password, t);
       if (invalidPassword) return { error: invalidPassword };
       const passwordHash = await hashPassword(password);
       await withClient((client) =>
@@ -108,26 +121,30 @@ export async function action({ request }: { request: Request }): Promise<Respons
         }),
       );
     } else {
-      return { error: "Unknown collaborator action." };
+      return { error: t("Unknown collaborator action.") };
     }
     return redirect("/collaborators");
   } catch (error) {
     if (error instanceof WorkspaceAccessError) {
-      return Response.json({ error: error.message }, { status: error.status });
+      return Response.json({ error: t(error.message) }, { status: error.status });
     }
     const pgError = error as { code?: string; constraint?: string };
     if (pgError.code === "23505") {
-      return Response.json({ error: "That email or username is already in use." }, { status: 409 });
+      return Response.json(
+        { error: t("That email or username is already in use.") },
+        { status: 409 },
+      );
     }
     throw error;
   }
 }
 
 function Breadcrumb({ handle }: { handle: string }) {
+  const t = useT();
   return (
     <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
       <Link to="/" className="hover:underline">
-        Braino
+        {"Braino"}
       </Link>
       <span aria-hidden>›</span>
       <Link to="/" className="hover:underline">
@@ -135,18 +152,19 @@ function Breadcrumb({ handle }: { handle: string }) {
       </Link>
       <span aria-hidden>›</span>
       <Link to="/admin" className="hover:underline">
-        Admin
+        {t("Admin")}
       </Link>
       <span aria-hidden>›</span>
-      <span>Collaborators</span>
+      <span>{t("Collaborators")}</span>
     </nav>
   );
 }
 
 function WriteTypeSelect({ selected }: { selected?: string[] }) {
+  const t = useT();
   return (
     <label className="block text-xs">
-      <span className="mb-1 block text-muted-foreground">Per-type writes for readers</span>
+      <span className="mb-1 block text-muted-foreground">{t("Per-type writes for readers")}</span>
       <select
         name="write_types"
         multiple
@@ -164,17 +182,18 @@ function WriteTypeSelect({ selected }: { selected?: string[] }) {
 }
 
 function RoleSelect({ value }: { value?: CollectionRole }) {
+  const t = useT();
   return (
     <label className="block text-xs">
-      <span className="mb-1 block text-muted-foreground">Role</span>
+      <span className="mb-1 block text-muted-foreground">{t("Role")}</span>
       <select
         name="role"
         defaultValue={value ?? "writer"}
         className="w-full rounded-md px-3 py-2 text-sm"
       >
-        <option value="owner">Owner</option>
-        <option value="writer">Writer</option>
-        <option value="reader">Reader</option>
+        <option value="owner">{t(ROLE_LABELS.owner)}</option>
+        <option value="writer">{t(ROLE_LABELS.writer)}</option>
+        <option value="reader">{t(ROLE_LABELS.reader)}</option>
       </select>
     </label>
   );
@@ -196,13 +215,17 @@ function Field({
 }
 
 export default function Collaborators() {
+  const t = useT();
   const data = useLoaderData() as LoaderData;
   const actionData = useActionData() as ActionData | undefined;
   return (
     <PageMain className="space-y-6 py-6">
-      <PageHeader breadcrumb={<Breadcrumb handle={data.workspace.handle} />} title="Collaborators">
+      <PageHeader
+        breadcrumb={<Breadcrumb handle={data.workspace.handle} />}
+        title={t("Collaborators")}
+      >
         <p className="text-xs text-muted-foreground">
-          People who can sign in to this workspace and the records they may author.
+          {t("People who can sign in to this workspace and the records they may author.")}
         </p>
       </PageHeader>
 
@@ -223,8 +246,8 @@ export default function Collaborators() {
                   <span className="font-mono text-[11px] text-muted-foreground">
                     @{person.username} · {person.email}
                   </span>
-                  <span className="ml-auto text-xs capitalize text-muted-foreground">
-                    {person.role}
+                  <span className="ms-auto text-xs capitalize text-muted-foreground">
+                    {t(ROLE_LABELS[person.role])}
                   </span>
                 </div>
                 {data.canManage && !self ? (
@@ -239,7 +262,7 @@ export default function Collaborators() {
                         value="remove"
                         className="neu-button rounded-md px-3 py-2 text-xs font-semibold text-destructive"
                       >
-                        Remove access
+                        {t("Remove access")}
                       </button>
                       <button
                         type="submit"
@@ -247,7 +270,7 @@ export default function Collaborators() {
                         value="update"
                         className="neu-button rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
                       >
-                        Save access
+                        {t("Save access")}
                       </button>
                     </div>
                   </Form>
@@ -261,19 +284,19 @@ export default function Collaborators() {
       {data.canManage ? (
         <Card>
           <CardHeader>
-            <CardTitle>Add collaborator</CardTitle>
+            <CardTitle>{t("Add collaborator")}</CardTitle>
             <CardDescription>
-              Create their sign-in account and grant access to this deployment&apos;s workspace.
+              {t("Create their sign-in account and grant access to this deployment's workspace.")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form method="post" className="grid gap-3 sm:grid-cols-2">
               <input type="hidden" name="intent" value="add" />
-              <Field label="Name" name="name" required />
-              <Field label="Username" name="username" pattern="[a-z0-9][a-z0-9_-]*" required />
-              <Field label="Email" name="email" type="email" required />
+              <Field label={t("Name")} name="name" required />
+              <Field label={t("Username")} name="username" pattern="[a-z0-9][a-z0-9_-]*" required />
+              <Field label={t("Email")} name="email" type="email" required />
               <Field
-                label="Password"
+                label={t("Password")}
                 name="password"
                 type="password"
                 minLength={12}
@@ -282,12 +305,12 @@ export default function Collaborators() {
               />
               <RoleSelect />
               <WriteTypeSelect />
-              <div className="sm:col-span-2 sm:text-right">
+              <div className="sm:col-span-2 sm:text-end">
                 <button
                   type="submit"
                   className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
                 >
-                  Add collaborator
+                  {t("Add collaborator")}
                 </button>
               </div>
             </Form>

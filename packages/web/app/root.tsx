@@ -24,7 +24,7 @@ import { LanguageMenu } from "~/components/language-menu";
 import { PageMain } from "~/components/page-main";
 import { type CurrentUser, getCurrentUser } from "~/lib/current-user.server";
 import { securityHeaders } from "~/lib/security-headers.server";
-import { catalogOf, loadCatalog } from "~/locales/catalog";
+import { catalogs } from "~/locales/catalog";
 import "./app.css";
 
 interface RootData {
@@ -37,7 +37,7 @@ interface RootData {
 
 export async function loader({ request }: { request: Request }): Promise<RootData> {
   const locale = localeFromRequest(request);
-  await loadCatalog(locale);
+  await catalogs.load(locale);
   const state = await withClient(getSingleWorkspaceState);
   if (!state.initialized) {
     return { locale, initialized: false, user: null, isOwner: false, modelsReady: false };
@@ -78,7 +78,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="min-h-screen antialiased">
-        <I18nProvider locale={locale} catalog={catalogOf(locale)}>
+        <I18nProvider locale={locale} catalog={catalogs.of(locale)}>
           {children}
         </I18nProvider>
         <ScrollRestoration />
@@ -188,7 +188,7 @@ export function ErrorBoundary() {
       : t("Unexpected error");
   return (
     <PageMain className="space-y-4 py-10">
-      <p className="font-mono text-xs text-muted-foreground">Braino</p>
+      <p className="font-mono text-xs text-muted-foreground">{"Braino"}</p>
       <div className="neu-surface rounded-lg bg-card p-5">
         <h1 className="text-2xl font-semibold text-destructive">{status}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{message}</p>
