@@ -640,7 +640,7 @@ export default function AdminPage() {
                   <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
                   <input
                     name="chat_model"
-                    defaultValue={chatPlugin?.configuration.model ?? "qwen3:0.6b"}
+                    defaultValue={chatPlugin?.configuration.model ?? "qwen3.5:2b"}
                     required
                     className="w-full rounded-md px-3 py-2 font-mono text-sm"
                   />
@@ -678,7 +678,7 @@ export default function AdminPage() {
                   <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
                   <input
                     name="embedding_model"
-                    defaultValue={embeddingPlugin?.configuration.model ?? "embeddinggemma"}
+                    defaultValue={embeddingPlugin?.configuration.model ?? "embeddinggemma-2:270m"}
                     required
                     className="w-full rounded-md px-3 py-2 font-mono text-sm"
                   />

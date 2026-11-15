@@ -112,7 +112,7 @@ impl Guest for OllamaChatPlugin {
         }
         let model = braino::plugin::host::configuration("model")
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "qwen3:0.6b".to_string());
+            .unwrap_or_else(|| "qwen3.5:2b".to_string());
         let body = serde_json::to_vec(&OllamaRequest {
             model: &model,
             messages: &input.messages,

@@ -8,7 +8,7 @@
   "configurationSchema": {
     "type": "object",
     "properties": {
-      "model": { "type": "string", "default": "qwen3:0.6b" }
+      "model": { "type": "string", "default": "qwen3.5:2b" }
     },
     "additionalProperties": false
   }

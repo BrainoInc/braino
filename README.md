@@ -66,8 +66,8 @@ the single place to change either model later:
 docker compose --profile models up -d
 ```
 
-The profile pulls the `qwen3:0.6b` chat model and the 300M `embeddinggemma`
-model into its own local volume. Each plugin runs as a digest-pinned WebAssembly
+The profile pulls the `qwen3.5:2b` chat model and the 270M text-only
+`embeddinggemma-2:270m` model into its own local volume. Each plugin runs as a digest-pinned WebAssembly
 Component and can reach only the operator-approved `ollama:11434` service on
 the private Compose network. The retrieval scheduler embeds pending source
 documents and projects the resulting vectors to Qdrant; workspace content,
