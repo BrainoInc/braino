@@ -2,7 +2,7 @@
  * The translator for React components: `const t = useT()`.
  * `I18nProvider` at the root gives every component the reader's language.
  */
-import { Children, type ReactNode, createContext, createElement, useContext, useMemo } from "react";
+import { Fragment, type ReactNode, createContext, createElement, useContext, useMemo } from "react";
 import { type Catalog, type Locale, SOURCE_LOCALE, createTranslator } from "./i18n.js";
 
 type TextValue = string | number;
@@ -27,15 +27,18 @@ function reactTranslator(locale: Locale, catalog: Catalog): ReactTranslator {
         source: string,
         values: Readonly<Record<string, TextValue | ((children: ReactNode) => ReactNode)>>,
       ): ReactNode =>
-        // toArray gives each part the key React asks of a list.
-        Children.toArray(
-          t.rich<ReactNode>(
+        // A fragment's children given one by one are a sentence's parts, not a list, so
+        // React asks no key of them.
+        createElement(
+          Fragment,
+          null,
+          ...t.rich<ReactNode>(
             source,
             Object.fromEntries(
               Object.entries(values).map(([name, value]) => [
                 name,
                 typeof value === "function"
-                  ? (children: (string | ReactNode)[]) => value(Children.toArray(children))
+                  ? (children: ReactNode[]) => value(createElement(Fragment, null, ...children))
                   : value,
               ]),
             ),

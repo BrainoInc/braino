@@ -10,6 +10,7 @@
  *   t("Signed in as {name}", { name })
  *   t("{count, plural, one {# record} other {# records}}", { count })
  *   t("{role, select, owner {Owner} other {Member}}", { role })
+ *   t("{rank, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}", { rank })
  *   t.rich("Read the <guide>operations guide</guide>.", { guide: (children) => … })
  *
  * A number is written the way the language writes it; pass text to show a
@@ -118,7 +119,11 @@ export type MessageNode =
   | string
   | { kind: "value"; name: string }
   | { kind: "number" }
-  | { kind: "plural" | "select"; name: string; options: Map<string, MessageNode[]> }
+  | {
+      kind: "plural" | "selectordinal" | "select";
+      name: string;
+      options: Map<string, MessageNode[]>;
+    }
   | { kind: "tag"; name: string; children: MessageNode[] };
 
 const NAME = /[A-Za-z_][A-Za-z0-9_]*/y;
@@ -175,10 +180,12 @@ export function parseMessage(message: string): MessageNode[] {
     if (message[at] !== ",") fail("Expected } or ,");
     at += 1;
     const kind = name();
-    if (kind !== "plural" && kind !== "select") fail("Expected plural or select");
+    if (kind !== "plural" && kind !== "selectordinal" && kind !== "select") {
+      fail("Expected plural, selectordinal or select");
+    }
     if (message[at] !== ",") fail("Expected ,");
     at += 1;
-    const found = options(inPlural || kind === "plural");
+    const found = options(inPlural || kind !== "select");
     at += 1;
     return { kind, name: argumentName, options: found };
   }
@@ -255,6 +262,7 @@ export function createTranslator(locale: Locale, catalog: Catalog): Translator {
   const parsed = new Map<string, MessageNode[]>();
   const numbers = new Intl.NumberFormat(locale);
   const plurals = new Intl.PluralRules(locale);
+  const ordinals = new Intl.PluralRules(locale, { type: "ordinal" });
 
   function nodesOf(message: string): MessageNode[] {
     let nodes = parsed.get(message);
@@ -295,12 +303,13 @@ export function createTranslator(locale: Locale, catalog: Catalog): Translator {
         push(wrap(render<Part>(node.children, values, message, rich, pluralValue)) as Part);
       } else {
         const value = given(node.name);
+        const rules = node.kind === "plural" ? plurals : ordinals;
         const branch =
-          node.kind === "plural"
-            ? (node.options.get(`=${value}`) ?? node.options.get(plurals.select(Number(value))))
-            : node.options.get(String(value));
+          node.kind === "select"
+            ? node.options.get(String(value))
+            : (node.options.get(`=${value}`) ?? node.options.get(rules.select(Number(value))));
         const chosen = branch ?? node.options.get("other") ?? [];
-        const count = node.kind === "plural" ? Number(value) : pluralValue;
+        const count = node.kind === "select" ? pluralValue : Number(value);
         for (const part of render<Part>(chosen, values, message, rich, count)) push(part);
       }
     }
