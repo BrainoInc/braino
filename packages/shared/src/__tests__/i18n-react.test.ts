@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { I18nProvider, useT } from "../i18n-react.js";
 
 function Greeting() {
@@ -34,5 +34,13 @@ describe("useT", () => {
         createElement(I18nProvider, { locale: "es", catalog }, createElement(Greeting)),
       ),
     ).toBe('<p title="Iniciar sesión" lang="es">Lee la <a href="/guide">guía</a>, <b>Ada</b>.</p>');
+  });
+
+  it("asks React for no keys, so rendering a sentence logs nothing", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    renderToStaticMarkup(createElement(Greeting));
+    const logged = error.mock.calls;
+    error.mockRestore();
+    expect(logged).toEqual([]);
   });
 });

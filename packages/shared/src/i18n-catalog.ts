@@ -114,12 +114,17 @@ function signature(nodes: MessageNode[], found = new Set<string>()): Set<string>
   return found;
 }
 
-function plurals(nodes: MessageNode[], found: Map<string, MessageNode[]>[] = []) {
+function plurals(
+  nodes: MessageNode[],
+  found: { ordinal: boolean; options: Map<string, MessageNode[]> }[] = [],
+) {
   for (const node of nodes) {
     if (typeof node === "string" || node.kind === "number" || node.kind === "value") continue;
     if (node.kind === "tag") plurals(node.children, found);
     else {
-      if (node.kind === "plural") found.push(node.options);
+      if (node.kind !== "select") {
+        found.push({ ordinal: node.kind === "selectordinal", options: node.options });
+      }
       for (const option of node.options.values()) plurals(option, found);
     }
   }
@@ -149,19 +154,22 @@ export function sourceProblems(uses: MessageUse[]): string[] {
 }
 
 /**
- * The plural forms a language uses for the counts an interface shows. Spanish,
- * French and Portuguese keep a form for exact millions that reads the same as
- * "other", so a translation need not spell it out.
+ * The plural (or, for an ordinal, place) forms a language uses for the counts an
+ * interface shows. Spanish, French and Portuguese keep a form for exact millions
+ * that reads the same as "other", so a translation need not spell it out.
  */
-function everydayPluralForms(locale: Locale): string[] {
-  const rules = new Intl.PluralRules(locale);
+function everydayPluralForms(locale: Locale, ordinal: boolean): string[] {
+  const rules = new Intl.PluralRules(locale, { type: ordinal ? "ordinal" : "cardinal" });
   return [...new Set(Array.from({ length: 201 }, (_, count) => rules.select(count)))];
 }
 
 /** Where a language's catalog differs from what the source says. */
 export function catalogProblems(locale: Locale, sources: string[], catalog: Catalog): string[] {
   const problems: string[] = [];
-  const categories = everydayPluralForms(locale);
+  const forms = {
+    cardinal: everydayPluralForms(locale, false),
+    ordinal: everydayPluralForms(locale, true),
+  };
   for (const source of sources) {
     const translation = catalog[source];
     if (!translation) {
@@ -183,9 +191,13 @@ export function catalogProblems(locale: Locale, sources: string[], catalog: Cata
       problems.push(`${locale} translation of "${source}" must use exactly: ${expects.join(", ")}`);
       continue;
     }
-    const lacking = categories.filter((category) =>
-      plurals(nodes).some((options) => !options.has(category)),
-    );
+    const lacking = [
+      ...new Set(
+        plurals(nodes).flatMap(({ ordinal, options }) =>
+          (ordinal ? forms.ordinal : forms.cardinal).filter((form) => !options.has(form)),
+        ),
+      ),
+    ];
     if (lacking.length) {
       problems.push(
         `${locale} translation of "${source}" lacks the plural forms: ${lacking.join(", ")}`,

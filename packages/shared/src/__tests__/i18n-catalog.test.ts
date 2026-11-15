@@ -162,6 +162,16 @@ describe("catalogProblems", () => {
     );
   });
 
+  it("names an ordinal that lacks a form the language needs", () => {
+    const ordinal = "{rank, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}";
+    expect(
+      catalogProblems("en", [ordinal], { [ordinal]: "{rank, selectordinal, other {#th}}" }),
+    ).toEqual([`en translation of "${ordinal}" lacks the plural forms: one, two, few`]);
+    expect(
+      catalogProblems("ja", [ordinal], { [ordinal]: "{rank, selectordinal, other {#位}}" }),
+    ).toEqual([]);
+  });
+
   it("names a malformed translation", () => {
     expect(catalogProblems("es", ["Hi {name}"], { "Hi {name}": "Hola {name" })[0]).toMatch(
       /^es translation of "Hi \{name\}" is malformed: Expected \} or ,/,
