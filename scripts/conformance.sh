@@ -105,7 +105,10 @@ setup_status=$(curl --silent --show-error -o "$runtime/setup-response" -w '%{htt
   --data-urlencode 'owner_username=conformance-owner' \
   --data-urlencode 'owner_email=owner@conformance.invalid' \
   --data-urlencode "setup_token=$BRAINO_SETUP_TOKEN" \
-  --data-urlencode 'password=conformance-owner-password')
+  --data-urlencode 'password=conformance-owner-password' \
+  --data-urlencode 'chat_model=qwen3:0.6b' \
+  --data-urlencode 'embedding_model=embeddinggemma' \
+  --data-urlencode 'embedding_dimensions=768')
 [[ "$setup_status" == "302" || "$setup_status" == "303" ]]
 
 curl --fail --silent --show-error -b "$cookies" "$origin/" >"$runtime/dashboard"
