@@ -116,6 +116,29 @@ describe("createTranslator", () => {
     expect(ru(source, { count: 21 })).toBe("21 результат");
   });
 
+  it("writes an ordinal the way the language counts places", () => {
+    const source = "{rank, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} of {count}";
+    const en = createTranslator("en", {});
+    expect([1, 2, 3, 4, 11, 21, 22, 23, 101].map((rank) => en(source, { rank, count: 9 }))).toEqual(
+      [
+        "1st of 9",
+        "2nd of 9",
+        "3rd of 9",
+        "4th of 9",
+        "11th of 9",
+        "21st of 9",
+        "22nd of 9",
+        "23rd of 9",
+        "101st of 9",
+      ],
+    );
+    const fr = createTranslator("fr", {
+      [source]: "{rank, selectordinal, one {#er} other {#e}} sur {count}",
+    });
+    expect(fr(source, { rank: 1, count: 9 })).toBe("1er sur 9");
+    expect(fr(source, { rank: 4, count: 9 })).toBe("4e sur 9");
+  });
+
   it("lets an exact number override the plural form", () => {
     const t = createTranslator("en", {});
     const source = "{count, plural, =0 {No records} one {# record} other {# records}}";

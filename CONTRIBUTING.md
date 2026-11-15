@@ -53,7 +53,8 @@ function Results({ count, query }: { count: number; query: string }) {
 
 - **One sentence, one `t`.** Never join translated pieces or append an "s":
   word order and plurals differ by language. Put values in `{name}`, counts in
-  `{count, plural, one {…} other {…}}`, choices in
+  `{count, plural, one {…} other {…}}`, places in
+  `{rank, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}`, choices in
   `{kind, select, a {…} other {…}}`, and wrap a link or emphasis inside a
   sentence with `t.rich` and `<name>…</name>`.
 - **On the server**, a loader or action gets its translator from the request
