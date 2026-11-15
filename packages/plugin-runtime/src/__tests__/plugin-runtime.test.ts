@@ -7,6 +7,7 @@ import {
   definePlugin,
   parsePluginManifest,
   pluginCapability,
+  pluginConfigurationChoices,
 } from "../index.js";
 
 const sourcePull: SourcePullCapability = {
@@ -125,6 +126,54 @@ describe("Braino plugin protocol", () => {
     ],
   ])("rejects malformed marketplace manifest input", (input, message) => {
     expect(() => parsePluginManifest(input)).toThrow(message);
+  });
+
+  const modelManifest = (model: Record<string, unknown>) => ({
+    protocolVersion: 1,
+    id: "acme.chat",
+    name: "Acme chat",
+    version: "1.0.0",
+    capabilities: ["chat.complete"],
+    permissions: { network: ["api.example.com"] },
+    configurationSchema: {
+      type: "object",
+      properties: { model: { type: "string", ...model }, region: { type: "string" } },
+    },
+  });
+
+  it("reads the default and suggested values a manifest declares for a configuration key", () => {
+    const manifest = parsePluginManifest(
+      modelManifest({ default: "small", examples: ["large", "small", "medium"] }),
+    );
+
+    expect(pluginConfigurationChoices(manifest, "model")).toEqual({
+      default: "small",
+      suggested: ["small", "large", "medium"],
+    });
+    expect(pluginConfigurationChoices(manifest, "region")).toEqual({
+      default: null,
+      suggested: [],
+    });
+    expect(pluginConfigurationChoices(manifest, "undeclared")).toEqual({
+      default: null,
+      suggested: [],
+    });
+    expect(
+      pluginConfigurationChoices(parsePluginManifest(modelManifest({ default: "small" })), "model"),
+    ).toEqual({ default: "small", suggested: ["small"] });
+  });
+
+  it.each([
+    [{ default: 4 }, "default"],
+    [{ default: " " }, "default"],
+    [{ examples: "large" }, "examples"],
+    [{ examples: ["large", 4] }, "examples"],
+    [{ examples: ["large", ""] }, "examples"],
+    [{ examples: ["large", "large"] }, "examples"],
+  ])("rejects a configuration default or suggestion that is not usable text", (model, message) => {
+    expect(() => parsePluginManifest(modelManifest(model))).toThrow(
+      `Plugin configuration property model has invalid ${message}.`,
+    );
   });
 
   it("rejects a manifest whose implementation does not match its declaration", () => {

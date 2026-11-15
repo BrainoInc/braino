@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -189,17 +197,20 @@ describe("the supported self-hosted stack", () => {
     const embeddingManifest = JSON.parse(
       readFileSync(resolve(root, "plugins/ollama-embedding/manifest.json"), "utf8"),
     ) as { configurationSchema: { properties: { model: { default: string } } } };
-    const setup = readFileSync(resolve(root, "packages/web/app/routes/_index.tsx"), "utf8");
 
     expect(chatManifest.configurationSchema.properties.model.default).toBe("qwen3.5:2b");
     expect(embeddingManifest.configurationSchema.properties.model.default).toBe(
       "embeddinggemma-2:270m",
     );
-    expect(setup).toContain("MODEL_PROVIDER_DEFAULTS.ollama.chatModel");
-    expect(setup).toContain("MODEL_PROVIDER_DEFAULTS.ollama.embeddingModel");
+    // Setup reads its defaults from those manifests; the web code names no model.
+    for (const file of readdirSync(resolve(root, "packages/web/app"), { recursive: true })) {
+      if (typeof file !== "string" || !/\.tsx?$/.test(file) || /test\.ts$/.test(file)) continue;
+      const source = readFileSync(resolve(root, "packages/web/app", file), "utf8");
+      expect(source, file).not.toMatch(/qwen3|embeddinggemma|gpt-4|text-embedding-3/);
+    }
   });
 
-  it("bundles an OpenAI provider pair with encrypted API-key inputs", () => {
+  it("bundles OpenAI chat and embedding plugins that each require their own API key", () => {
     const chatManifest = JSON.parse(
       readFileSync(resolve(root, "plugins/openai-chat/manifest.json"), "utf8"),
     ) as {

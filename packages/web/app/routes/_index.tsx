@@ -4,7 +4,6 @@ import {
   getSingleWorkspaceState,
   getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace,
-  installRequiredModelPlugins,
   reservePasswordSignInAttempt,
   revokeUserSessions,
 } from "@doco/host";
@@ -14,9 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { CollectionTypeIcon } from "~/components/collection-type-icon";
 import { PageHeader } from "~/components/page-header";
 import { NarrowPageMain, PageMain } from "~/components/page-main";
-import { bundledModelProviderPlugins } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
-import { MODEL_PROVIDER_DEFAULTS, modelProvider } from "~/lib/model-provider-catalog";
 import { hashPassword, passwordError, verifyPassword } from "~/lib/password.server";
 import {
   MAX_FORM_BODY_BYTES,
@@ -49,12 +46,6 @@ type LoaderData =
   | { screen: "setup" }
   | { screen: "signin"; workspaceName: string; next: string }
   | {
-      screen: "models-required";
-      workspaceName: string;
-      chat: "missing" | "invalid" | "ambiguous" | "ready";
-      embedding: "missing" | "invalid" | "ambiguous" | "ready";
-    }
-  | {
       screen: "dashboard";
       workspace: WorkspaceView;
       user: { id: string; email: string; username: string; name: string };
@@ -80,14 +71,8 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
   const modelPlugins = await withClient((client) =>
     getWorkspaceModelPluginReadiness(client, state.workspace.id),
   );
-  if (!modelPlugins.ready) {
-    return {
-      screen: "models-required",
-      workspaceName: state.workspace.name,
-      chat: modelPlugins.chat,
-      embedding: modelPlugins.embedding,
-    };
-  }
+  // Nothing in the workspace works without its two models, so setup comes first.
+  if (!modelPlugins.ready) throw redirect("/admin/models");
   return withClient(async (client) => {
     const workspaceResult = await client.query<WorkspaceView>(
       "SELECT id, handle, name, constitution FROM workspaces WHERE id = $1",
@@ -125,14 +110,6 @@ function formError(error: string): { error: string } {
   return { error };
 }
 
-function encryptionKey(): string {
-  const value = process.env.DOCO_ENCRYPTION_KEY?.trim();
-  if (!value || value.length < 32) {
-    throw new Error("DOCO_ENCRYPTION_KEY must contain at least 32 characters.");
-  }
-  return value;
-}
-
 export async function action({ request }: { request: Request }) {
   const t = await requestTranslator(request);
   let form: FormData;
@@ -152,52 +129,6 @@ export async function action({ request }: { request: Request }) {
   }
 
   const state = await withClient(getSingleWorkspaceState);
-  if (intent === "install_model_provider") {
-    if (!state.initialized) return formError(t("Create the workspace first."));
-    const user = await getCurrentUser(request);
-    if (!user) return formError(t("Sign in first."));
-    const provider = modelProvider(text(form, "provider"));
-    if (!provider) return formError(t("Choose a supported AI provider."));
-    const chatModel = text(form, "chat_model");
-    const embeddingModel = text(form, "embedding_model");
-    const embeddingDimensions = text(form, "embedding_dimensions");
-    if (!chatModel || !embeddingModel) {
-      return formError(t("Both model plugins require a model."));
-    }
-    if (!Number.isInteger(Number(embeddingDimensions)) || Number(embeddingDimensions) < 1) {
-      return formError(t("Embedding dimensions must be a positive integer."));
-    }
-    const apiKey = text(form, "api_key");
-    if (provider === "openai" && !apiKey) {
-      return formError(t("Enter your OpenAI API key."));
-    }
-    try {
-      const plugins = await bundledModelProviderPlugins(provider);
-      const secret =
-        provider === "openai"
-          ? { secrets: { api_key: apiKey }, encryptionKey: encryptionKey() }
-          : {};
-      await withClient((client) =>
-        installRequiredModelPlugins(client, {
-          workspaceId: state.workspace.id,
-          userId: user.id,
-          chat: {
-            ...plugins.chat,
-            configuration: { model: chatModel },
-            ...secret,
-          },
-          embedding: {
-            ...plugins.embedding,
-            configuration: { model: embeddingModel, dimensions: embeddingDimensions },
-            ...secret,
-          },
-        }),
-      );
-      return redirect("/");
-    } catch (caught) {
-      return formError(caught instanceof Error ? t(caught.message) : t("Plugin setup failed."));
-    }
-  }
   if (intent === "setup") {
     if (state.initialized) return formError(t("Braino is already initialized."));
     const invalidSetupToken = setupTokenError(text(form, "setup_token"));
@@ -284,9 +215,6 @@ export default function Home() {
   if (data.screen === "signin") {
     return <SignIn workspaceName={data.workspaceName} next={data.next} error={actionData?.error} />;
   }
-  if (data.screen === "models-required") {
-    return <ModelsRequired data={data} error={actionData?.error} />;
-  }
   return <WorkspaceHome data={data} />;
 }
 
@@ -334,7 +262,7 @@ function Setup({ error }: { error?: string }) {
         title={t("Create your Braino")}
       >
         <p className="text-xs text-muted-foreground">
-          {t("Set up the owner and workspace. Next, you will choose how Braino gets its AI.")}
+          {t("Set up the owner and workspace. Next, you will set up the two models Braino needs.")}
         </p>
       </PageHeader>
       <Card>
@@ -385,186 +313,6 @@ function Setup({ error }: { error?: string }) {
           </Form>
         </CardContent>
       </Card>
-    </PageMain>
-  );
-}
-
-function ModelsRequired({
-  data,
-  error,
-}: {
-  data: Extract<LoaderData, { screen: "models-required" }>;
-  error?: string;
-}) {
-  const t = useT();
-  const status = (value: "missing" | "invalid" | "ambiguous" | "ready") =>
-    value === "ready" ? t("Ready") : t("Setup required");
-  return (
-    <PageMain className="space-y-5 py-6">
-      <PageHeader
-        breadcrumb={<Breadcrumb>{t("Step 2 of 2")}</Breadcrumb>}
-        title={t("Power your Braino")}
-      >
-        <p className="max-w-2xl text-xs text-muted-foreground">
-          {t(
-            "Braino needs two things: one to answer questions and one to make your workspace searchable. Choose a provider and Braino will install both required plugins.",
-          )}
-        </p>
-      </PageHeader>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card>
-          <CardContent className="flex items-center justify-between gap-4 py-3 text-xs">
-            <div>
-              <p className="font-semibold">{t("Answers and reasoning")}</p>
-              <p className="text-muted-foreground">{t("Writes answers and runs agent tasks.")}</p>
-            </div>
-            <span className="font-mono">{status(data.chat)}</span>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center justify-between gap-4 py-3 text-xs">
-            <div>
-              <p className="font-semibold">{t("Searchable memory")}</p>
-              <p className="text-muted-foreground">{t("Finds the right workspace knowledge.")}</p>
-            </div>
-            <span className="font-mono">{status(data.embedding)}</span>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>{"OpenAI"}</CardTitle>
-              <span className="rounded-full bg-primary/10 px-2 py-1 font-mono text-[10px] text-primary">
-                {t("Fastest setup")}
-              </span>
-            </div>
-            <CardDescription>
-              {t(
-                "Use your existing OpenAI API account. OpenAI processes requests and bills usage to that account.",
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form method="post" className="space-y-3">
-              <input type="hidden" name="intent" value="install_model_provider" />
-              <input type="hidden" name="provider" value="openai" />
-              <Field
-                label={t("OpenAI API key")}
-                name="api_key"
-                type="password"
-                autoComplete="off"
-                placeholder="sk-…"
-                required
-              />
-              <p className="text-[11px] text-muted-foreground">
-                {t(
-                  "Braino uses one key for both plugins, stores it encrypted and never displays it.",
-                )}{" "}
-                <a
-                  href="https://platform.openai.com/api-keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary underline underline-offset-2"
-                >
-                  {t("Find or create an API key")}
-                </a>
-              </p>
-              <details className="rounded-md border border-border/70 px-3 py-2 text-xs">
-                <summary className="cursor-pointer font-semibold">{t("Advanced settings")}</summary>
-                <div className="mt-3 grid gap-3">
-                  <Field
-                    label={t("Chat model")}
-                    name="chat_model"
-                    defaultValue={MODEL_PROVIDER_DEFAULTS.openai.chatModel}
-                    required
-                  />
-                  <Field
-                    label={t("Embedding model")}
-                    name="embedding_model"
-                    defaultValue={MODEL_PROVIDER_DEFAULTS.openai.embeddingModel}
-                    required
-                  />
-                  <Field
-                    label={t("Embedding dimensions")}
-                    name="embedding_dimensions"
-                    type="number"
-                    min="1"
-                    defaultValue={MODEL_PROVIDER_DEFAULTS.openai.embeddingDimensions}
-                    required
-                  />
-                </div>
-              </details>
-              <button
-                type="submit"
-                className="neu-button w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
-              >
-                {t("Connect OpenAI")}
-              </button>
-            </Form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("Local models")}</CardTitle>
-            <CardDescription>
-              {t(
-                "Keep prompts and search local with Ollama. No provider account is required, but this server must run the optional models service.",
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form method="post" className="space-y-3">
-              <input type="hidden" name="intent" value="install_model_provider" />
-              <input type="hidden" name="provider" value="ollama" />
-              <div className="neu-well rounded-md px-3 py-2 text-xs text-muted-foreground">
-                {t(
-                  "Best for privacy and offline use. Initial model downloads can take several minutes.",
-                )}
-              </div>
-              <details className="rounded-md border border-border/70 px-3 py-2 text-xs">
-                <summary className="cursor-pointer font-semibold">{t("Advanced settings")}</summary>
-                <div className="mt-3 grid gap-3">
-                  <Field
-                    label={t("Chat model")}
-                    name="chat_model"
-                    defaultValue={MODEL_PROVIDER_DEFAULTS.ollama.chatModel}
-                    required
-                  />
-                  <Field
-                    label={t("Embedding model")}
-                    name="embedding_model"
-                    defaultValue={MODEL_PROVIDER_DEFAULTS.ollama.embeddingModel}
-                    required
-                  />
-                  <Field
-                    label={t("Embedding dimensions")}
-                    name="embedding_dimensions"
-                    type="number"
-                    min="1"
-                    defaultValue={MODEL_PROVIDER_DEFAULTS.ollama.embeddingDimensions}
-                    required
-                  />
-                </div>
-              </details>
-              <button
-                type="submit"
-                className="neu-button w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
-              >
-                {t("Use local models")}
-              </button>
-            </Form>
-          </CardContent>
-        </Card>
-      </div>
-      <ErrorMessage error={error} />
-      <p className="text-center font-mono text-[11px] text-muted-foreground">
-        {t("You can manage installed plugins later from Admin.")} · {data.workspaceName}
-      </p>
     </PageMain>
   );
 }

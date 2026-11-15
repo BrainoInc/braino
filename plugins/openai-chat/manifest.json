@@ -8,7 +8,11 @@
   "configurationSchema": {
     "type": "object",
     "properties": {
-      "model": { "type": "string", "default": "gpt-4.1-mini" }
+      "model": {
+        "type": "string",
+        "default": "gpt-4.1-mini",
+        "examples": ["gpt-4.1-mini", "gpt-4.1", "gpt-4.1-nano"]
+      }
     },
     "additionalProperties": false
   },

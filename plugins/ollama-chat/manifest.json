@@ -8,7 +8,11 @@
   "configurationSchema": {
     "type": "object",
     "properties": {
-      "model": { "type": "string", "default": "qwen3.5:2b" }
+      "model": {
+        "type": "string",
+        "default": "qwen3.5:2b",
+        "examples": ["qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b"]
+      }
     },
     "additionalProperties": false
   }

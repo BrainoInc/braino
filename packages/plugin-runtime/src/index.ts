@@ -184,6 +184,55 @@ function validateManifest(manifest: PluginManifest): void {
       throw new Error(`Invalid plugin network host: ${host}.`);
     }
   }
+  for (const [key, property] of Object.entries(schemaProperties(manifest.configurationSchema))) {
+    // Configuration values are strings, so what a manifest offers for one must be too.
+    if (property.default !== undefined && !usableText(property.default)) {
+      throw new Error(`Plugin configuration property ${key} has invalid default.`);
+    }
+    const examples = property.examples;
+    if (
+      examples !== undefined &&
+      (!Array.isArray(examples) ||
+        !examples.every(usableText) ||
+        new Set(examples).size !== examples.length)
+    ) {
+      throw new Error(`Plugin configuration property ${key} has invalid examples.`);
+    }
+  }
+}
+
+function usableText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function schemaProperties(
+  schema: Readonly<Record<string, unknown>> | undefined,
+): Record<string, Record<string, unknown>> {
+  const properties = schema?.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return {};
+  return Object.fromEntries(
+    Object.entries(properties).filter(
+      (entry): entry is [string, Record<string, unknown>] =>
+        Boolean(entry[1]) && typeof entry[1] === "object" && !Array.isArray(entry[1]),
+    ),
+  );
+}
+
+/**
+ * What a manifest offers for one configuration key: the JSON Schema `default`
+ * of that property, and its `examples` as suggested values, default first.
+ */
+export function pluginConfigurationChoices(
+  manifest: Readonly<PluginManifest>,
+  key: string,
+): { default: string | null; suggested: readonly string[] } {
+  const property = schemaProperties(manifest.configurationSchema)[key];
+  const fallback = usableText(property?.default) ? property.default : null;
+  const examples = Array.isArray(property?.examples) ? property.examples.filter(usableText) : [];
+  return {
+    default: fallback,
+    suggested: [...new Set(fallback ? [fallback, ...examples] : examples)],
+  };
 }
 
 function immutableManifest(manifest: PluginManifest): Readonly<PluginManifest> {

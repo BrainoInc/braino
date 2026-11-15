@@ -41,10 +41,13 @@ from claiming ownership. After the sole workspace is created, first-run setup
 is closed and the token cannot initialize another workspace.
 
 Open `http://localhost:3000`, enter `BRAINO_SETUP_TOKEN`, and create the owner and
-sole workspace. Braino then explains its two required capabilities and asks the
-owner to choose one provider: connect an existing OpenAI API account with one
-encrypted API key, or install the bundled local Ollama plugins. Exact model
-identifiers stay under **Advanced settings**. The application port binds to loopback; the optional Caddy
+sole workspace. Braino then opens **Model setup**, which lists the two models it
+needs: a chat model and an embedding model. Each comes from one plugin. The
+bundled Ollama plugins are pre-selected with their default models, so **Check
+and finish** completes setup without choosing anything. **Configure** on either
+model lists the plugins available for it; a plugin's own page shows the one
+host it may reach, a picker of suggested models, and a field for its own key
+when it needs one. The application port binds to loopback; the optional Caddy
 profile is the supported way to expose Braino publicly. Records
 can be captured from a collection page or created, related, transitioned, and
 superseded through its compatible `/<collection-handle>/api/changesets.json`
@@ -61,10 +64,12 @@ access. It reports configuration readiness without displaying secret values;
 privileged backup, restore, and upgrade commands stay on the host.
 
 Every workspace requires one chat model plugin and one embedding model plugin;
-the dashboard stays closed until both are ready. To keep both on the same
-machine, start the model profile before choosing **Local models** during
-onboarding. **Admin → Required model plugins** is the place to rotate an OpenAI
-key or change advanced model settings later:
+the dashboard stays closed until both are ready. Several plugins may be
+installed, but exactly one is assigned to each model, and the two are chosen
+independently: chat can run on OpenAI while embeddings stay on Ollama.
+**Admin → Required model plugins** leads to the same Model setup screens to
+change a model, a plugin, or a key later. To keep both models on the same
+machine, start the model profile:
 
 ```sh
 docker compose --profile models up -d
@@ -78,8 +83,9 @@ documents and projects the resulting vectors to Qdrant; workspace content,
 model input, completions, and vectors do not pass through Braino Cloud or
 another Braino instance. The workspace dashboard remains unavailable until
 exactly one enabled, valid provider for each required model capability exists.
-The OpenAI plugins use the same sandbox and can reach only
-`https://api.openai.com`; API keys are encrypted in the workspace database and
+The OpenAI chat and OpenAI embeddings plugins use the same sandbox and can reach
+only `https://api.openai.com`. Each plugin holds its own API key, even when both
+come from the same provider; keys are encrypted in the workspace database and
 are never returned by the application.
 
 Señor Braino and other agents connect directly to the deployment over stateless

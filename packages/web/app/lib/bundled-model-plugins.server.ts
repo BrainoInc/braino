@@ -1,27 +1,53 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { BundledModelProvider } from "~/lib/model-provider-catalog";
+import {
+  type ModelPluginEntry,
+  includedWithBraino,
+  modelPluginEntry,
+} from "~/lib/model-plugin-catalog";
 
-export type ModelPluginKind = "chat" | "embedding";
+const MANIFEST_SUFFIX = ".manifest.json";
 
-export async function bundledModelPlugin(provider: BundledModelProvider, kind: ModelPluginKind) {
-  const directory = process.env.BRAINO_PLUGIN_BUNDLE_DIR?.trim() || "/app/plugins";
-  const stem = `braino_${provider}_${kind}`;
-  const [manifest, component] = await Promise.all([
-    readFile(resolve(directory, `${stem}.manifest.json`), "utf8"),
-    readFile(resolve(directory, `${stem}.wasm`)),
-  ]);
-  return { manifest: JSON.parse(manifest) as unknown, component };
+function bundleDirectory(): string {
+  return process.env.BRAINO_PLUGIN_BUNDLE_DIR?.trim() || "/app/plugins";
 }
 
-export async function bundledModelProviderPlugins(provider: BundledModelProvider) {
-  const [chat, embedding] = await Promise.all([
-    bundledModelPlugin(provider, "chat"),
-    bundledModelPlugin(provider, "embedding"),
-  ]);
-  return { chat, embedding };
+/** A deployment without a plugin bundle has no bundled plugins; it is not an error. */
+async function bundledManifests(): Promise<{ stem: string; manifest: unknown }[]> {
+  const directory = bundleDirectory();
+  const found = await readdir(directory).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  });
+  const files = found.filter((file) => file.endsWith(MANIFEST_SUFFIX)).sort();
+  return Promise.all(
+    files.map(async (file) => ({
+      stem: file.slice(0, -MANIFEST_SUFFIX.length),
+      manifest: JSON.parse(await readFile(resolve(directory, file), "utf8")) as unknown,
+    })),
+  );
 }
 
-export async function bundledOllamaModelPlugin(kind: ModelPluginKind) {
-  return bundledModelPlugin("ollama", kind);
+/** Every model plugin in the bundle, the ones included with Braino first. */
+export async function bundledModelPluginCatalog(): Promise<ModelPluginEntry[]> {
+  const entries = (await bundledManifests())
+    .map((bundled) => modelPluginEntry(bundled.manifest))
+    .filter((entry): entry is ModelPluginEntry => entry !== null);
+  return entries.sort(
+    (a, b) =>
+      Number(includedWithBraino(b)) - Number(includedWithBraino(a)) || a.name.localeCompare(b.name),
+  );
+}
+
+/** One bundled model plugin, ready to install: its catalogue entry, manifest and component. */
+export async function bundledModelPlugin(
+  pluginId: string,
+): Promise<{ entry: ModelPluginEntry; manifest: unknown; component: Uint8Array } | null> {
+  for (const bundled of await bundledManifests()) {
+    const entry = modelPluginEntry(bundled.manifest);
+    if (entry?.id !== pluginId) continue;
+    const component = await readFile(resolve(bundleDirectory(), `${bundled.stem}.wasm`));
+    return { entry, manifest: bundled.manifest, component };
+  }
+  return null;
 }

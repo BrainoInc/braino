@@ -2,12 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  bundledModelProviderPlugins: vi.fn(),
   getCurrentUser: vi.fn(),
   getSingleWorkspaceState: vi.fn(),
   getWorkspaceModelPluginReadiness: vi.fn(),
   initializeSingleWorkspace: vi.fn(),
-  installRequiredModelPlugins: vi.fn(),
   hashPassword: vi.fn(),
   passwordError: vi.fn(),
 }));
@@ -20,12 +18,8 @@ vi.mock("@doco/host", () => ({
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace: mocks.initializeSingleWorkspace,
-  installRequiredModelPlugins: mocks.installRequiredModelPlugins,
   reservePasswordSignInAttempt: vi.fn(),
   revokeUserSessions: vi.fn(),
-}));
-vi.mock("~/lib/bundled-model-plugins.server", () => ({
-  bundledModelProviderPlugins: mocks.bundledModelProviderPlugins,
 }));
 vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("~/lib/password.server", () => ({
@@ -41,17 +35,6 @@ vi.mock("~/lib/setup-token.server", () => ({ setupTokenError: () => null }));
 vi.mock("~/lib/sign-in.server", () => ({ passwordAttemptBuckets: vi.fn() }));
 
 import { action, loader } from "./_index";
-
-const bundledPlugins = {
-  chat: {
-    manifest: { id: "braino.ollama-chat", capabilities: ["chat.complete"] },
-    component: new Uint8Array([1]),
-  },
-  embedding: {
-    manifest: { id: "braino.ollama-embedding", capabilities: ["embedding.embed"] },
-    component: new Uint8Array([2]),
-  },
-};
 
 describe("first-run workspace setup", () => {
   it("creates the workspace before asking the owner to choose model plugins", async () => {
@@ -86,8 +69,6 @@ describe("first-run workspace setup", () => {
       {},
       expect.objectContaining({ ownerPasswordHash: "scrypt$test" }),
     );
-    expect(mocks.bundledModelProviderPlugins).not.toHaveBeenCalled();
-    expect(mocks.installRequiredModelPlugins).not.toHaveBeenCalled();
     expect(response).toBeInstanceOf(Response);
     if (!(response instanceof Response)) throw new Error("Expected setup to redirect.");
     expect(response.status).toBe(302);
@@ -159,10 +140,7 @@ describe("first-run workspace setup", () => {
 
   it("keeps provider internals out of workspace creation", () => {
     const source = readFileSync(new URL("./_index.tsx", import.meta.url), "utf8");
-    const setup = source.slice(
-      source.indexOf("function Setup"),
-      source.indexOf("function ModelsRequired"),
-    );
+    const setup = source.slice(source.indexOf("function Setup"), source.indexOf("function SignIn"));
 
     expect(setup).not.toContain('name="chat_model"');
     expect(setup).not.toContain('name="embedding_model"');
@@ -172,7 +150,7 @@ describe("first-run workspace setup", () => {
 });
 
 describe("model plugin readiness gate", () => {
-  it("keeps an initialized workspace out of the dashboard until both plugins are ready", async () => {
+  it("sends an initialized workspace to model setup until both plugins are ready", async () => {
     mocks.getSingleWorkspaceState.mockResolvedValue({
       initialized: true,
       workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
@@ -189,85 +167,22 @@ describe("model plugin readiness gate", () => {
       embedding: "ready",
     });
 
-    await expect(loader({ request: new Request("https://meta.braino.dev/") })).resolves.toEqual({
-      screen: "models-required",
-      workspaceName: "Meta Braino",
-      chat: "missing",
-      embedding: "ready",
-    });
-  });
-
-  it("installs an OpenAI chat and embedding pair from one API key", async () => {
-    vi.stubEnv("DOCO_ENCRYPTION_KEY", "test-encryption-key-with-more-than-thirty-two-characters");
-    mocks.getSingleWorkspaceState.mockResolvedValue({
-      initialized: true,
-      workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
-    });
-    mocks.getCurrentUser.mockResolvedValue({
-      id: "user_owner",
-      email: "owner@example.com",
-      username: "owner",
-      name: "Owner",
-    });
-    mocks.bundledModelProviderPlugins.mockResolvedValue(bundledPlugins);
-    mocks.installRequiredModelPlugins.mockResolvedValue({
-      ready: true,
-      chat: "ready",
-      embedding: "ready",
-    });
-
-    const response = await action({
-      request: new Request("https://meta.braino.dev/", {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          intent: "install_model_provider",
-          provider: "openai",
-          api_key: "sk-test-openai-key",
-          chat_model: "gpt-4.1-mini",
-          embedding_model: "text-embedding-3-small",
-          embedding_dimensions: "1536",
-        }),
-      }),
-    });
-
-    expect(mocks.bundledModelProviderPlugins).toHaveBeenCalledWith("openai");
-    expect(mocks.installRequiredModelPlugins).toHaveBeenCalledWith(
-      {},
-      {
-        workspaceId: "workspace_meta",
-        userId: "user_owner",
-        chat: expect.objectContaining({
-          configuration: { model: "gpt-4.1-mini" },
-          secrets: { api_key: "sk-test-openai-key" },
-        }),
-        embedding: expect.objectContaining({
-          configuration: { model: "text-embedding-3-small", dimensions: "1536" },
-          secrets: { api_key: "sk-test-openai-key" },
-        }),
-      },
+    const sent = await loader({ request: new Request("https://meta.braino.dev/") }).catch(
+      (thrown: unknown) => thrown,
     );
-    expect(response).toBeInstanceOf(Response);
-    if (!(response instanceof Response)) throw new Error("Expected provider setup to redirect.");
-    expect(response.headers.get("location")).toBe("/");
+
+    expect(sent).toBeInstanceOf(Response);
+    if (!(sent instanceof Response)) throw new Error("Expected a redirect to model setup.");
+    expect(sent.status).toBe(302);
+    expect(sent.headers.get("location")).toBe("/admin/models");
   });
 
-  it("presents providers in human terms and keeps model IDs in advanced settings", () => {
+  it("has no model form or install action of its own", () => {
     const source = readFileSync(new URL("./_index.tsx", import.meta.url), "utf8");
-    const setup = source.slice(
-      source.indexOf("function ModelsRequired"),
-      source.indexOf("function SignIn"),
-    );
 
-    expect(setup).toContain("Power your Braino");
-    expect(setup).toContain("Step 2 of 2");
-    expect(setup).toContain('value="openai"');
-    expect(setup).toContain('value="ollama"');
-    expect(setup).toContain("Use your existing OpenAI API account");
-    expect(setup).toContain("one to answer questions and one to make your workspace searchable");
-    expect(setup).toContain("stores it encrypted and never displays it");
-    expect(setup).toContain("Keep prompts and search local");
-    expect(setup).toContain("<details");
-    expect(setup).toContain("Advanced settings");
+    expect(source).not.toContain("install_model_provider");
+    expect(source).not.toContain("ModelsRequired");
+    expect(source).not.toContain("api_key");
+    expect(source).not.toContain("assignWorkspaceModelPlugin");
   });
 });

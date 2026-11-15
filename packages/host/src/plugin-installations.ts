@@ -192,17 +192,23 @@ async function requireOwner(
   }
 }
 
-export async function installPlugin(
+export interface PluginInstallationInput {
+  workspaceId: string;
+  userId: string;
+  manifest: unknown;
+  component: Uint8Array;
+  configuration?: unknown;
+  secrets?: Readonly<Record<string, string>>;
+  encryptionKey?: string;
+}
+
+/**
+ * Installs or updates one plugin and enables it. The caller owns the
+ * transaction, so further changes can commit or roll back with the install.
+ */
+export async function installPluginInTransaction(
   client: PoolClient,
-  input: {
-    workspaceId: string;
-    userId: string;
-    manifest: unknown;
-    component: Uint8Array;
-    configuration?: unknown;
-    secrets?: Readonly<Record<string, string>>;
-    encryptionKey?: string;
-  },
+  input: PluginInstallationInput,
 ): Promise<PluginInstallation> {
   const manifest = parsePluginManifest(input.manifest);
   const configured = serializedConfiguration(input.configuration ?? {});
@@ -223,49 +229,57 @@ export async function installPlugin(
   }
   const artifactDigest = `sha256:${createHash("sha256").update(input.component).digest("hex")}`;
   const id = `plugin_installation_${generateUlid()}`;
+  await requireOwner(client, input.workspaceId, input.userId);
+  await client.query(
+    `INSERT INTO plugin_artifacts (digest, component)
+     VALUES ($1, $2)
+     ON CONFLICT (digest) DO NOTHING`,
+    [artifactDigest, Buffer.from(input.component)],
+  );
+  const result = await client.query<InstallationRow>(
+    `INSERT INTO plugin_installations
+       (id, workspace_id, manifest, artifact_digest, configuration, enabled,
+        created_by_user_id, updated_by_user_id)
+     VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, true, $6, $6)
+     ON CONFLICT (workspace_id, (manifest->>'id')) DO UPDATE
+       SET manifest = EXCLUDED.manifest,
+           artifact_digest = EXCLUDED.artifact_digest,
+           configuration = EXCLUDED.configuration,
+           enabled = true,
+           updated_by_user_id = EXCLUDED.updated_by_user_id,
+           updated_at = now()
+     RETURNING ${INSTALLATION_COLUMNS}`,
+    [
+      id,
+      input.workspaceId,
+      JSON.stringify(manifest),
+      artifactDigest,
+      configured.serialized,
+      input.userId,
+    ],
+  );
+  const row = result.rows[0];
+  if (!row) {
+    throw new PluginInstallationError("Plugin installation failed.", "installation_failed", 500);
+  }
+  await applySecretChanges(client, {
+    installationId: row.id,
+    userId: input.userId,
+    secrets,
+    encryptionKey: input.encryptionKey ?? "",
+  });
+  return installation(row);
+}
+
+export async function installPlugin(
+  client: PoolClient,
+  input: PluginInstallationInput,
+): Promise<PluginInstallation> {
   await client.query("BEGIN");
   try {
-    await requireOwner(client, input.workspaceId, input.userId);
-    await client.query(
-      `INSERT INTO plugin_artifacts (digest, component)
-       VALUES ($1, $2)
-       ON CONFLICT (digest) DO NOTHING`,
-      [artifactDigest, Buffer.from(input.component)],
-    );
-    const result = await client.query<InstallationRow>(
-      `INSERT INTO plugin_installations
-         (id, workspace_id, manifest, artifact_digest, configuration, enabled,
-          created_by_user_id, updated_by_user_id)
-       VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, true, $6, $6)
-       ON CONFLICT (workspace_id, (manifest->>'id')) DO UPDATE
-         SET manifest = EXCLUDED.manifest,
-             artifact_digest = EXCLUDED.artifact_digest,
-             configuration = EXCLUDED.configuration,
-             enabled = true,
-             updated_by_user_id = EXCLUDED.updated_by_user_id,
-             updated_at = now()
-       RETURNING ${INSTALLATION_COLUMNS}`,
-      [
-        id,
-        input.workspaceId,
-        JSON.stringify(manifest),
-        artifactDigest,
-        configured.serialized,
-        input.userId,
-      ],
-    );
-    const row = result.rows[0];
-    if (!row) {
-      throw new PluginInstallationError("Plugin installation failed.", "installation_failed", 500);
-    }
-    await applySecretChanges(client, {
-      installationId: row.id,
-      userId: input.userId,
-      secrets,
-      encryptionKey: input.encryptionKey ?? "",
-    });
+    const installed = await installPluginInTransaction(client, input);
     await client.query("COMMIT");
-    return installation(row);
+    return installed;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
