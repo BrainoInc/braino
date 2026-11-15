@@ -18,7 +18,11 @@ beforeEach(async () => {
 
 const client = () => db as unknown as PoolClient;
 
-function manifest(id: string, capability: PluginCapabilityName): PluginManifest {
+function manifest(
+  id: string,
+  capability: PluginCapabilityName,
+  options: { apiKey?: boolean } = {},
+): PluginManifest {
   return {
     protocolVersion: 1,
     id,
@@ -34,6 +38,16 @@ function manifest(id: string, capability: PluginCapabilityName): PluginManifest 
       },
       additionalProperties: false,
     },
+    ...(options.apiKey
+      ? {
+          secretSchema: {
+            type: "object",
+            properties: { api_key: { type: "string" } },
+            required: ["api_key"],
+            additionalProperties: false,
+          },
+        }
+      : {}),
   };
 }
 
@@ -145,5 +159,41 @@ describe("required workspace model plugins", () => {
         },
       }),
     ).resolves.toEqual({ ready: true, chat: "ready", embedding: "ready" });
+  });
+
+  it("requires declared provider secrets before either capability is ready", async () => {
+    const setup = await initializeSingleWorkspace(client(), {
+      workspaceHandle: "acme",
+      workspaceName: "Acme",
+      ownerEmail: "owner@example.com",
+      ownerUsername: "owner",
+      ownerName: "Acme Owner",
+      ownerPasswordHash: "scrypt$salt$key",
+    });
+    const component = new TextEncoder().encode("component");
+    const encryptionKey = "provider-secret-test-key-with-more-than-thirty-two-characters";
+
+    await installPlugin(client(), {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      manifest: manifest("acme.chat", "chat.complete", { apiKey: true }),
+      component,
+      configuration: { model: "gpt-4.1-mini" },
+    });
+    await installPlugin(client(), {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      manifest: manifest("acme.embedding", "embedding.embed", { apiKey: true }),
+      component,
+      configuration: { model: "text-embedding-3-small", dimensions: "1536" },
+      secrets: { api_key: "sk-test" },
+      encryptionKey,
+    });
+
+    await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
+      ready: false,
+      chat: "invalid",
+      embedding: "ready",
+    });
   });
 });

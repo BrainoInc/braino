@@ -17,12 +17,15 @@ import { Form, Link, redirect, useActionData, useLoaderData } from "react-router
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
+import { bundledOllamaModelPlugin } from "~/lib/bundled-model-plugins.server";
+import { getCurrentUser } from "~/lib/current-user.server";
 import {
+  MODEL_PROVIDER_DEFAULTS,
   OLLAMA_CHAT_PLUGIN_ID,
   OLLAMA_EMBEDDING_PLUGIN_ID,
-  bundledOllamaModelPlugin,
-} from "~/lib/bundled-model-plugins.server";
-import { getCurrentUser } from "~/lib/current-user.server";
+  OPENAI_CHAT_PLUGIN_ID,
+  OPENAI_EMBEDDING_PLUGIN_ID,
+} from "~/lib/model-provider-catalog";
 import {
   MAX_FORM_BODY_BYTES,
   RequestBodyError,
@@ -129,12 +132,27 @@ export async function loader({ request }: { request: Request }) {
       }),
       readiness: await getWorkspaceModelPluginReadiness(client, state.workspace.id),
     }));
+    const chatPlugin = loaded.plugins.find(
+      (plugin) => plugin.enabled && plugin.manifest.capabilities.includes("chat.complete"),
+    );
+    const embeddingPlugin = loaded.plugins.find(
+      (plugin) => plugin.enabled && plugin.manifest.capabilities.includes("embedding.embed"),
+    );
+    const modelProvider =
+      chatPlugin?.manifest.id === OPENAI_CHAT_PLUGIN_ID &&
+      embeddingPlugin?.manifest.id === OPENAI_EMBEDDING_PLUGIN_ID
+        ? "openai"
+        : chatPlugin?.manifest.id === OLLAMA_CHAT_PLUGIN_ID &&
+            embeddingPlugin?.manifest.id === OLLAMA_EMBEDDING_PLUGIN_ID
+          ? "ollama"
+          : chatPlugin || embeddingPlugin
+            ? "custom"
+            : "missing";
     return {
       overview: loaded.overview,
-      chatPlugin: loaded.plugins.find((plugin) => plugin.manifest.id === OLLAMA_CHAT_PLUGIN_ID),
-      embeddingPlugin: loaded.plugins.find(
-        (plugin) => plugin.manifest.id === OLLAMA_EMBEDDING_PLUGIN_ID,
-      ),
+      chatPlugin,
+      embeddingPlugin,
+      modelProvider,
       deployment: deploymentStatus(
         request,
         {
@@ -180,6 +198,38 @@ export async function action({ request }: { request: Request }): Promise<ActionD
   }
   const intent = text(form, "intent");
   try {
+    if (intent === "configure_openai_provider") {
+      const apiKey = text(form, "api_key").trim();
+      const chatModel = text(form, "chat_model").trim();
+      const embeddingModel = text(form, "embedding_model").trim();
+      const embeddingDimensions = text(form, "embedding_dimensions").trim();
+      if (!apiKey) return { error: t("Enter your OpenAI API key.") };
+      if (!chatModel || !embeddingModel) {
+        return { error: t("Both model plugins require a model.") };
+      }
+      if (!Number.isInteger(Number(embeddingDimensions)) || Number(embeddingDimensions) < 1) {
+        return { error: t("Embedding dimensions must be a positive integer.") };
+      }
+      await withClient(async (client) => {
+        await configurePluginInstallation(client, {
+          workspaceId: state.workspace.id,
+          userId: user.id,
+          installationId: text(form, "chat_installation_id"),
+          configuration: { model: chatModel },
+          secrets: { api_key: apiKey },
+          encryptionKey: encryptionKey(),
+        });
+        await configurePluginInstallation(client, {
+          workspaceId: state.workspace.id,
+          userId: user.id,
+          installationId: text(form, "embedding_installation_id"),
+          configuration: { model: embeddingModel, dimensions: embeddingDimensions },
+          secrets: { api_key: apiKey },
+          encryptionKey: encryptionKey(),
+        });
+      });
+      return { message: t("OpenAI provider updated.") };
+    }
     if (intent === "install_ollama_chat") {
       const bundled = await bundledOllamaModelPlugin("chat");
       await withClient((client) =>
@@ -347,7 +397,7 @@ export default function AdminPage() {
   const t = useT();
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as ActionData | undefined;
-  const { overview, chatPlugin, embeddingPlugin, deployment } = data;
+  const { overview, chatPlugin, embeddingPlugin, modelProvider, deployment } = data;
   const period =
     METRIC_PERIODS.find((option) => option.value === overview.activity.period) ?? METRIC_PERIODS[0];
   return (
@@ -618,92 +668,197 @@ export default function AdminPage() {
             )}
           </p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+        {modelProvider === "openai" && chatPlugin && embeddingPlugin ? (
           <Card>
             <CardHeader>
-              <CardTitle>{t("Chat model plugin")}</CardTitle>
+              <CardTitle>{"OpenAI"}</CardTitle>
               <CardDescription>
-                {t("Run chat completions inside this deployment with Ollama.")}
+                {t(
+                  "OpenAI provides answers and searchable memory. Enter a key only when you want to rotate it.",
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Form method="post" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                <input
-                  type="hidden"
-                  name="intent"
-                  value={chatPlugin ? "configure_ollama_chat" : "install_ollama_chat"}
-                />
-                {chatPlugin ? (
-                  <input type="hidden" name="installation_id" value={chatPlugin.id} />
-                ) : null}
+              <Form method="post" className="space-y-3">
+                <input type="hidden" name="intent" value="configure_openai_provider" />
+                <input type="hidden" name="chat_installation_id" value={chatPlugin.id} />
+                <input type="hidden" name="embedding_installation_id" value={embeddingPlugin.id} />
                 <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
+                  <span className="mb-1 block text-muted-foreground">
+                    {t("New OpenAI API key")}
+                  </span>
                   <input
-                    name="chat_model"
-                    defaultValue={chatPlugin?.configuration.model ?? "qwen3.5:2b"}
+                    name="api_key"
+                    type="password"
+                    autoComplete="off"
+                    placeholder="sk-…"
                     required
-                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                    className="w-full rounded-md px-3 py-2 text-sm"
                   />
                 </label>
+                <details className="rounded-md border border-border/70 px-3 py-2 text-xs">
+                  <summary className="cursor-pointer font-semibold">
+                    {t("Advanced settings")}
+                  </summary>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_8rem]">
+                    <label>
+                      <span className="mb-1 block text-muted-foreground">{t("Chat model")}</span>
+                      <input
+                        name="chat_model"
+                        defaultValue={
+                          chatPlugin.configuration.model ?? MODEL_PROVIDER_DEFAULTS.openai.chatModel
+                        }
+                        required
+                        className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                      />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-muted-foreground">
+                        {t("Embedding model")}
+                      </span>
+                      <input
+                        name="embedding_model"
+                        defaultValue={
+                          embeddingPlugin.configuration.model ??
+                          MODEL_PROVIDER_DEFAULTS.openai.embeddingModel
+                        }
+                        required
+                        className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                      />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-muted-foreground">{t("Dimensions")}</span>
+                      <input
+                        name="embedding_dimensions"
+                        type="number"
+                        min="1"
+                        defaultValue={
+                          embeddingPlugin.configuration.dimensions ??
+                          MODEL_PROVIDER_DEFAULTS.openai.embeddingDimensions
+                        }
+                        required
+                        className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                      />
+                    </label>
+                  </div>
+                </details>
                 <button
                   type="submit"
                   className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
                 >
-                  {chatPlugin ? t("Save model") : t("Install plugin")}
+                  {t("Rotate key and save")}
                 </button>
               </Form>
             </CardContent>
           </Card>
+        ) : modelProvider === "custom" ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Custom model plugins")}</CardTitle>
+              <CardDescription>
+                {t("These plugins were installed outside the built-in provider setup.")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-[auto_1fr] gap-2 text-xs">
+                <dt className="text-muted-foreground">{t("Answers")}</dt>
+                <dd>{chatPlugin?.manifest.name ?? t("Setup required")}</dd>
+                <dt className="text-muted-foreground">{t("Searchable memory")}</dt>
+                <dd>{embeddingPlugin?.manifest.name ?? t("Setup required")}</dd>
+              </dl>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("Chat model plugin")}</CardTitle>
+                <CardDescription>
+                  {t("Run chat completions inside this deployment with Ollama.")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form method="post" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <input
+                    type="hidden"
+                    name="intent"
+                    value={chatPlugin ? "configure_ollama_chat" : "install_ollama_chat"}
+                  />
+                  {chatPlugin ? (
+                    <input type="hidden" name="installation_id" value={chatPlugin.id} />
+                  ) : null}
+                  <label className="block text-xs">
+                    <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
+                    <input
+                      name="chat_model"
+                      defaultValue={chatPlugin?.configuration.model ?? "qwen3.5:2b"}
+                      required
+                      className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    {chatPlugin ? t("Save model") : t("Install plugin")}
+                  </button>
+                </Form>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Embedding model plugin")}</CardTitle>
-              <CardDescription>
-                {t("Keep search content and vectors inside this Braino deployment.")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form method="post" className="grid gap-3 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
-                <input
-                  type="hidden"
-                  name="intent"
-                  value={
-                    embeddingPlugin ? "configure_ollama_embedding" : "install_ollama_embedding"
-                  }
-                />
-                {embeddingPlugin ? (
-                  <input type="hidden" name="installation_id" value={embeddingPlugin.id} />
-                ) : null}
-                <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
-                  <input
-                    name="embedding_model"
-                    defaultValue={embeddingPlugin?.configuration.model ?? "embeddinggemma-2:270m"}
-                    required
-                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-                <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">{t("Dimensions")}</span>
-                  <input
-                    name="embedding_dimensions"
-                    type="number"
-                    min="1"
-                    defaultValue={embeddingPlugin?.configuration.dimensions ?? "768"}
-                    required
-                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("Embedding model plugin")}</CardTitle>
+                <CardDescription>
+                  {t("Keep search content and vectors inside this Braino deployment.")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form
+                  method="post"
+                  className="grid gap-3 sm:grid-cols-[1fr_8rem_auto] sm:items-end"
                 >
-                  {embeddingPlugin ? t("Save model") : t("Install plugin")}
-                </button>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
+                  <input
+                    type="hidden"
+                    name="intent"
+                    value={
+                      embeddingPlugin ? "configure_ollama_embedding" : "install_ollama_embedding"
+                    }
+                  />
+                  {embeddingPlugin ? (
+                    <input type="hidden" name="installation_id" value={embeddingPlugin.id} />
+                  ) : null}
+                  <label className="block text-xs">
+                    <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
+                    <input
+                      name="embedding_model"
+                      defaultValue={embeddingPlugin?.configuration.model ?? "embeddinggemma-2:270m"}
+                      required
+                      className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                    />
+                  </label>
+                  <label className="block text-xs">
+                    <span className="mb-1 block text-muted-foreground">{t("Dimensions")}</span>
+                    <input
+                      name="embedding_dimensions"
+                      type="number"
+                      min="1"
+                      defaultValue={embeddingPlugin?.configuration.dimensions ?? "768"}
+                      required
+                      className="w-full rounded-md px-3 py-2 font-mono text-sm"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    {embeddingPlugin ? t("Save model") : t("Install plugin")}
+                  </button>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
         {actionData?.message ? (
           <output className="block text-xs text-muted-foreground">{actionData.message}</output>
         ) : null}

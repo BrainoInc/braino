@@ -39,6 +39,9 @@ describe("open Braino administration", () => {
     expect(admin).toContain("listPluginInstallations");
     expect(admin).toContain("installPlugin");
     expect(admin).toContain("configurePluginInstallation");
+    expect(admin).toContain('modelProvider === "openai"');
+    expect(admin).toContain('value="configure_openai_provider"');
+    expect(admin).toContain("New OpenAI API key");
     expect(admin).toContain("Operations");
     expect(admin).toContain("CodeLinker");
     expect(admin).toContain("BRAINO_CODELINKER_URL");

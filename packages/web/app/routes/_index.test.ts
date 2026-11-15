@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  bundledOllamaModelPlugins: vi.fn(),
+  bundledModelProviderPlugins: vi.fn(),
   getCurrentUser: vi.fn(),
   getSingleWorkspaceState: vi.fn(),
   getWorkspaceModelPluginReadiness: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock("@doco/host", () => ({
   revokeUserSessions: vi.fn(),
 }));
 vi.mock("~/lib/bundled-model-plugins.server", () => ({
-  bundledOllamaModelPlugins: mocks.bundledOllamaModelPlugins,
+  bundledModelProviderPlugins: mocks.bundledModelProviderPlugins,
 }));
 vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("~/lib/password.server", () => ({
@@ -53,12 +53,11 @@ const bundledPlugins = {
   },
 };
 
-describe("first-run setup password", () => {
-  it("creates the workspace from one password field", async () => {
+describe("first-run workspace setup", () => {
+  it("creates the workspace before asking the owner to choose model plugins", async () => {
     mocks.getSingleWorkspaceState.mockResolvedValue({ initialized: false });
     mocks.hashPassword.mockResolvedValue("scrypt$test");
     mocks.passwordError.mockReturnValue(null);
-    mocks.bundledOllamaModelPlugins.mockResolvedValue(bundledPlugins);
     mocks.initializeSingleWorkspace.mockResolvedValue({
       owner: { id: "user_owner", stamp: "stamp_owner" },
       workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
@@ -72,9 +71,6 @@ describe("first-run setup password", () => {
       owner_email: "owner@example.com",
       setup_token: "valid-setup-token",
       password: "generated-password-123",
-      chat_model: "qwen3.5:2b",
-      embedding_model: "embeddinggemma-2:270m",
-      embedding_dimensions: "768",
     });
 
     const response = await action({
@@ -90,21 +86,8 @@ describe("first-run setup password", () => {
       {},
       expect.objectContaining({ ownerPasswordHash: "scrypt$test" }),
     );
-    expect(mocks.installRequiredModelPlugins).toHaveBeenCalledWith(
-      {},
-      {
-        workspaceId: "workspace_meta",
-        userId: "user_owner",
-        chat: expect.objectContaining({
-          manifest: bundledPlugins.chat.manifest,
-          configuration: { model: "qwen3.5:2b" },
-        }),
-        embedding: expect.objectContaining({
-          manifest: bundledPlugins.embedding.manifest,
-          configuration: { model: "embeddinggemma-2:270m", dimensions: "768" },
-        }),
-      },
-    );
+    expect(mocks.bundledModelProviderPlugins).not.toHaveBeenCalled();
+    expect(mocks.installRequiredModelPlugins).not.toHaveBeenCalled();
     expect(response).toBeInstanceOf(Response);
     if (!(response instanceof Response)) throw new Error("Expected setup to redirect.");
     expect(response.status).toBe(302);
@@ -136,7 +119,6 @@ describe("first-run setup password", () => {
     mocks.getSingleWorkspaceState.mockResolvedValue({ initialized: false });
     mocks.hashPassword.mockResolvedValue("scrypt$test");
     mocks.passwordError.mockReturnValue(null);
-    mocks.bundledOllamaModelPlugins.mockResolvedValue(bundledPlugins);
     mocks.initializeSingleWorkspace.mockResolvedValue({
       owner: { id: "user_owner", stamp: "stamp_owner" },
       workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
@@ -151,9 +133,6 @@ describe("first-run setup password", () => {
       owner_email: "owner@example.com",
       setup_token: "valid-setup-token",
       password,
-      chat_model: "qwen3.5:2b",
-      embedding_model: "embeddinggemma-2:270m",
-      embedding_dimensions: "768",
     });
 
     await action({
@@ -178,12 +157,17 @@ describe("first-run setup password", () => {
     expect(source).not.toContain("Confirm password");
   });
 
-  it("requires both model plugin configurations in first-run setup", () => {
+  it("keeps provider internals out of workspace creation", () => {
     const source = readFileSync(new URL("./_index.tsx", import.meta.url), "utf8");
+    const setup = source.slice(
+      source.indexOf("function Setup"),
+      source.indexOf("function ModelsRequired"),
+    );
 
-    expect(source).toContain('name="chat_model"');
-    expect(source).toContain('name="embedding_model"');
-    expect(source).toContain('name="embedding_dimensions"');
+    expect(setup).not.toContain('name="chat_model"');
+    expect(setup).not.toContain('name="embedding_model"');
+    expect(setup).not.toContain('name="embedding_dimensions"');
+    expect(setup).toContain("Step 1 of 2");
   });
 });
 
@@ -211,5 +195,79 @@ describe("model plugin readiness gate", () => {
       chat: "missing",
       embedding: "ready",
     });
+  });
+
+  it("installs an OpenAI chat and embedding pair from one API key", async () => {
+    vi.stubEnv("DOCO_ENCRYPTION_KEY", "test-encryption-key-with-more-than-thirty-two-characters");
+    mocks.getSingleWorkspaceState.mockResolvedValue({
+      initialized: true,
+      workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
+    });
+    mocks.getCurrentUser.mockResolvedValue({
+      id: "user_owner",
+      email: "owner@example.com",
+      username: "owner",
+      name: "Owner",
+    });
+    mocks.bundledModelProviderPlugins.mockResolvedValue(bundledPlugins);
+    mocks.installRequiredModelPlugins.mockResolvedValue({
+      ready: true,
+      chat: "ready",
+      embedding: "ready",
+    });
+
+    const response = await action({
+      request: new Request("https://meta.braino.dev/", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          intent: "install_model_provider",
+          provider: "openai",
+          api_key: "sk-test-openai-key",
+          chat_model: "gpt-4.1-mini",
+          embedding_model: "text-embedding-3-small",
+          embedding_dimensions: "1536",
+        }),
+      }),
+    });
+
+    expect(mocks.bundledModelProviderPlugins).toHaveBeenCalledWith("openai");
+    expect(mocks.installRequiredModelPlugins).toHaveBeenCalledWith(
+      {},
+      {
+        workspaceId: "workspace_meta",
+        userId: "user_owner",
+        chat: expect.objectContaining({
+          configuration: { model: "gpt-4.1-mini" },
+          secrets: { api_key: "sk-test-openai-key" },
+        }),
+        embedding: expect.objectContaining({
+          configuration: { model: "text-embedding-3-small", dimensions: "1536" },
+          secrets: { api_key: "sk-test-openai-key" },
+        }),
+      },
+    );
+    expect(response).toBeInstanceOf(Response);
+    if (!(response instanceof Response)) throw new Error("Expected provider setup to redirect.");
+    expect(response.headers.get("location")).toBe("/");
+  });
+
+  it("presents providers in human terms and keeps model IDs in advanced settings", () => {
+    const source = readFileSync(new URL("./_index.tsx", import.meta.url), "utf8");
+    const setup = source.slice(
+      source.indexOf("function ModelsRequired"),
+      source.indexOf("function SignIn"),
+    );
+
+    expect(setup).toContain("Power your Braino");
+    expect(setup).toContain("Step 2 of 2");
+    expect(setup).toContain('value="openai"');
+    expect(setup).toContain('value="ollama"');
+    expect(setup).toContain("Use your existing OpenAI API account");
+    expect(setup).toContain("one to answer questions and one to make your workspace searchable");
+    expect(setup).toContain("stores it encrypted and never displays it");
+    expect(setup).toContain("Keep prompts and search local");
+    expect(setup).toContain("<details");
+    expect(setup).toContain("Advanced settings");
   });
 });

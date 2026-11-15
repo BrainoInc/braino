@@ -41,7 +41,10 @@ from claiming ownership. After the sole workspace is created, first-run setup
 is closed and the token cannot initialize another workspace.
 
 Open `http://localhost:3000`, enter `BRAINO_SETUP_TOKEN`, and create the owner and
-sole workspace. The application port binds to loopback; the optional Caddy
+sole workspace. Braino then explains its two required capabilities and asks the
+owner to choose one provider: connect an existing OpenAI API account with one
+encrypted API key, or install the bundled local Ollama plugins. Exact model
+identifiers stay under **Advanced settings**. The application port binds to loopback; the optional Caddy
 profile is the supported way to expose Braino publicly. Records
 can be captured from a collection page or created, related, transitioned, and
 superseded through its compatible `/<collection-handle>/api/changesets.json`
@@ -57,10 +60,11 @@ people and roles, source connections, webhooks, GitHub sync, and agent/MCP
 access. It reports configuration readiness without displaying secret values;
 privileged backup, restore, and upgrade commands stay on the host.
 
-Every workspace requires one chat model plugin and one embedding model plugin.
-To keep both on the same machine, start the model profile; first-run setup
-installs the bundled Ollama plugins, and **Admin → Required model plugins** is
-the single place to change either model later:
+Every workspace requires one chat model plugin and one embedding model plugin;
+the dashboard stays closed until both are ready. To keep both on the same
+machine, start the model profile before choosing **Local models** during
+onboarding. **Admin → Required model plugins** is the place to rotate an OpenAI
+key or change advanced model settings later:
 
 ```sh
 docker compose --profile models up -d
@@ -74,6 +78,9 @@ documents and projects the resulting vectors to Qdrant; workspace content,
 model input, completions, and vectors do not pass through Braino Cloud or
 another Braino instance. The workspace dashboard remains unavailable until
 exactly one enabled, valid provider for each required model capability exists.
+The OpenAI plugins use the same sandbox and can reach only
+`https://api.openai.com`; API keys are encrypted in the workspace database and
+are never returned by the application.
 
 Señor Braino and other agents connect directly to the deployment over stateless
 MCP. Open **MCP** on the workspace page, copy this instance's `/mcp` URL, then

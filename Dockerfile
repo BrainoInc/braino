@@ -7,10 +7,16 @@ WORKDIR /source
 COPY packages/plugin-runtime/wit packages/plugin-runtime/wit
 COPY plugins/ollama-chat plugins/ollama-chat
 COPY plugins/ollama-embedding plugins/ollama-embedding
+COPY plugins/openai-chat plugins/openai-chat
+COPY plugins/openai-embedding plugins/openai-embedding
 RUN cargo build --locked --release --target wasm32-wasip2 \
   --manifest-path plugins/ollama-chat/Cargo.toml
 RUN cargo build --locked --release --target wasm32-wasip2 \
   --manifest-path plugins/ollama-embedding/Cargo.toml
+RUN cargo build --locked --release --target wasm32-wasip2 \
+  --manifest-path plugins/openai-chat/Cargo.toml
+RUN cargo build --locked --release --target wasm32-wasip2 \
+  --manifest-path plugins/openai-embedding/Cargo.toml
 
 FROM node:22-bookworm-slim AS build
 
@@ -57,6 +63,18 @@ COPY --from=plugin-build --chown=node:node \
 COPY --from=plugin-build --chown=node:node \
   /source/plugins/ollama-embedding/manifest.json \
   /app/plugins/braino_ollama_embedding.manifest.json
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/openai-chat/target/wasm32-wasip2/release/braino_openai_chat.wasm \
+  /app/plugins/braino_openai_chat.wasm
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/openai-chat/manifest.json \
+  /app/plugins/braino_openai_chat.manifest.json
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/openai-embedding/target/wasm32-wasip2/release/braino_openai_embedding.wasm \
+  /app/plugins/braino_openai_embedding.wasm
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/openai-embedding/manifest.json \
+  /app/plugins/braino_openai_embedding.manifest.json
 
 USER node
 EXPOSE 3000

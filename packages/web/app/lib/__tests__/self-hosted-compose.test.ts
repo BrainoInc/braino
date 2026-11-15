@@ -167,8 +167,12 @@ describe("the supported self-hosted stack", () => {
     expect(dockerfile).toContain("pnpm --filter @doco/web build");
     expect(dockerfile).toContain("plugins/ollama-embedding");
     expect(dockerfile).toContain("plugins/ollama-chat");
+    expect(dockerfile).toContain("plugins/openai-embedding");
+    expect(dockerfile).toContain("plugins/openai-chat");
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_embedding.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_chat.wasm");
+    expect(runtimeStage).toContain("/app/plugins/braino_openai_embedding.wasm");
+    expect(runtimeStage).toContain("/app/plugins/braino_openai_chat.wasm");
     expect(runtimeStage).toContain("ARG DOCO_VERSION");
     expect(runtimeStage).toContain("ENV DOCO_VERSION=$DOCO_VERSION");
     expect(dockerfile).toContain("USER node");
@@ -191,8 +195,35 @@ describe("the supported self-hosted stack", () => {
     expect(embeddingManifest.configurationSchema.properties.model.default).toBe(
       "embeddinggemma-2:270m",
     );
-    expect(setup).toContain('defaultValue="qwen3.5:2b"');
-    expect(setup).toContain('defaultValue="embeddinggemma-2:270m"');
+    expect(setup).toContain("MODEL_PROVIDER_DEFAULTS.ollama.chatModel");
+    expect(setup).toContain("MODEL_PROVIDER_DEFAULTS.ollama.embeddingModel");
+  });
+
+  it("bundles an OpenAI provider pair with encrypted API-key inputs", () => {
+    const chatManifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/openai-chat/manifest.json"), "utf8"),
+    ) as {
+      capabilities: string[];
+      permissions: { network: string[] };
+      secretSchema: { required: string[] };
+    };
+    const embeddingManifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/openai-embedding/manifest.json"), "utf8"),
+    ) as {
+      capabilities: string[];
+      permissions: { network: string[] };
+      secretSchema: { required: string[] };
+    };
+
+    expect(chatManifest.capabilities).toEqual(["chat.complete"]);
+    expect(embeddingManifest.capabilities).toEqual(["embedding.embed"]);
+    expect(chatManifest.permissions.network).toEqual(["api.openai.com"]);
+    expect(embeddingManifest.permissions.network).toEqual(["api.openai.com"]);
+    expect(chatManifest.secretSchema.required).toEqual(["api_key"]);
+    expect(embeddingManifest.secretSchema.required).toEqual(["api_key"]);
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+    expect(workflow).toContain("plugins/openai-chat/Cargo.toml");
+    expect(workflow).toContain("plugins/openai-embedding/Cargo.toml");
   });
 
   it("runs installed embedding plugins through the durable retrieval scheduler", () => {
@@ -240,6 +271,8 @@ describe("the supported self-hosted stack", () => {
       "/services/plugin-host/fixtures/echo-plugin",
       "/plugins/ollama-embedding",
       "/plugins/ollama-chat",
+      "/plugins/openai-embedding",
+      "/plugins/openai-chat",
     ]) {
       expect(dependabot.updates).toContainEqual(
         expect.objectContaining({ "package-ecosystem": "cargo", directory }),

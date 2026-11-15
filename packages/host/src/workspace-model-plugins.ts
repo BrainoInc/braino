@@ -13,12 +13,15 @@ export interface WorkspaceModelPluginReadiness {
 interface InstallationRow {
   manifest: unknown;
   configuration: unknown;
+  secret_names: string[];
 }
 
 export interface ModelPluginBundle {
   manifest: unknown;
   component: Uint8Array;
   configuration: Readonly<Record<string, string>>;
+  secrets?: Readonly<Record<string, string>>;
+  encryptionKey?: string;
 }
 
 function configuration(value: unknown): Readonly<Record<string, string>> | null {
@@ -39,8 +42,14 @@ function status(
   );
   if (providers.length === 0) return "missing";
   if (providers.length > 1) return "ambiguous";
-  const configured = configuration(providers[0]?.configuration);
-  return configured && valid(configured) ? "ready" : "invalid";
+  const provider = providers[0];
+  const configured = configuration(provider?.configuration);
+  if (!provider || !configured || !valid(configured)) return "invalid";
+  const manifest = parsePluginManifest(provider.manifest);
+  const required = Array.isArray(manifest.secretSchema?.required)
+    ? manifest.secretSchema.required.filter((name): name is string => typeof name === "string")
+    : [];
+  return required.every((name) => provider.secret_names.includes(name)) ? "ready" : "invalid";
 }
 
 export async function getWorkspaceModelPluginReadiness(
@@ -48,8 +57,14 @@ export async function getWorkspaceModelPluginReadiness(
   workspaceId: string,
 ): Promise<WorkspaceModelPluginReadiness> {
   const found = await client.query<InstallationRow>(
-    `SELECT manifest, configuration
-       FROM plugin_installations
+    `SELECT i.manifest, i.configuration,
+            ARRAY(
+              SELECT s.name
+                FROM plugin_installation_secrets s
+               WHERE s.installation_id = i.id
+               ORDER BY s.name
+            ) AS secret_names
+       FROM plugin_installations i
       WHERE workspace_id = $1 AND enabled
         AND (manifest->'capabilities' ? 'chat.complete'
           OR manifest->'capabilities' ? 'embedding.embed')
