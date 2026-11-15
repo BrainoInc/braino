@@ -8,7 +8,7 @@
   "configurationSchema": {
     "type": "object",
     "properties": {
-      "model": { "type": "string", "default": "embeddinggemma" },
+      "model": { "type": "string", "default": "embeddinggemma-2:270m" },
       "dimensions": { "type": "string", "default": "768" }
     },
     "additionalProperties": false

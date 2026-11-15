@@ -337,11 +337,11 @@ function Setup({ error }: { error?: string }) {
                 autoComplete="new-password"
                 required
               />
-              <Field label={t("Chat model")} name="chat_model" defaultValue="qwen3:0.6b" required />
+              <Field label={t("Chat model")} name="chat_model" defaultValue="qwen3.5:2b" required />
               <Field
                 label={t("Embedding model")}
                 name="embedding_model"
-                defaultValue="embeddinggemma"
+                defaultValue="embeddinggemma-2:270m"
                 required
               />
               <Field

@@ -72,8 +72,8 @@ describe("first-run setup password", () => {
       owner_email: "owner@example.com",
       setup_token: "valid-setup-token",
       password: "generated-password-123",
-      chat_model: "qwen3:0.6b",
-      embedding_model: "embeddinggemma",
+      chat_model: "qwen3.5:2b",
+      embedding_model: "embeddinggemma-2:270m",
       embedding_dimensions: "768",
     });
 
@@ -97,11 +97,11 @@ describe("first-run setup password", () => {
         userId: "user_owner",
         chat: expect.objectContaining({
           manifest: bundledPlugins.chat.manifest,
-          configuration: { model: "qwen3:0.6b" },
+          configuration: { model: "qwen3.5:2b" },
         }),
         embedding: expect.objectContaining({
           manifest: bundledPlugins.embedding.manifest,
-          configuration: { model: "embeddinggemma", dimensions: "768" },
+          configuration: { model: "embeddinggemma-2:270m", dimensions: "768" },
         }),
       },
     );
@@ -151,8 +151,8 @@ describe("first-run setup password", () => {
       owner_email: "owner@example.com",
       setup_token: "valid-setup-token",
       password,
-      chat_model: "qwen3:0.6b",
-      embedding_model: "embeddinggemma",
+      chat_model: "qwen3.5:2b",
+      embedding_model: "embeddinggemma-2:270m",
       embedding_dimensions: "768",
     });
 

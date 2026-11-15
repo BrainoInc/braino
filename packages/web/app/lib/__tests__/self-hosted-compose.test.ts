@@ -128,10 +128,18 @@ describe("the supported self-hosted stack", () => {
     expect(compose.services["ollama-model"]?.depends_on).toEqual({
       ollama: { condition: "service_healthy" },
     });
+    expect(compose.services["ollama-model"]?.command).toEqual([
+      "pull",
+      "${BRAINO_OLLAMA_EMBEDDING_MODEL:-embeddinggemma-2:270m}",
+    ]);
     expect(compose.services["ollama-chat-model"]?.profiles).toEqual(["models"]);
     expect(compose.services["ollama-chat-model"]?.depends_on).toEqual({
       ollama: { condition: "service_healthy" },
     });
+    expect(compose.services["ollama-chat-model"]?.command).toEqual([
+      "pull",
+      "${BRAINO_OLLAMA_CHAT_MODEL:-qwen3.5:2b}",
+    ]);
     expect(compose.services.app?.ports).toEqual(["127.0.0.1:${DOCO_HTTP_PORT:-3000}:3000"]);
     expect(compose.services.postgres?.ports).toBeUndefined();
     expect(compose.services.qdrant?.ports).toBeUndefined();
@@ -168,6 +176,23 @@ describe("the supported self-hosted stack", () => {
     expect(dockerignore).toContain("!.env.example");
     expect(dockerignore).toContain("backups");
     expect(dockerignore).toContain("*.tar.gz");
+  });
+
+  it("uses the balanced local models throughout fresh-install setup", () => {
+    const chatManifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/ollama-chat/manifest.json"), "utf8"),
+    ) as { configurationSchema: { properties: { model: { default: string } } } };
+    const embeddingManifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/ollama-embedding/manifest.json"), "utf8"),
+    ) as { configurationSchema: { properties: { model: { default: string } } } };
+    const setup = readFileSync(resolve(root, "packages/web/app/routes/_index.tsx"), "utf8");
+
+    expect(chatManifest.configurationSchema.properties.model.default).toBe("qwen3.5:2b");
+    expect(embeddingManifest.configurationSchema.properties.model.default).toBe(
+      "embeddinggemma-2:270m",
+    );
+    expect(setup).toContain('defaultValue="qwen3.5:2b"');
+    expect(setup).toContain('defaultValue="embeddinggemma-2:270m"');
   });
 
   it("runs installed embedding plugins through the durable retrieval scheduler", () => {

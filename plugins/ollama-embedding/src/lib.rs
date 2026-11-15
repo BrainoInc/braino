@@ -97,7 +97,7 @@ impl Guest for OllamaEmbeddingPlugin {
         }
         let model = braino::plugin::host::configuration("model")
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "embeddinggemma".to_string());
+            .unwrap_or_else(|| "embeddinggemma-2:270m".to_string());
         let dimensions = braino::plugin::host::configuration("dimensions")
             .unwrap_or_else(|| "768".to_string())
             .parse::<usize>()
