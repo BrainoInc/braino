@@ -23,11 +23,11 @@ const component = (version: string) => new TextEncoder().encode(`component:${ver
 const digest = (artifact: Uint8Array) =>
   `sha256:${createHash("sha256").update(artifact).digest("hex")}`;
 const manifest = (version = "1.0.0"): PluginManifest => ({
-  protocolVersion: 1,
+  protocolVersion: 2,
   id: "acme.postmark",
   name: "Postmark",
   version,
-  capabilities: ["email.send"],
+  capabilities: { "email.send": 1 },
   permissions: { network: ["api.postmarkapp.com"] },
 });
 

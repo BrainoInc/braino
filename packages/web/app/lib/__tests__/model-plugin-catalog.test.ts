@@ -82,21 +82,28 @@ describe("the model plugin catalogue", () => {
 
   it("leaves out plugins that are not one model's provider", () => {
     const base = {
-      protocolVersion: 1,
+      protocolVersion: 2,
       id: "acme.plugin",
       name: "Acme",
       version: "1.0.0",
       permissions: { network: [] },
       configurationSchema: { properties: { model: { type: "string", default: "small" } } },
     };
-    expect(modelPluginEntry({ ...base, capabilities: ["email.send"] })).toBeNull();
+    expect(modelPluginEntry({ ...base, capabilities: { "email.send": 1 } })).toBeNull();
     expect(
-      modelPluginEntry({ ...base, capabilities: ["chat.complete", "embedding.embed"] }),
+      modelPluginEntry({
+        ...base,
+        capabilities: { "chat.complete": 1, "embedding.embed": 1 },
+      }),
     ).toBeNull();
     expect(
-      modelPluginEntry({ ...base, capabilities: ["chat.complete"], configurationSchema: {} }),
+      modelPluginEntry({
+        ...base,
+        capabilities: { "chat.complete": 1 },
+        configurationSchema: {},
+      }),
     ).toBeNull();
-    expect(modelPluginEntry({ ...base, capabilities: ["chat.complete"] })).toMatchObject({
+    expect(modelPluginEntry({ ...base, capabilities: { "chat.complete": 1 } })).toMatchObject({
       kind: "chat",
       defaultModel: "small",
     });

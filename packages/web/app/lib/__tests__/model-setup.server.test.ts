@@ -54,14 +54,14 @@ describe("the state every model setup screen starts from", () => {
         manifest: {
           id: "braino.openai-chat",
           name: "OpenAI chat",
-          capabilities: ["chat.complete"],
+          capabilities: { "chat.complete": 1 },
         },
         configuration: { model: "gpt-4.1" },
         enabled: true,
       },
       {
         id: "plugin_installation_mail",
-        manifest: { id: "acme.mail", name: "Mail", capabilities: ["email.send"] },
+        manifest: { id: "acme.mail", name: "Mail", capabilities: { "email.send": 1 } },
         configuration: {},
         enabled: true,
       },

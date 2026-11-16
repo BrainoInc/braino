@@ -29,11 +29,11 @@ function manifest(
   options: { apiKey?: boolean } = {},
 ): PluginManifest {
   return {
-    protocolVersion: 1,
+    protocolVersion: 2,
     id,
     name: id,
     version: "1.0.0",
-    capabilities: [capability],
+    capabilities: { [capability]: 1 },
     permissions: { network: ["ollama:11434"] },
     configurationSchema: {
       type: "object",

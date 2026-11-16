@@ -1,5 +1,9 @@
 import type { PoolClient } from "@doco/db";
-import { type PluginCapabilityName, parsePluginManifest } from "@doco/plugin-runtime";
+import {
+  type PluginCapabilityName,
+  parsePluginManifest,
+  pluginProvidesCapability,
+} from "@doco/plugin-runtime";
 import {
   type PluginInstallation,
   PluginInstallationError,
@@ -62,7 +66,7 @@ function usableConfiguration(
 
 function status(rows: readonly InstallationRow[], capability: ModelCapability): ModelPluginStatus {
   const providers = rows.filter((row) =>
-    parsePluginManifest(row.manifest).capabilities.includes(capability),
+    pluginProvidesCapability(parsePluginManifest(row.manifest), capability),
   );
   if (providers.length === 0) return "missing";
   if (providers.length > 1) return "ambiguous";
@@ -116,7 +120,7 @@ export async function assignWorkspaceModelPlugin(
 ): Promise<PluginInstallation> {
   const manifest = parsePluginManifest(input.plugin.manifest);
   const provided = MODEL_CAPABILITIES.filter((capability) =>
-    manifest.capabilities.includes(capability),
+    pluginProvidesCapability(manifest, capability),
   );
   if (provided.length !== 1 || provided[0] !== input.capability) {
     throw new PluginInstallationError(

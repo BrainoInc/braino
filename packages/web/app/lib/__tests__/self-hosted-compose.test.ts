@@ -214,20 +214,20 @@ describe("the supported self-hosted stack", () => {
     const chatManifest = JSON.parse(
       readFileSync(resolve(root, "plugins/openai-chat/manifest.json"), "utf8"),
     ) as {
-      capabilities: string[];
+      capabilities: Record<string, number>;
       permissions: { network: string[] };
       secretSchema: { required: string[] };
     };
     const embeddingManifest = JSON.parse(
       readFileSync(resolve(root, "plugins/openai-embedding/manifest.json"), "utf8"),
     ) as {
-      capabilities: string[];
+      capabilities: Record<string, number>;
       permissions: { network: string[] };
       secretSchema: { required: string[] };
     };
 
-    expect(chatManifest.capabilities).toEqual(["chat.complete"]);
-    expect(embeddingManifest.capabilities).toEqual(["embedding.embed"]);
+    expect(chatManifest.capabilities).toEqual({ "chat.complete": 1 });
+    expect(embeddingManifest.capabilities).toEqual({ "embedding.embed": 1 });
     expect(chatManifest.permissions.network).toEqual(["api.openai.com"]);
     expect(embeddingManifest.permissions.network).toEqual(["api.openai.com"]);
     expect(chatManifest.secretSchema.required).toEqual(["api_key"]);

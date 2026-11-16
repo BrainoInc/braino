@@ -1,5 +1,9 @@
 import type { ModelCapability, ModelPluginStatus } from "@doco/host";
-import { parsePluginManifest, pluginConfigurationChoices } from "@doco/plugin-runtime";
+import {
+  parsePluginManifest,
+  pluginConfigurationChoices,
+  pluginProvidesCapability,
+} from "@doco/plugin-runtime";
 
 /** The two models Braino needs, as they appear in setup URLs. */
 export const MODEL_KINDS = ["chat", "embedding"] as const;
@@ -42,7 +46,7 @@ function localHost(host: string): boolean {
 export function modelPluginEntry(value: unknown): ModelPluginEntry | null {
   const manifest = parsePluginManifest(value);
   const kinds = MODEL_KINDS.filter((kind) =>
-    manifest.capabilities.includes(MODEL_CAPABILITY[kind]),
+    pluginProvidesCapability(manifest, MODEL_CAPABILITY[kind]),
   );
   const kind = kinds[0];
   const model = pluginConfigurationChoices(manifest, "model");

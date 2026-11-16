@@ -33,7 +33,7 @@ function sourcePlugin() {
       id: "braino.slack",
       name: "Slack",
       version: "1.0.0",
-      capabilities: ["source.pull"],
+      capabilities: { "source.pull": 1 },
       permissions: { network: ["slack.com", "*.slack.com"] },
     },
     capabilities: { "source.pull": sourcePull },
@@ -69,9 +69,9 @@ describe("Braino plugin protocol", () => {
     const plugin = sourcePlugin();
 
     expect(plugin.manifest).toMatchObject({
-      protocolVersion: 1,
+      protocolVersion: 2,
       id: "braino.slack",
-      capabilities: ["source.pull"],
+      capabilities: { "source.pull": 1 },
     });
     expect(pluginCapability(plugin, "source.pull")).toBe(sourcePull);
     expect(Object.isFrozen(plugin)).toBe(true);
@@ -80,11 +80,11 @@ describe("Braino plugin protocol", () => {
 
   it("parses an untrusted marketplace manifest into the canonical immutable shape", () => {
     const manifest = parsePluginManifest({
-      protocolVersion: 1,
+      protocolVersion: 2,
       id: "acme.private-plugin",
       name: "Private plugin",
       version: "2.3.4",
-      capabilities: ["email.send"],
+      capabilities: { "email.send": 1 },
       permissions: { network: ["api.example.com:443"] },
       configurationSchema: { type: "object" },
       secretSchema: { type: "object" },
@@ -92,7 +92,7 @@ describe("Braino plugin protocol", () => {
 
     expect(manifest).toMatchObject({
       id: "acme.private-plugin",
-      capabilities: ["email.send"],
+      capabilities: { "email.send": 1 },
       permissions: { network: ["api.example.com:443"] },
     });
     expect(Object.isFrozen(manifest.capabilities)).toBe(true);
@@ -104,7 +104,7 @@ describe("Braino plugin protocol", () => {
     [{}, "protocol version"],
     [
       {
-        protocolVersion: 1,
+        protocolVersion: 2,
         id: "braino.slack",
         name: "Slack",
         version: "1.0.0",
@@ -115,11 +115,11 @@ describe("Braino plugin protocol", () => {
     ],
     [
       {
-        protocolVersion: 1,
+        protocolVersion: 2,
         id: "braino.slack",
         name: "Slack",
         version: "1.0.0",
-        capabilities: ["source.pull"],
+        capabilities: { "source.pull": 1 },
         permissions: { network: "slack.com" },
       },
       "network permissions",
@@ -129,11 +129,11 @@ describe("Braino plugin protocol", () => {
   });
 
   const modelManifest = (model: Record<string, unknown>) => ({
-    protocolVersion: 1,
+    protocolVersion: 2,
     id: "acme.chat",
     name: "Acme chat",
     version: "1.0.0",
-    capabilities: ["chat.complete"],
+    capabilities: { "chat.complete": 1 },
     permissions: { network: ["api.example.com"] },
     configurationSchema: {
       type: "object",
@@ -184,7 +184,7 @@ describe("Braino plugin protocol", () => {
           id: "braino.slack",
           name: "Slack",
           version: "1.0.0",
-          capabilities: ["source.pull", "event.receive"],
+          capabilities: { "source.pull": 1, "event.receive": 1 },
           permissions: { network: ["slack.com"] },
         },
         capabilities: { "source.pull": sourcePull },
@@ -200,7 +200,7 @@ describe("Braino plugin protocol", () => {
           id: "braino.slack",
           name: "Slack",
           version: "1.0.0",
-          capabilities: ["source.pull"],
+          capabilities: { "source.pull": 1 },
           permissions: { network: ["slack.com"] },
         },
         capabilities: {
@@ -220,13 +220,13 @@ describe("Braino plugin protocol", () => {
   });
 
   it.each([
-    [{ protocolVersion: 2 }, "protocol version"],
+    [{ protocolVersion: 1 }, "protocol version"],
     [{ id: "Slack" }, "identifier"],
     [{ version: "latest" }, "semantic version"],
     [{ name: " " }, "name is required"],
-    [{ capabilities: [] }, "at least one capability"],
-    [{ capabilities: ["unknown.capability"] }, "Unknown plugin capability"],
-    [{ capabilities: ["source.pull", "source.pull"] }, "duplicate capability"],
+    [{ capabilities: {} }, "at least one capability"],
+    [{ capabilities: { "unknown.capability": 1 } }, "Unknown plugin capability"],
+    [{ capabilities: { "source.pull": 2 } }, "contract version"],
     [{ permissions: { network: ["https://slack.com/api"] } }, "network host"],
   ])("rejects an unsafe or incompatible manifest override", (override, message) => {
     const manifest = {
@@ -234,7 +234,7 @@ describe("Braino plugin protocol", () => {
       id: "braino.slack",
       name: "Slack",
       version: "1.0.0",
-      capabilities: ["source.pull"] as const,
+      capabilities: { "source.pull": 1 } as const,
       permissions: { network: ["slack.com"] },
       ...override,
     };

@@ -1,9 +1,9 @@
 {
-  "protocolVersion": 1,
+  "protocolVersion": 2,
   "id": "braino.ollama-embedding",
   "name": "Ollama embeddings",
   "version": "0.1.0",
-  "capabilities": ["embedding.embed"],
+  "capabilities": { "embedding.embed": 1 },
   "permissions": { "network": ["ollama:11434"] },
   "configurationSchema": {
     "type": "object",

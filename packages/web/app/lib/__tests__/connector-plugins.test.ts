@@ -15,8 +15,8 @@ describe("connector plugin boundary", () => {
     for (const provider of Object.keys(CONNECTOR_PLUGINS)) {
       const plugin = connectorPlugin(provider);
       expect(plugin.manifest).toMatchObject({
-        protocolVersion: 1,
-        capabilities: ["source.pull"],
+        protocolVersion: 2,
+        capabilities: { "source.pull": 1 },
       });
       expect(plugin.capabilities["source.pull"]?.provider).toBe(provider);
       // The released adapter field remains the same implementation during the protocol migration.

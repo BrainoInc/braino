@@ -117,10 +117,11 @@ the same key returns the original response without writing twice.
 Owners can connect Slack, Notion, and Google Drive from the same page. They are
 built-in `source.pull` plugins using the same versioned manifest and capability
 protocol that other plugin categories will use. The manifest declares each
-plugin's capabilities and network destinations; Braino rejects incompatible or
-mismatched definitions before execution. When invoked, third-party code runs only as a
-digest-pinned WebAssembly Component in a fresh Wasmtime sandbox. It receives no
-ambient WASI capabilities: configuration, secrets, allowlisted HTTPS, and
+plugin's capability contract versions and network destinations; Braino rejects
+incompatible or mismatched definitions before execution. When invoked,
+third-party code runs only as a digest-pinned WebAssembly Component in a fresh
+Wasmtime sandbox. It receives no ambient WASI capabilities: configuration,
+secrets, allowlisted HTTPS, and
 explicit operator-approved local services are mediated by the instance-local
 plugin host. No Braino-operated plugin relay is
 in the data path. PostgreSQL stores the immutable component bytes by their
@@ -128,6 +129,14 @@ computed SHA-256 digest. The application is the only invocation broker: it
 selects an enabled installation by workspace, validates the requested
 capability, opens only that installation's secrets, and sends one complete
 envelope to the private host.
+
+Chat and embedding providers use the same boundary. Braino depends only on the
+versioned `chat.complete` and `embedding.embed` contracts; model names,
+credentials, endpoints, and provider-specific request formats belong to the
+installed plugin. The application validates canonical inputs and outputs on
+both sides of every invocation, and resolves exactly one enabled provider for
+each capability. Adding another provider therefore requires a conforming plugin,
+not a provider branch in Braino.
 
 Each external source is bound to this Braino workspace, its credential is encrypted with
 `DOCO_ENCRYPTION_KEY`, and its read-only records land in a private collection

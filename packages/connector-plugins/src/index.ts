@@ -28,7 +28,7 @@ function defineConnectorPlugin(input: {
     id: input.id,
     name: input.name,
     version: "1.0.0",
-    capabilities: ["source.pull"],
+    capabilities: { "source.pull": 1 },
     permissions: { network: input.network },
   };
   const plugin = definePlugin({

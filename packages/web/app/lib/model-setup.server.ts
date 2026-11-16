@@ -6,6 +6,7 @@ import {
   listPluginInstallations,
   listPluginSecretNames,
 } from "@doco/host";
+import { pluginProvidesCapability } from "@doco/plugin-runtime";
 import { redirect } from "react-router";
 import { bundledModelPluginCatalog } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
@@ -48,7 +49,7 @@ export async function loadModelSetup(request: Request): Promise<ModelSetup> {
     const installed: InstalledModelPlugin[] = [];
     for (const plugin of await listPluginInstallations(client, owner)) {
       const kinds = MODEL_KINDS.filter((kind) =>
-        plugin.manifest.capabilities.includes(MODEL_CAPABILITY[kind]),
+        pluginProvidesCapability(plugin.manifest, MODEL_CAPABILITY[kind]),
       );
       for (const kind of kinds) {
         installed.push({
