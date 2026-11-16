@@ -37,7 +37,6 @@ interface LoaderData {
   firstRun: boolean;
   plugin: ModelPluginEntry;
   model: string;
-  dimensions: string | null;
   /** Secrets this plugin already holds; their values never leave the server. */
   storedSecrets: string[];
   /** The plugin this one would take the model over from. */
@@ -79,10 +78,6 @@ export async function loader({
     firstRun: !setup.ready,
     plugin: bundled.entry,
     model: installed?.configuration.model?.trim() || bundled.entry.defaultModel,
-    dimensions:
-      kind === "embedding"
-        ? installed?.configuration.dimensions?.trim() || bundled.entry.defaultDimensions || ""
-        : null,
     storedSecrets: [...(installed?.secretNames ?? [])],
     replaces:
       step?.pluginId && step.pluginId !== bundled.entry.id && step.status !== "preselected"
@@ -111,13 +106,6 @@ export async function action({ request, params }: { request: Request; params: Pa
   const model = choice === ANOTHER_MODEL ? text(form, "model_other") : choice;
   if (!model) return { error: t("Enter a model name.") };
   const configuration: Record<string, string> = { model };
-  if (kind === "embedding") {
-    const dimensions = text(form, "dimensions");
-    if (!/^[1-9]\d*$/.test(dimensions)) {
-      return { error: t("Embedding dimensions must be a positive integer.") };
-    }
-    configuration.dimensions = dimensions;
-  }
   const secrets: Record<string, string> = {};
   for (const name of bundled.entry.requiredSecrets) {
     const value = text(form, `secret_${name}`);
@@ -264,30 +252,6 @@ export default function ModelPluginPage() {
                 </p>
               ) : null}
             </div>
-
-            {data.dimensions !== null ? (
-              <div>
-                <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">
-                    {t("Embedding dimensions")}
-                  </span>
-                  <input
-                    name="dimensions"
-                    type="number"
-                    min="1"
-                    step="1"
-                    defaultValue={data.dimensions}
-                    required
-                    className="w-full rounded-md px-3 py-2 font-mono text-sm text-foreground sm:w-40"
-                  />
-                </label>
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  {t(
-                    "The length of the vectors this model returns. Braino rejects embeddings of any other length.",
-                  )}
-                </p>
-              </div>
-            ) : null}
 
             {plugin.requiredSecrets.map((name) => {
               const stored = data.storedSecrets.includes(name);

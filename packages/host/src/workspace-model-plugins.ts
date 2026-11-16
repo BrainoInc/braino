@@ -1,14 +1,22 @@
 import type { PoolClient } from "@doco/db";
 import {
+  type ChatCompleteResponse,
+  type EmbeddingResponse,
   type PluginCapabilityName,
   parsePluginManifest,
   pluginProvidesCapability,
 } from "@doco/plugin-runtime";
+import { resolveAssignedModelPlugin } from "./model-plugin-installation.js";
 import {
   type PluginInstallation,
   PluginInstallationError,
   installPluginInTransaction,
 } from "./plugin-installations.js";
+import {
+  type PluginHostConnection,
+  PluginInvocationError,
+  invokePlugin,
+} from "./plugin-invocation.js";
 
 /** The two models every workspace needs, named by the capability that provides each. */
 export const MODEL_CAPABILITIES = [
@@ -18,7 +26,7 @@ export const MODEL_CAPABILITIES = [
 
 export type ModelCapability = (typeof MODEL_CAPABILITIES)[number];
 
-export type ModelPluginStatus = "missing" | "invalid" | "ambiguous" | "ready";
+export type ModelPluginStatus = "missing" | "invalid" | "ambiguous" | "unverified" | "ready";
 
 export interface WorkspaceModelPluginReadiness {
   ready: boolean;
@@ -30,6 +38,8 @@ interface InstallationRow {
   manifest: unknown;
   configuration: unknown;
   secret_names: string[];
+  verified_at: Date | string | null;
+  verified_embedding_dimensions: number | null;
 }
 
 export interface ModelPluginBundle {
@@ -54,14 +64,8 @@ function requiredSecretNames(schema: Readonly<Record<string, unknown>> | undefin
     : [];
 }
 
-function usableConfiguration(
-  capability: ModelCapability,
-  configured: Readonly<Record<string, string>>,
-): boolean {
-  if (!configured.model?.trim()) return false;
-  if (capability === "chat.complete") return true;
-  const dimensions = Number(configured.dimensions);
-  return Number.isInteger(dimensions) && dimensions > 0;
+function usableConfiguration(configured: Readonly<Record<string, string>>): boolean {
+  return Boolean(configured.model?.trim());
 }
 
 function status(rows: readonly InstallationRow[], capability: ModelCapability): ModelPluginStatus {
@@ -72,9 +76,18 @@ function status(rows: readonly InstallationRow[], capability: ModelCapability): 
   if (providers.length > 1) return "ambiguous";
   const provider = providers[0];
   const configured = configuration(provider?.configuration);
-  if (!provider || !configured || !usableConfiguration(capability, configured)) return "invalid";
+  if (!provider || !configured || !usableConfiguration(configured)) return "invalid";
   const required = requiredSecretNames(parsePluginManifest(provider.manifest).secretSchema);
-  return required.every((name) => provider.secret_names.includes(name)) ? "ready" : "invalid";
+  if (!required.every((name) => provider.secret_names.includes(name))) return "invalid";
+  if (!provider.verified_at) return "unverified";
+  if (
+    capability === "embedding.embed" &&
+    (!Number.isInteger(provider.verified_embedding_dimensions) ||
+      Number(provider.verified_embedding_dimensions) < 1)
+  ) {
+    return "invalid";
+  }
+  return "ready";
 }
 
 export async function getWorkspaceModelPluginReadiness(
@@ -82,7 +95,8 @@ export async function getWorkspaceModelPluginReadiness(
   workspaceId: string,
 ): Promise<WorkspaceModelPluginReadiness> {
   const found = await client.query<InstallationRow>(
-    `SELECT i.manifest, i.configuration,
+    `SELECT i.manifest, i.configuration, i.verified_at,
+            i.verified_embedding_dimensions,
             ARRAY(
               SELECT s.name
                 FROM plugin_installation_secrets s
@@ -99,6 +113,146 @@ export async function getWorkspaceModelPluginReadiness(
   const chat = status(found.rows, "chat.complete");
   const embedding = status(found.rows, "embedding.embed");
   return { ready: chat === "ready" && embedding === "ready", chat, embedding };
+}
+
+export class ModelPluginVerificationError extends PluginInvocationError {
+  constructor(
+    public readonly kind: "chat" | "embedding",
+    error: unknown,
+  ) {
+    const invocation = error instanceof PluginInvocationError ? error : null;
+    super(
+      `${kind === "chat" ? "Chat" : "Embedding"} model verification failed.`,
+      invocation?.code ?? "verification_failed",
+      invocation?.status ?? 502,
+    );
+    this.name = "ModelPluginVerificationError";
+    this.cause = error;
+  }
+}
+
+/**
+ * Exercises the two assigned model capabilities before the workspace opens.
+ * Neither installation is marked verified unless both calls succeed. The
+ * embedding width comes from the model response, never from a user-entered
+ * number, and becomes the width enforced by later indexing calls.
+ */
+export async function verifyWorkspaceModelPlugins(
+  client: PoolClient,
+  input: {
+    workspaceId: string;
+    encryptionKey: string;
+    host: PluginHostConnection;
+    fetcher?: typeof fetch;
+  },
+): Promise<{
+  chatModel: string;
+  embeddingModel: string;
+  embeddingDimensions: number;
+}> {
+  const [chat, embedding] = await Promise.all([
+    resolveAssignedModelPlugin(client, input.workspaceId, "chat.complete", {
+      requireVerified: false,
+    }),
+    resolveAssignedModelPlugin(client, input.workspaceId, "embedding.embed", {
+      requireVerified: false,
+    }),
+  ]);
+  if (!chat) {
+    throw new ModelPluginVerificationError(
+      "chat",
+      new PluginInvocationError("Chat model plugin is missing.", "chat_plugin_missing", 400),
+    );
+  }
+  if (!embedding) {
+    throw new ModelPluginVerificationError(
+      "embedding",
+      new PluginInvocationError(
+        "Embedding model plugin is missing.",
+        "embedding_plugin_missing",
+        400,
+      ),
+    );
+  }
+
+  const connection = {
+    encryptionKey: input.encryptionKey,
+    host: input.host,
+    ...(input.fetcher ? { fetcher: input.fetcher } : {}),
+  };
+  const verify = async <T>(kind: "chat" | "embedding", call: () => Promise<T>): Promise<T> => {
+    try {
+      return await call();
+    } catch (error) {
+      throw new ModelPluginVerificationError(kind, error);
+    }
+  };
+  const [chatOutput, embeddingOutput] = await Promise.all([
+    verify(
+      "chat",
+      () =>
+        invokePlugin(client, {
+          workspaceId: input.workspaceId,
+          installationId: chat.installationId,
+          capability: "chat.complete",
+          input: { messages: [{ role: "user", content: "Reply with OK." }] },
+          ...connection,
+        }) as Promise<ChatCompleteResponse>,
+    ),
+    verify(
+      "embedding",
+      () =>
+        invokePlugin(client, {
+          workspaceId: input.workspaceId,
+          installationId: embedding.installationId,
+          capability: "embedding.embed",
+          input: { inputs: ["Braino model setup verification"], inputType: "query" },
+          ...connection,
+        }) as Promise<EmbeddingResponse>,
+    ),
+  ]);
+
+  await client.query("BEGIN");
+  try {
+    const chatUpdate = await client.query<{ id: string }>(
+      `UPDATE plugin_installations
+          SET verified_at = now(), updated_at = now()
+        WHERE workspace_id = $1 AND id = $2 AND updated_at = $3::timestamptz
+        RETURNING id`,
+      [input.workspaceId, chat.installationId, chat.updatedAt],
+    );
+    const embeddingUpdate = await client.query<{ id: string }>(
+      `UPDATE plugin_installations
+          SET verified_at = now(),
+              verified_embedding_dimensions = $4,
+              updated_at = now()
+        WHERE workspace_id = $1 AND id = $2 AND updated_at = $3::timestamptz
+        RETURNING id`,
+      [
+        input.workspaceId,
+        embedding.installationId,
+        embedding.updatedAt,
+        embeddingOutput.dimensions,
+      ],
+    );
+    if (chatUpdate.rows.length !== 1 || embeddingUpdate.rows.length !== 1) {
+      throw new PluginInvocationError(
+        "Model plugin configuration changed during verification.",
+        "configuration_changed",
+        409,
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+
+  return {
+    chatModel: chatOutput.model,
+    embeddingModel: embeddingOutput.model,
+    embeddingDimensions: embeddingOutput.dimensions,
+  };
 }
 
 /**
@@ -128,13 +282,8 @@ export async function assignWorkspaceModelPlugin(
       "capability_not_provided",
     );
   }
-  if (!usableConfiguration(input.capability, input.plugin.configuration)) {
-    throw new PluginInstallationError(
-      input.capability === "chat.complete"
-        ? "A chat plugin requires a model."
-        : "An embedding plugin requires a model and positive integer dimensions.",
-      "configuration_invalid",
-    );
+  if (!usableConfiguration(input.plugin.configuration)) {
+    throw new PluginInstallationError("A model plugin requires a model.", "configuration_invalid");
   }
   await client.query("BEGIN");
   try {

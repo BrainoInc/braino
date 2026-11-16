@@ -6,6 +6,7 @@ import {
   listPluginInstallations,
   listPluginSecretNames,
 } from "@doco/host";
+import type { PluginHostConnection } from "@doco/host";
 import { pluginProvidesCapability } from "@doco/plugin-runtime";
 import { redirect } from "react-router";
 import { bundledModelPluginCatalog } from "~/lib/bundled-model-plugins.server";
@@ -83,4 +84,11 @@ export async function loadModelSetup(request: Request): Promise<ModelSetup> {
 export function pluginSecretsKey(): string | null {
   const value = process.env.DOCO_ENCRYPTION_KEY?.trim();
   return value && value.length >= 32 ? value : null;
+}
+
+/** The private WASI runner used for every workspace-scoped plugin invocation. */
+export function pluginHostConnection(): PluginHostConnection | null {
+  const url = process.env.BRAINO_PLUGIN_HOST_URL?.trim();
+  const apiToken = process.env.BRAINO_PLUGIN_HOST_API_TOKEN?.trim();
+  return url && apiToken && apiToken.length >= 32 ? { url, apiToken } : null;
 }

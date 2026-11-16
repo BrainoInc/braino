@@ -98,12 +98,6 @@ impl Guest for OllamaEmbeddingPlugin {
         let model = braino::plugin::host::configuration("model")
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| "embeddinggemma-2:270m".to_string());
-        let dimensions = braino::plugin::host::configuration("dimensions")
-            .unwrap_or_else(|| "768".to_string())
-            .parse::<usize>()
-            .ok()
-            .filter(|value| *value > 0)
-            .ok_or_else(|| "embedding dimensions are invalid".to_string())?;
         let body = serde_json::to_vec(&OllamaRequest {
             model: &model,
             input: &input.inputs,
@@ -124,11 +118,10 @@ impl Guest for OllamaEmbeddingPlugin {
         }
         let result: OllamaResponse = serde_json::from_slice(&response.body)
             .map_err(|_| "Ollama embedding response is invalid".to_string())?;
-        if result.embeddings.len() != input.inputs.len()
-            || result
-                .embeddings
-                .iter()
-                .any(|vector| vector.len() != dimensions)
+        let dimensions = result.embeddings.first().map(Vec::len).unwrap_or(0);
+        if dimensions == 0
+            || result.embeddings.len() != input.inputs.len()
+            || result.embeddings.iter().any(|vector| vector.len() != dimensions)
         {
             return Err("Ollama returned unexpected embedding dimensions".to_string());
         }

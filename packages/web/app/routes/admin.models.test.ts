@@ -3,26 +3,39 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelPluginEntry, ModelStep } from "~/lib/model-plugin-catalog";
 
 const mocks = vi.hoisted(() => ({
+  ModelPluginVerificationError: class ModelPluginVerificationError extends Error {
+    constructor(
+      public readonly kind: "chat" | "embedding",
+      public readonly code: string,
+    ) {
+      super("verification failed");
+    }
+  },
   assignWorkspaceModelPlugin: vi.fn(),
   bundledModelPlugin: vi.fn(),
   getWorkspaceModelPluginReadiness: vi.fn(),
   loadModelSetup: vi.fn(),
+  pluginHostConnection: vi.fn(),
   pluginSecretsKey: vi.fn(),
+  verifyWorkspaceModelPlugins: vi.fn(),
 }));
 
 vi.mock("@doco/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
 vi.mock("@doco/host", () => ({
+  ModelPluginVerificationError: mocks.ModelPluginVerificationError,
   PluginInstallationError: class PluginInstallationError extends Error {},
   assignWorkspaceModelPlugin: mocks.assignWorkspaceModelPlugin,
   getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
+  verifyWorkspaceModelPlugins: mocks.verifyWorkspaceModelPlugins,
 }));
 vi.mock("~/lib/bundled-model-plugins.server", () => ({
   bundledModelPlugin: mocks.bundledModelPlugin,
 }));
 vi.mock("~/lib/model-setup.server", () => ({
   loadModelSetup: mocks.loadModelSetup,
+  pluginHostConnection: mocks.pluginHostConnection,
   pluginSecretsKey: mocks.pluginSecretsKey,
 }));
 
@@ -44,7 +57,6 @@ const entry = (
   requiredSecrets: [],
   defaultModel: kind === "chat" ? "qwen3.5:2b" : "embeddinggemma-2:270m",
   suggestedModels: [kind === "chat" ? "qwen3.5:2b" : "embeddinggemma-2:270m"],
-  defaultDimensions: kind === "chat" ? null : "768",
   ...overrides,
 });
 
@@ -61,7 +73,6 @@ const catalog = [
     ...cloud,
     defaultModel: "text-embedding-3-small",
     suggestedModels: ["text-embedding-3-small", "text-embedding-3-large"],
-    defaultDimensions: "1536",
   }),
 ];
 
@@ -110,6 +121,15 @@ beforeEach(() => {
   mocks.pluginSecretsKey.mockReturnValue(
     "test-encryption-key-with-more-than-thirty-two-characters",
   );
+  mocks.pluginHostConnection.mockReturnValue({
+    url: "http://plugin-host:8080",
+    apiToken: "test-plugin-host-token-with-more-than-thirty-two-characters",
+  });
+  mocks.verifyWorkspaceModelPlugins.mockResolvedValue({
+    chatModel: "ollama:qwen3.5:2b",
+    embeddingModel: "ollama:embeddinggemma-2:270m",
+    embeddingDimensions: 768,
+  });
   mocks.bundledModelPlugin.mockImplementation(async (id: string) => {
     const found = catalog.find((candidate) => candidate.id === id);
     return found
@@ -152,10 +172,21 @@ describe("model setup: check and finish", () => {
         capability: "embedding.embed",
         plugin: expect.objectContaining({
           manifest: { id: "braino.ollama-embedding" },
-          configuration: { model: "embeddinggemma-2:270m", dimensions: "768" },
+          configuration: { model: "embeddinggemma-2:270m" },
         }),
       },
     ]);
+    expect(mocks.verifyWorkspaceModelPlugins).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        workspaceId: "workspace_meta",
+        encryptionKey: "test-encryption-key-with-more-than-thirty-two-characters",
+        host: {
+          url: "http://plugin-host:8080",
+          apiToken: "test-plugin-host-token-with-more-than-thirty-two-characters",
+        },
+      }),
+    );
     expect(location(response)).toBe("/");
   });
 
@@ -211,6 +242,22 @@ describe("model setup: check and finish", () => {
     expect(mocks.assignWorkspaceModelPlugin).not.toHaveBeenCalled();
   });
 
+  it("keeps the workspace closed and explains a failed live model check", async () => {
+    mocks.getWorkspaceModelPluginReadiness.mockResolvedValue({
+      ready: false,
+      chat: "unverified",
+      embedding: "unverified",
+    });
+    mocks.verifyWorkspaceModelPlugins.mockRejectedValue(
+      new mocks.ModelPluginVerificationError("embedding", "plugin_error"),
+    );
+
+    await expect(finish({ request: post("/admin/models") })).resolves.toEqual({
+      error:
+        "The embedding model could not answer. Check its model and key. For Ollama, run docker compose --profile models up -d.",
+    });
+  });
+
   it("lets only an owner finish setup", async () => {
     mocks.loadModelSetup.mockResolvedValue(setup({ isOwner: false, catalog: [] }));
 
@@ -258,13 +305,12 @@ describe("model setup: one plugin's page", () => {
       kind: "embedding",
       plugin: { id: "braino.openai-embedding" },
       model: "text-embedding-3-small",
-      dimensions: "1536",
       storedSecrets: [],
       replaces: "Ollama embeddings",
     });
     await expect(
       pluginLoader({ request: get("/admin/models/chat/x"), params: chatPage }),
-    ).resolves.toMatchObject({ dimensions: null, replaces: null });
+    ).resolves.toMatchObject({ replaces: null });
   });
 
   it("refuses a plugin on the page of a model it does not provide", async () => {
@@ -304,12 +350,11 @@ describe("model setup: one plugin's page", () => {
     expect(location(response)).toBe("/admin/models");
   });
 
-  it("takes a model typed under Another model, and the embedding dimensions", async () => {
+  it("takes a model typed under Another model and leaves width detection to the live check", async () => {
     await usePlugin({
       request: post("/admin/models/embedding/braino.openai-embedding", {
         model: "__another",
         model_other: " text-embedding-4 ",
-        dimensions: "2048",
         secret_api_key: "sk-embedding-only",
       }),
       params: embeddingPage,
@@ -318,7 +363,7 @@ describe("model setup: one plugin's page", () => {
     expect(mocks.assignWorkspaceModelPlugin.mock.calls[0]?.[1]).toMatchObject({
       capability: "embedding.embed",
       plugin: {
-        configuration: { model: "text-embedding-4", dimensions: "2048" },
+        configuration: { model: "text-embedding-4" },
         secrets: { api_key: "sk-embedding-only" },
       },
     });
@@ -344,7 +389,6 @@ describe("model setup: one plugin's page", () => {
       usePlugin({
         request: post("/admin/models/embedding/braino.openai-embedding", {
           model: "text-embedding-3-small",
-          dimensions: "1536",
         }),
         params: embeddingPage,
       }),
@@ -380,25 +424,18 @@ describe("model setup: one plugin's page", () => {
     });
   });
 
-  it.each([
-    [{ model: "__another", model_other: "  " }, "Enter a model name."],
-    [
-      { model: "text-embedding-3-small", dimensions: "0", secret_api_key: "sk" },
-      "Embedding dimensions must be a positive integer.",
-    ],
-    [
-      { model: "text-embedding-3-small", dimensions: "15.5", secret_api_key: "sk" },
-      "Embedding dimensions must be a positive integer.",
-    ],
-  ])("returns what is wrong with the form as inline action data", async (fields, error) => {
-    await expect(
-      usePlugin({
-        request: post("/admin/models/embedding/braino.openai-embedding", fields),
-        params: embeddingPage,
-      }),
-    ).resolves.toEqual({ error });
-    expect(mocks.assignWorkspaceModelPlugin).not.toHaveBeenCalled();
-  });
+  it.each([[{ model: "__another", model_other: "  " }, "Enter a model name."]])(
+    "returns what is wrong with the form as inline action data",
+    async (fields, error) => {
+      await expect(
+        usePlugin({
+          request: post("/admin/models/embedding/braino.openai-embedding", fields),
+          params: embeddingPage,
+        }),
+      ).resolves.toEqual({ error });
+      expect(mocks.assignWorkspaceModelPlugin).not.toHaveBeenCalled();
+    },
+  );
 
   it("sends anyone who is not an owner back to the setup overview", async () => {
     mocks.loadModelSetup.mockResolvedValue(setup({ isOwner: false, catalog: [] }));
@@ -422,6 +459,8 @@ describe("the three model setup screens", () => {
   it("are organised by what Braino needs, then by plugin", () => {
     expect(overview).toContain("Set up your models");
     expect(overview).toContain("Check and finish");
+    expect(overview).toContain("Testing models…");
+    expect(overview).toContain("useNavigation");
     expect(overview).toContain("to={`/admin/models/${step.kind}`}");
     expect(plugins).toContain("Included with Braino");
     expect(plugins).toContain("From the marketplace");
@@ -431,8 +470,8 @@ describe("the three model setup screens", () => {
     expect(plugin).toContain("Use this plugin");
   });
 
-  it("ask for embedding dimensions and a key on the plugin's page only", () => {
-    expect(plugin).toContain('name="dimensions"');
+  it("asks for provider keys but detects embedding dimensions itself", () => {
+    expect(plugin).not.toContain('name="dimensions"');
     expect(plugin).toContain('type="password"');
     expect(plugin).toContain('autoComplete="off"');
     for (const screen of [overview, plugins]) {

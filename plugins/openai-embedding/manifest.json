@@ -2,7 +2,7 @@
   "protocolVersion": 2,
   "id": "braino.openai-embedding",
   "name": "OpenAI embeddings",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "capabilities": { "embedding.embed": 1 },
   "permissions": { "network": ["api.openai.com"] },
   "configurationSchema": {
@@ -12,8 +12,7 @@
         "type": "string",
         "default": "text-embedding-3-small",
         "examples": ["text-embedding-3-small", "text-embedding-3-large"]
-      },
-      "dimensions": { "type": "string", "default": "1536" }
+      }
     },
     "additionalProperties": false
   },

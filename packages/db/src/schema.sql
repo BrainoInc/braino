@@ -1572,6 +1572,9 @@ CREATE TABLE IF NOT EXISTS plugin_installations (
   artifact_digest     text NOT NULL REFERENCES plugin_artifacts(digest),
   configuration       jsonb NOT NULL DEFAULT '{}'::jsonb,
   enabled             boolean NOT NULL DEFAULT true,
+  verified_at         timestamptz,
+  verified_embedding_dimensions integer
+                        CHECK (verified_embedding_dimensions > 0),
   created_by_user_id  text NOT NULL REFERENCES users(id),
   updated_by_user_id  text NOT NULL REFERENCES users(id),
   created_at          timestamptz NOT NULL DEFAULT now(),

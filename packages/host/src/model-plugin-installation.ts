@@ -6,6 +6,8 @@ interface InstallationRow {
   id: string;
   manifest: unknown;
   configuration: unknown;
+  updated_at: Date | string;
+  verified_embedding_dimensions: number | null;
 }
 
 export interface AssignedModelPlugin {
@@ -14,6 +16,8 @@ export interface AssignedModelPlugin {
   pluginId: string;
   model: string;
   configuration: Readonly<Record<string, string>>;
+  updatedAt: string;
+  verifiedEmbeddingDimensions: number | null;
 }
 
 function stringRecord(value: unknown): Record<string, string> {
@@ -38,15 +42,18 @@ export async function resolveAssignedModelPlugin(
   client: PoolClient,
   workspaceId: string,
   capability: ModelCapabilityName,
+  options: { requireVerified?: boolean } = {},
 ): Promise<AssignedModelPlugin | null> {
+  const requireVerified = options.requireVerified !== false;
   const found = await client.query<InstallationRow>(
-    `SELECT id, manifest, configuration
+    `SELECT id, manifest, configuration, updated_at, verified_embedding_dimensions
        FROM plugin_installations
       WHERE workspace_id = $1 AND enabled
         AND manifest->'capabilities' ? $2
+        AND (NOT $3::boolean OR verified_at IS NOT NULL)
       ORDER BY updated_at DESC, id
       LIMIT 2`,
-    [workspaceId, capability],
+    [workspaceId, capability, requireVerified],
   );
   if (found.rows.length === 0) return null;
   if (found.rows.length > 1) {
@@ -69,5 +76,10 @@ export async function resolveAssignedModelPlugin(
     pluginId: manifest.id,
     model,
     configuration,
+    updatedAt: (row.updated_at instanceof Date
+      ? row.updated_at
+      : new Date(row.updated_at)
+    ).toISOString(),
+    verifiedEmbeddingDimensions: row.verified_embedding_dimensions,
   };
 }

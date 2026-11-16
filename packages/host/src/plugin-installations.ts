@@ -246,6 +246,8 @@ export async function installPluginInTransaction(
            artifact_digest = EXCLUDED.artifact_digest,
            configuration = EXCLUDED.configuration,
            enabled = true,
+           verified_at = NULL,
+           verified_embedding_dimensions = NULL,
            updated_by_user_id = EXCLUDED.updated_by_user_id,
            updated_at = now()
      RETURNING ${INSTALLATION_COLUMNS}`,
@@ -313,7 +315,12 @@ export async function setPluginInstallationEnabled(
   await requireOwner(client, input.workspaceId, input.userId);
   const result = await client.query<InstallationRow>(
     `UPDATE plugin_installations
-        SET enabled = $4, updated_by_user_id = $3, updated_at = now()
+        SET enabled = $4,
+            verified_at = CASE WHEN $4 THEN NULL ELSE verified_at END,
+            verified_embedding_dimensions =
+              CASE WHEN $4 THEN NULL ELSE verified_embedding_dimensions END,
+            updated_by_user_id = $3,
+            updated_at = now()
       WHERE workspace_id = $1 AND id = $2
       RETURNING ${INSTALLATION_COLUMNS}`,
     [input.workspaceId, input.installationId, input.userId, input.enabled],
@@ -368,7 +375,11 @@ export async function configurePluginInstallation(
     const secrets = validatedSecretChanges(proposedSecrets, manifest.secretSchema);
     const updated = await client.query<InstallationRow>(
       `UPDATE plugin_installations
-          SET configuration = $3::jsonb, updated_by_user_id = $4, updated_at = now()
+          SET configuration = $3::jsonb,
+              verified_at = NULL,
+              verified_embedding_dimensions = NULL,
+              updated_by_user_id = $4,
+              updated_at = now()
         WHERE workspace_id = $1 AND id = $2
         RETURNING ${INSTALLATION_COLUMNS}`,
       [input.workspaceId, input.installationId, configured.serialized, input.userId],

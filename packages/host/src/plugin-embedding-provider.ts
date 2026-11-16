@@ -10,12 +10,11 @@ import {
 
 type Fetcher = typeof fetch;
 
-function positiveInteger(value: string | undefined, label: string): number {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    throw new PluginInvocationError(`${label} is invalid.`, "configuration_invalid");
+function positiveInteger(value: number | null, label: string): number {
+  if (!Number.isInteger(value) || Number(value) < 1) {
+    throw new PluginInvocationError(`${label} is invalid.`, "verification_invalid");
   }
-  return parsed;
+  return Number(value);
 }
 
 export class PluginEmbeddingProvider implements EmbeddingProvider {
@@ -91,8 +90,8 @@ export async function resolveWorkspaceEmbeddingProvider(
     {
       ...installation,
       dimensions: positiveInteger(
-        installation.configuration.dimensions,
-        "Embedding plugin dimensions",
+        installation.verifiedEmbeddingDimensions,
+        "Verified embedding plugin dimensions",
       ),
     },
     {

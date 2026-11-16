@@ -26,12 +26,12 @@ const manifest: PluginManifest = {
   permissions: { network: ["ollama:11434"] },
   configurationSchema: {
     type: "object",
-    properties: { model: { type: "string" }, dimensions: { type: "string" } },
+    properties: { model: { type: "string" } },
     additionalProperties: false,
   },
 };
 
-async function fixture() {
+async function fixture(verified = true) {
   const setup = await initializeSingleWorkspace(client(), {
     workspaceHandle: "acme",
     workspaceName: "Acme",
@@ -50,10 +50,18 @@ async function fixture() {
     workspaceId: setup.workspace.id,
     userId: setup.owner.id,
     installationId: installation.id,
-    configuration: { model: "embeddinggemma", dimensions: "3" },
+    configuration: { model: "embeddinggemma" },
     secrets: {},
     encryptionKey,
   });
+  if (verified) {
+    await db.query(
+      `UPDATE plugin_installations
+          SET verified_at = now(), verified_embedding_dimensions = 3
+        WHERE id = $1`,
+      [installation.id],
+    );
+  }
   return { ...setup, installation };
 }
 
@@ -107,6 +115,18 @@ describe("workspace embedding plugin", () => {
       ownerName: "Owner",
       ownerPasswordHash: "scrypt$salt$key",
     });
+
+    await expect(
+      resolveWorkspaceEmbeddingProvider(client(), {
+        workspaceId: setup.workspace.id,
+        encryptionKey,
+        host: { url: "http://plugin-host:8080", apiToken },
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("does not expose an assigned plugin before its live verification", async () => {
+    const setup = await fixture(false);
 
     await expect(
       resolveWorkspaceEmbeddingProvider(client(), {

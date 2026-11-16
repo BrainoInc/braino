@@ -64,4 +64,56 @@ describe("plugin capability contract migration", () => {
       },
     ]);
   });
+
+  it("requires existing model installations to pass the new live verification", async () => {
+    await db.exec(`
+      INSERT INTO workspaces (id, handle, name, constitution)
+      VALUES ('workspace_verify', 'verify', 'Verify', '');
+      INSERT INTO users (id, username, name, email, password_hash, data)
+      VALUES ('user_verify', 'verify', 'Verify', 'verify@example.com', 'hash', '{}');
+      INSERT INTO plugin_artifacts (digest, component)
+      VALUES (
+        'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        '\\x00'
+      );
+      INSERT INTO plugin_installations
+        (id, workspace_id, manifest, artifact_digest, configuration,
+         created_by_user_id, updated_by_user_id)
+      VALUES (
+        'plugin_installation_verify',
+        'workspace_verify',
+        '{
+          "protocolVersion": 2,
+          "id": "acme.chat",
+          "name": "Acme chat",
+          "version": "1.0.0",
+          "capabilities": {"chat.complete": 1},
+          "permissions": {"network": ["models.example.com"]}
+        }',
+        'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        '{"model":"small-chat"}',
+        'user_verify',
+        'user_verify'
+      );
+      ALTER TABLE plugin_installations
+        DROP COLUMN verified_at,
+        DROP COLUMN verified_embedding_dimensions;
+    `);
+
+    const migration = await readFile(
+      new URL("../../migrations/017_verified_model_plugins.sql", import.meta.url),
+      "utf8",
+    );
+    await db.exec(migration);
+
+    const result = await db.query<{
+      verified_at: string | null;
+      verified_embedding_dimensions: number | null;
+    }>(
+      `SELECT verified_at, verified_embedding_dimensions
+         FROM plugin_installations
+        WHERE id = 'plugin_installation_verify'`,
+    );
+    expect(result.rows).toEqual([{ verified_at: null, verified_embedding_dimensions: null }]);
+  });
 });
