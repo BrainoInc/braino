@@ -30,8 +30,6 @@ export interface ModelPluginEntry {
   requiredSecrets: string[];
   defaultModel: string;
   suggestedModels: string[];
-  /** Embedding plugins only. */
-  defaultDimensions: string | null;
 }
 
 function localHost(host: string): boolean {
@@ -63,8 +61,6 @@ export function modelPluginEntry(value: unknown): ModelPluginEntry | null {
       : [],
     defaultModel: model.default,
     suggestedModels: [...model.suggested],
-    defaultDimensions:
-      kind === "embedding" ? pluginConfigurationChoices(manifest, "dimensions").default : null,
   };
 }
 

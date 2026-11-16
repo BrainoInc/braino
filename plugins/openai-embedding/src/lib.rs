@@ -67,7 +67,6 @@ struct EmbeddingInput {
 struct OpenAiRequest<'a> {
     model: &'a str,
     input: &'a [String],
-    dimensions: usize,
 }
 
 #[derive(Deserialize)]
@@ -104,17 +103,10 @@ impl Guest for OpenAiEmbeddingPlugin {
         let model = braino::plugin::host::configuration("model")
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| "text-embedding-3-small".to_string());
-        let dimensions = braino::plugin::host::configuration("dimensions")
-            .unwrap_or_else(|| "1536".to_string())
-            .parse::<usize>()
-            .ok()
-            .filter(|value| *value > 0)
-            .ok_or_else(|| "embedding dimensions are invalid".to_string())?;
         let api_key = braino::plugin::host::secret("api_key")?;
         let body = serde_json::to_vec(&OpenAiRequest {
             model: &model,
             input: &input.inputs,
-            dimensions,
         })
         .map_err(|_| "embedding request could not be encoded".to_string())?;
         let response = braino::plugin::host::request(&braino::plugin::host::HttpRequest {
@@ -135,7 +127,13 @@ impl Guest for OpenAiEmbeddingPlugin {
         let mut result: OpenAiResponse = serde_json::from_slice(&response.body)
             .map_err(|_| "OpenAI embedding response is invalid".to_string())?;
         result.data.sort_by_key(|item| item.index);
-        if result.data.len() != input.inputs.len()
+        let dimensions = result
+            .data
+            .first()
+            .map(|item| item.embedding.len())
+            .unwrap_or(0);
+        if dimensions == 0
+            || result.data.len() != input.inputs.len()
             || result
                 .data
                 .iter()

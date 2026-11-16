@@ -1,18 +1,20 @@
 import { withClient } from "@doco/db";
 import {
+  ModelPluginVerificationError,
   PluginInstallationError,
   assignWorkspaceModelPlugin,
   getWorkspaceModelPluginReadiness,
+  verifyWorkspaceModelPlugins,
 } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
-import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
+import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import { Card } from "~/components/card";
 import { ModelSetupBreadcrumb, StatusLine, modelTitle } from "~/components/model-setup";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { bundledModelPlugin } from "~/lib/bundled-model-plugins.server";
 import { MODEL_CAPABILITY, type ModelStep } from "~/lib/model-plugin-catalog";
-import { loadModelSetup } from "~/lib/model-setup.server";
+import { loadModelSetup, pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
 import {
   MAX_FORM_BODY_BYTES,
   RequestBodyError,
@@ -63,12 +65,7 @@ export async function action({ request }: { request: Request }) {
           plugin: {
             manifest: bundled.manifest,
             component: bundled.component,
-            configuration: {
-              model: bundled.entry.defaultModel,
-              ...(bundled.entry.defaultDimensions
-                ? { dimensions: bundled.entry.defaultDimensions }
-                : {}),
-            },
+            configuration: { model: bundled.entry.defaultModel },
           },
         }),
       );
@@ -77,19 +74,52 @@ export async function action({ request }: { request: Request }) {
     if (error instanceof PluginInstallationError) return { error: t(error.message) };
     throw error;
   }
-  const readiness = await withClient((client) =>
+  let readiness = await withClient((client) =>
     getWorkspaceModelPluginReadiness(client, setup.workspace.id),
   );
-  if (readiness.ready) return redirect("/");
-  if (readiness.chat !== "ready" && readiness.embedding !== "ready") {
+  const configured = (status: (typeof readiness)["chat"]) =>
+    status === "ready" || status === "unverified";
+  if (!configured(readiness.chat) && !configured(readiness.embedding)) {
     return { error: t("Configure the chat model and the embedding model first.") };
   }
-  return {
-    error:
-      readiness.chat !== "ready"
-        ? t("Configure the chat model first.")
-        : t("Configure the embedding model first."),
-  };
+  if (!configured(readiness.chat)) return { error: t("Configure the chat model first.") };
+  if (!configured(readiness.embedding)) return { error: t("Configure the embedding model first.") };
+
+  const encryptionKey = pluginSecretsKey();
+  if (!encryptionKey) {
+    return { error: t("DOCO_ENCRYPTION_KEY must contain at least 32 characters.") };
+  }
+  const host = pluginHostConnection();
+  if (!host) return { error: t("The plugin service is not configured.") };
+  try {
+    await withClient((client) =>
+      verifyWorkspaceModelPlugins(client, {
+        workspaceId: setup.workspace.id,
+        encryptionKey,
+        host,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof ModelPluginVerificationError) {
+      return {
+        error:
+          error.kind === "chat"
+            ? t(
+                "The chat model could not answer. Check its model and key. For Ollama, run docker compose --profile models up -d.",
+              )
+            : t(
+                "The embedding model could not answer. Check its model and key. For Ollama, run docker compose --profile models up -d.",
+              ),
+      };
+    }
+    throw error;
+  }
+  readiness = await withClient((client) =>
+    getWorkspaceModelPluginReadiness(client, setup.workspace.id),
+  );
+  return readiness.ready
+    ? redirect("/")
+    : { error: t("Braino could not verify both model plugins. Try again.") };
 }
 
 function StepStatus({ step }: { step: ModelStep }) {
@@ -105,6 +135,9 @@ function StepStatus({ step }: { step: ModelStep }) {
     return (
       <StatusLine ok>{t("Pre-selected. Check and finish installs it with this model.")}</StatusLine>
     );
+  }
+  if (step.status === "unverified") {
+    return <StatusLine ok>{t("Installed. Check and finish will test this model.")}</StatusLine>;
   }
   if (step.status === "ambiguous") {
     return (
@@ -127,6 +160,8 @@ export default function ModelSetupPage() {
   const t = useT();
   const data = useLoaderData() as LoaderData;
   const actionData = useActionData() as { error?: string } | undefined;
+  const navigation = useNavigation();
+  const testing = navigation.state === "submitting";
   return (
     <PageMain className="py-6">
       <div className="max-w-3xl space-y-6">
@@ -209,9 +244,10 @@ export default function ModelSetupPage() {
           <Form method="post" className="flex flex-wrap items-center gap-x-4 gap-y-3">
             <button
               type="submit"
+              disabled={testing}
               className="neu-button rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
-              {t("Check and finish")}
+              {testing ? t("Testing models…") : t("Check and finish")}
             </button>
             <p className="min-w-0 flex-[1_1_15rem] text-xs text-muted-foreground">
               {t(

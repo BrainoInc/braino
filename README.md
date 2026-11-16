@@ -44,7 +44,10 @@ Open `http://localhost:3000`, enter `BRAINO_SETUP_TOKEN`, and create the owner a
 sole workspace. Braino then opens **Model setup**, which lists the two models it
 needs: a chat model and an embedding model. Each comes from one plugin. The
 bundled Ollama plugins are pre-selected with their default models, so **Check
-and finish** completes setup without choosing anything. **Configure** on either
+and finish** completes setup without choosing anything once the model profile
+below is running. It makes one real request through each plugin, learns the
+embedding width from the model's response, and keeps the dashboard closed if
+either check fails. **Configure** on either
 model lists the plugins available for it; a plugin's own page shows the one
 host it may reach, a picker of suggested models, and a field for its own key
 when it needs one. The application port binds to loopback; the optional Caddy
@@ -82,7 +85,8 @@ the private Compose network. The retrieval scheduler embeds pending source
 documents and projects the resulting vectors to Qdrant; workspace content,
 model input, completions, and vectors do not pass through Braino Cloud or
 another Braino instance. The workspace dashboard remains unavailable until
-exactly one enabled, valid provider for each required model capability exists.
+exactly one enabled provider for each required model capability has passed its
+live check.
 The OpenAI chat and OpenAI embeddings plugins use the same sandbox and can reach
 only `https://api.openai.com`. Each plugin holds its own API key, even when both
 come from the same provider; keys are encrypted in the workspace database and

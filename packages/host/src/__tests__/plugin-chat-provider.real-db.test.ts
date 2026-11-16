@@ -54,6 +54,9 @@ async function fixture() {
     secrets: {},
     encryptionKey,
   });
+  await db.query("UPDATE plugin_installations SET verified_at = now() WHERE id = $1", [
+    installation.id,
+  ]);
   return { ...setup, installation };
 }
 

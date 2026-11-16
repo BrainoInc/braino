@@ -25,7 +25,7 @@ vi.mock("~/lib/bundled-model-plugins.server", () => ({
 }));
 vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUser }));
 
-import { loadModelSetup, pluginSecretsKey } from "~/lib/model-setup.server";
+import { loadModelSetup, pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
 
 const request = new Request("https://meta.braino.dev/admin/models");
 
@@ -123,5 +123,19 @@ describe("the state every model setup screen starts from", () => {
     expect(pluginSecretsKey()).toBeNull();
     vi.stubEnv("DOCO_ENCRYPTION_KEY", "test-encryption-key-with-more-than-thirty-two-characters");
     expect(pluginSecretsKey()).toBe("test-encryption-key-with-more-than-thirty-two-characters");
+  });
+
+  it("uses the deployment's private plugin host only with a usable token", () => {
+    vi.stubEnv("BRAINO_PLUGIN_HOST_URL", "http://plugin-host:8080");
+    vi.stubEnv("BRAINO_PLUGIN_HOST_API_TOKEN", "short");
+    expect(pluginHostConnection()).toBeNull();
+    vi.stubEnv(
+      "BRAINO_PLUGIN_HOST_API_TOKEN",
+      "test-plugin-host-token-with-more-than-thirty-two-characters",
+    );
+    expect(pluginHostConnection()).toEqual({
+      url: "http://plugin-host:8080",
+      apiToken: "test-plugin-host-token-with-more-than-thirty-two-characters",
+    });
   });
 });

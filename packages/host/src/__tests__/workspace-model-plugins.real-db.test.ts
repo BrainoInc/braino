@@ -37,10 +37,7 @@ function manifest(
     permissions: { network: ["ollama:11434"] },
     configurationSchema: {
       type: "object",
-      properties: {
-        model: { type: "string" },
-        ...(capability === "embedding.embed" ? { dimensions: { type: "string" } } : {}),
-      },
+      properties: { model: { type: "string" } },
       additionalProperties: false,
     },
     ...(options.apiKey
@@ -57,7 +54,7 @@ function manifest(
 }
 
 describe("required workspace model plugins", () => {
-  it("is ready only with one configured chat plugin and one configured embedding plugin", async () => {
+  it("keeps configured model plugins unverified until their live checks pass", async () => {
     const setup = await initializeSingleWorkspace(client(), {
       workspaceHandle: "acme",
       workspaceName: "Acme",
@@ -82,7 +79,7 @@ describe("required workspace model plugins", () => {
     });
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
       ready: false,
-      chat: "ready",
+      chat: "unverified",
       embedding: "missing",
     });
 
@@ -91,12 +88,12 @@ describe("required workspace model plugins", () => {
       userId: setup.owner.id,
       manifest: manifest("acme.embedding", "embedding.embed"),
       component: new TextEncoder().encode("embedding"),
-      configuration: { model: "embeddinggemma", dimensions: "768" },
+      configuration: { model: "embeddinggemma" },
     });
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
-      ready: true,
-      chat: "ready",
-      embedding: "ready",
+      ready: false,
+      chat: "unverified",
+      embedding: "unverified",
     });
   });
 
@@ -127,7 +124,7 @@ describe("required workspace model plugins", () => {
     await installPlugin(client(), {
       ...base,
       manifest: manifest("acme.embedding", "embedding.embed"),
-      configuration: { model: "embeddinggemma", dimensions: "not-a-number" },
+      configuration: { model: " " },
     });
 
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
@@ -161,7 +158,7 @@ describe("required workspace model plugins", () => {
       userId: setup.owner.id,
       manifest: manifest("acme.embedding", "embedding.embed", { apiKey: true }),
       component,
-      configuration: { model: "text-embedding-3-small", dimensions: "1536" },
+      configuration: { model: "text-embedding-3-small" },
       secrets: { api_key: "sk-test" },
       encryptionKey,
     });
@@ -169,7 +166,7 @@ describe("required workspace model plugins", () => {
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
       ready: false,
       chat: "invalid",
-      embedding: "ready",
+      embedding: "unverified",
     });
   });
 });
@@ -211,7 +208,7 @@ describe("assigning one plugin to one model", () => {
       plugin: {
         manifest: manifest("local.embedding", "embedding.embed"),
         component,
-        configuration: { model: "embeddinggemma-2:270m", dimensions: "768" },
+        configuration: { model: "embeddinggemma-2:270m" },
       },
     });
   }
@@ -242,13 +239,13 @@ describe("assigning one plugin to one model", () => {
     const untouched = installed.find((plugin) => plugin.id === embedding.id);
     expect(untouched).toMatchObject({
       enabled: true,
-      configuration: { model: "embeddinggemma-2:270m", dimensions: "768" },
+      configuration: { model: "embeddinggemma-2:270m" },
       updatedAt: embedding.updatedAt,
     });
     await expect(getWorkspaceModelPluginReadiness(client(), owner.workspaceId)).resolves.toEqual({
-      ready: true,
-      chat: "ready",
-      embedding: "ready",
+      ready: false,
+      chat: "unverified",
+      embedding: "unverified",
     });
   });
 
@@ -262,7 +259,7 @@ describe("assigning one plugin to one model", () => {
       plugin: {
         manifest: manifest("cloud.embedding", "embedding.embed", { apiKey: true }),
         component,
-        configuration: { model: "text-embedding-3-small", dimensions: "1536" },
+        configuration: { model: "text-embedding-3-small" },
         secrets: { api_key: "sk-embedding" },
         encryptionKey,
       },
@@ -315,7 +312,7 @@ describe("assigning one plugin to one model", () => {
         plugin: {
           manifest: manifest("cloud.embedding", "embedding.embed", { apiKey: true }),
           component,
-          configuration: { model: "text-embedding-3-small", dimensions: "1536" },
+          configuration: { model: "text-embedding-3-small" },
         },
       }),
     ).rejects.toMatchObject({ code: "secret_required" });
@@ -325,7 +322,7 @@ describe("assigning one plugin to one model", () => {
       plugin: {
         manifest: manifest("cloud.embedding", "embedding.embed", { apiKey: true }),
         component,
-        configuration: { model: "text-embedding-3-small", dimensions: "1536" },
+        configuration: { model: "text-embedding-3-small" },
         secrets: { api_key: "sk-embedding" },
         encryptionKey,
       },
@@ -420,7 +417,7 @@ describe("assigning one plugin to one model", () => {
         plugin: {
           manifest: manifest("local.embedding", "embedding.embed"),
           component,
-          configuration: { model: "embeddinggemma-2:270m", dimensions: "many" },
+          configuration: { model: " " },
         },
       }),
     ).rejects.toMatchObject({ code: "configuration_invalid" });

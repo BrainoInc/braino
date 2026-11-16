@@ -43,7 +43,6 @@ describe("the model plugin catalogue", () => {
       requiredSecrets: [],
       defaultModel: "qwen3.5:2b",
       suggestedModels: ["qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b"],
-      defaultDimensions: null,
     });
     expect(modelPluginEntry(manifest("ollama-embedding"))).toMatchObject({
       id: "braino.ollama-embedding",
@@ -51,7 +50,6 @@ describe("the model plugin catalogue", () => {
       local: true,
       requiredSecrets: [],
       defaultModel: "embeddinggemma-2:270m",
-      defaultDimensions: "768",
     });
     expect(modelPluginEntry(manifest("openai-chat"))).toMatchObject({
       id: "braino.openai-chat",
@@ -69,7 +67,6 @@ describe("the model plugin catalogue", () => {
       local: false,
       requiredSecrets: ["api_key"],
       defaultModel: "text-embedding-3-small",
-      defaultDimensions: "1536",
     });
   });
 
@@ -192,7 +189,6 @@ describe("the two model setup steps", () => {
       installed("braino.openai-chat", "chat", { model: "gpt-4.1" }, { secretNames: ["api_key"] }),
       installed("braino.ollama-embedding", "embedding", {
         model: "embeddinggemma-2:270m",
-        dimensions: "768",
       }),
     ]);
 
