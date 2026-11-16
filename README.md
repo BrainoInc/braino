@@ -163,15 +163,25 @@ returns replies through the same gateway contract. The gateway cannot access
 this instance's PostgreSQL, Qdrant, model credentials, retrieval state, or agent
 tools, and no Braino instance can access another installation.
 
-Owners can also connect one GitHub repository from **Integrations** with a
-fine-grained personal access token scoped to that repository. Grant read access
-to Metadata, Contents, Issues, and Pull requests, plus Webhooks write access. Braino
-encrypts the token with `DOCO_ENCRYPTION_KEY`, imports into dedicated GitHub
-codebase, issue, and pull-request collections, and records every source change in the
-same immutable history. When `DOCO_PUBLIC_HOST` is public HTTPS, Braino registers
-a signed repository webhook and refreshes automatically on issue and pull
-request and push events; delivery IDs make retries idempotent. **Sync now** remains the
-fallback, and unchanged items do not create versions.
+Owners connect one GitHub repository from **Admin → Integrations → Braino for
+GitHub** by installing the official GitHub App. The independently deployed
+Braino plugin gateway owns the App private key, webhook secret, installation
+tokens, and provider delivery ledger. This instance stores only a revocable
+credential scoped to its one installation, invokes the gateway through the
+bundled `braino.github` WASI plugin, and receives signed normalized deliveries
+at `/api/v1/plugins/github/events`. Set `DOCO_PUBLIC_HOST` to this deployment's
+public HTTPS origin before installing.
+
+Braino imports code, issues, and pull requests into dedicated collections and
+records every source change in the same immutable history. GitHub deliveries
+refresh automatically; both the gateway and this instance deduplicate retries.
+Owners may enable **Require Braino on pull requests**, which reconciles a GitHub
+ruleset requiring the `Braino` check. The check succeeds when the pull request
+or one of its commits cites its Braino brief or record, and fails otherwise.
+Existing personal-access-token connections migrate through the same screen:
+Braino attaches the App, performs one successful gateway sync, and only then
+deletes the old token and repository-webhook secret. New connections never ask
+for or store a GitHub personal access token.
 
 ## Operations
 

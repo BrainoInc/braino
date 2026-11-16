@@ -12,6 +12,8 @@ export default [
   route("integrations", "routes/integrations.tsx"),
   route("integrations/slack-app", "routes/integrations.slack-app.tsx"),
   route("integrations/slack-app/callback", "routes/integrations.slack-app.callback.ts"),
+  route("integrations/github-app", "routes/integrations.github-app.tsx"),
+  route("integrations/github-app/callback", "routes/integrations.github-app.callback.ts"),
   route("mcp-tokens", "routes/mcp-tokens.tsx"),
   route("mcp", "routes/mcp.ts"),
   route(".well-known/oauth-authorization-server", "routes/oauth-metadata-authorization-server.ts"),
@@ -31,6 +33,7 @@ export default [
   route("api/v1/webhooks/:token", "routes/api.v1.webhooks.$token.ts"),
   route("api/v1/github/webhooks/:connectionId", "routes/api.v1.github.webhooks.$connectionId.ts"),
   route("api/v1/plugins/slack/events", "routes/api.v1.plugins.slack.events.ts"),
+  route("api/v1/plugins/github/events", "routes/api.v1.plugins.github.events.ts"),
   route(
     ":collectionHandle/api/authoring-contract.json",
     "routes/$collectionHandle.api.authoring-contract[.]json.ts",

@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   getWorkspaceRole: vi.fn(),
   pluginHostConnection: vi.fn(),
   pluginSecretsKey: vi.fn(),
-  verifySlackGatewayState: vi.fn(),
+  verifyPluginGatewayState: vi.fn(),
 }));
 
 vi.mock("@doco/db", () => ({
@@ -25,9 +25,9 @@ vi.mock("~/lib/model-setup.server", () => ({
   pluginHostConnection: mocks.pluginHostConnection,
   pluginSecretsKey: mocks.pluginSecretsKey,
 }));
-vi.mock("~/lib/slack-gateway-state.server", () => ({
+vi.mock("~/lib/plugin-gateway-state.server", () => ({
   brainoPluginGatewayUrl: () => "https://plugins.braino.dev",
-  verifySlackGatewayState: mocks.verifySlackGatewayState,
+  verifyPluginGatewayState: mocks.verifyPluginGatewayState,
 }));
 
 import { loader } from "./integrations.slack-app.callback";
@@ -43,7 +43,7 @@ beforeEach(() => {
   mocks.getWorkspaceRole.mockResolvedValue("owner");
   mocks.pluginSecretsKey.mockReturnValue("instance-state-secret");
   mocks.pluginHostConnection.mockReturnValue({ url: "http://plugin-host:8080", apiToken: "x" });
-  mocks.verifySlackGatewayState.mockReturnValue({
+  mocks.verifyPluginGatewayState.mockReturnValue({
     userId: "user_owner",
     workspaceId: "workspace_meta",
   });
@@ -54,8 +54,9 @@ beforeEach(() => {
   mocks.connectWorkspaceTeamChatPlugin.mockResolvedValue({
     installation: { id: "plugin_installation_slack" },
     connection: {
-      externalWorkspaceId: "T1",
-      workspaceName: "Acme",
+      provider: "slack",
+      externalAccountId: "T1",
+      accountName: "Acme",
       botUserId: "U_BOT",
       channels: [],
     },
@@ -66,8 +67,9 @@ beforeEach(() => {
       Response.json({
         installationId: "installation_gateway",
         gatewaySecret: "scoped-gateway-secret",
-        externalWorkspaceId: "T1",
-        workspaceName: "Acme",
+        provider: "slack",
+        externalAccountId: "T1",
+        accountName: "Acme",
       }),
     ),
   );

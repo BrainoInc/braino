@@ -1,0 +1,34 @@
+{
+  "protocolVersion": 2,
+  "id": "braino.github",
+  "name": "GitHub",
+  "version": "1.0.0",
+  "capabilities": {
+    "event.receive": 1,
+    "scm.request": 1,
+    "scm.check.publish": 1,
+    "scm.ruleset.reconcile": 1
+  },
+  "permissions": { "network": ["plugins.braino.dev"] },
+  "configurationSchema": {
+    "type": "object",
+    "properties": {
+      "gateway_url": {
+        "type": "string",
+        "title": "Braino plugin gateway",
+        "default": "https://plugins.braino.dev"
+      },
+      "installation_id": { "type": "string", "title": "Gateway installation" }
+    },
+    "required": ["gateway_url", "installation_id"],
+    "additionalProperties": false
+  },
+  "secretSchema": {
+    "type": "object",
+    "properties": {
+      "gateway_secret": { "type": "string", "title": "Scoped gateway credential" }
+    },
+    "required": ["gateway_secret"],
+    "additionalProperties": false
+  }
+}

@@ -10,6 +10,7 @@ COPY plugins/ollama-embedding plugins/ollama-embedding
 COPY plugins/openai-chat plugins/openai-chat
 COPY plugins/openai-embedding plugins/openai-embedding
 COPY plugins/slack plugins/slack
+COPY plugins/github plugins/github
 RUN cargo build --locked --release --target wasm32-wasip2 \
   --manifest-path plugins/ollama-chat/Cargo.toml
 RUN cargo build --locked --release --target wasm32-wasip2 \
@@ -20,6 +21,8 @@ RUN cargo build --locked --release --target wasm32-wasip2 \
   --manifest-path plugins/openai-embedding/Cargo.toml
 RUN cargo build --locked --release --target wasm32-wasip2 \
   --manifest-path plugins/slack/Cargo.toml
+RUN cargo build --locked --release --target wasm32-wasip2 \
+  --manifest-path plugins/github/Cargo.toml
 
 FROM node:22-bookworm-slim AS build
 
@@ -84,6 +87,12 @@ COPY --from=plugin-build --chown=node:node \
 COPY --from=plugin-build --chown=node:node \
   /source/plugins/slack/manifest.json \
   /app/plugins/braino_slack.manifest.json
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/github/target/wasm32-wasip2/release/braino_github.wasm \
+  /app/plugins/braino_github.wasm
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/github/manifest.json \
+  /app/plugins/braino_github.manifest.json
 
 USER node
 EXPOSE 3000

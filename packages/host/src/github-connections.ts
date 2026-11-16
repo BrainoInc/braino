@@ -16,6 +16,7 @@ import {
 import { generateUlid, makeEntityId } from "@doco/shared";
 import type { ClientScope } from "./client-scope.js";
 import { createCollectionInWorkspace } from "./host.js";
+import type { PluginGithubProvider } from "./plugin-github.js";
 import { openSecret, sealSecret } from "./secret-box.js";
 
 const API = "https://api.github.com";
@@ -45,6 +46,8 @@ export interface GithubConnectionSummary {
   pullRequestsCollectionHandle: string;
   codeCollectionHandle: string;
   active: boolean;
+  gatewayConnected: boolean;
+  requireBraino: boolean;
   lastSyncedAt: string | null;
   lastError: string | null;
   webhookConfigured: boolean;
@@ -59,6 +62,8 @@ interface ConnectionRow {
   workspace_id: string;
   repository: string;
   token_sealed: string | null;
+  plugin_installation_id: string | null;
+  require_braino: boolean;
   issues_collection_id: string;
   pull_requests_collection_id: string;
   code_collection_id: string;
@@ -72,7 +77,7 @@ interface ConnectionRow {
 }
 
 interface ClaimedConnection {
-  connection: ConnectionRow & { token_sealed: string };
+  connection: ConnectionRow;
   syncToken: string;
 }
 
@@ -155,7 +160,7 @@ async function claimGithubOperation(
         [input.connectionId],
       );
       const row = found.rows[0];
-      if (!row || !row.active || !row.token_sealed) {
+      if (!row || !row.active || (!row.token_sealed && !row.plugin_installation_id)) {
         throw new GithubConnectionError(
           "GitHub connection is not active.",
           "connection_inactive",
@@ -175,7 +180,7 @@ async function claimGithubOperation(
         [row.id, syncToken],
       );
       const active = claimed.rows[0];
-      if (!active?.token_sealed) {
+      if (!active || (!active.token_sealed && !active.plugin_installation_id)) {
         throw new GithubConnectionError(
           "This GitHub connection already has an operation in progress.",
           "sync_in_progress",
@@ -183,7 +188,7 @@ async function claimGithubOperation(
         );
       }
       await client.query("COMMIT");
-      return active as ConnectionRow & { token_sealed: string };
+      return active;
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -299,12 +304,55 @@ async function githubJson(
   }
 }
 
-async function verifyRepository(
-  fetcher: Fetcher,
-  repository: string,
-  accessToken: string,
-): Promise<string> {
-  const { value } = await githubJson(fetcher, `${API}/repos/${repository}`, accessToken);
+interface GithubPage {
+  value: unknown;
+  next: string | null;
+  bytes: number;
+}
+
+interface GithubReader {
+  read(url: string): Promise<GithubPage>;
+}
+
+function patGithubReader(fetcher: Fetcher, accessToken: string): GithubReader {
+  return {
+    async read(url) {
+      const result = await githubJson(fetcher, url, accessToken);
+      return {
+        value: result.value,
+        next: nextLink(result.response.headers.get("link")),
+        bytes: result.bytes,
+      };
+    },
+  };
+}
+
+function pluginGithubReader(plugin: PluginGithubProvider): GithubReader {
+  return {
+    async read(value) {
+      const url = new URL(value, API);
+      if (url.origin !== API) {
+        throw new GithubConnectionError("GitHub URL is invalid.", "github_url_invalid");
+      }
+      const result = await plugin.request({
+        method: "GET",
+        path: `${url.pathname}${url.search}`,
+      });
+      const bytes = Buffer.byteLength(JSON.stringify(result.data));
+      if (bytes > MAX_GITHUB_PAGE_BYTES) {
+        throw new GithubConnectionError(
+          "GitHub returned a page larger than 10 MB.",
+          "github_too_large",
+          422,
+        );
+      }
+      return { value: result.data, next: result.next, bytes };
+    },
+  };
+}
+
+async function verifyRepository(reader: GithubReader, repository: string): Promise<string> {
+  const { value } = await reader.read(`${API}/repos/${repository}`);
   const fullName = (value as { full_name?: unknown })?.full_name;
   if (typeof fullName !== "string" || fullName.toLowerCase() !== repository) {
     throw new GithubConnectionError(
@@ -375,11 +423,13 @@ async function summary(client: PoolClient, connectionId: string): Promise<Github
     webhook_id: string | number | null;
     webhook_url: string | null;
     webhook_last_delivery_at: Date | string | null;
+    plugin_installation_id: string | null;
+    require_braino: boolean;
   }>(
     `SELECT g.id, g.repository, i.handle AS issues_handle, p.handle AS pulls_handle,
             c.handle AS code_handle,
             g.active, g.last_synced_at, g.last_error, g.webhook_id, g.webhook_url,
-            g.webhook_last_delivery_at
+            g.webhook_last_delivery_at, g.plugin_installation_id, g.require_braino
        FROM github_connections g
        JOIN collections i ON i.id = g.issues_collection_id
        JOIN collections p ON p.id = g.pull_requests_collection_id
@@ -397,6 +447,8 @@ async function summary(client: PoolClient, connectionId: string): Promise<Github
     pullRequestsCollectionHandle: row.pulls_handle,
     codeCollectionHandle: row.code_handle,
     active: row.active,
+    gatewayConnected: row.plugin_installation_id !== null,
+    requireBraino: row.require_braino,
     lastSyncedAt: row.last_synced_at ? new Date(row.last_synced_at).toISOString() : null,
     lastError: row.last_error,
     webhookConfigured: row.webhook_id !== null && Boolean(row.webhook_url),
@@ -479,6 +531,13 @@ export async function configureGithubWebhook(
     userId: input.userId,
   });
   try {
+    if (!claimed.connection.token_sealed) {
+      throw new GithubConnectionError(
+        "The Braino GitHub App already provides automatic sync.",
+        "github_app_managed",
+        409,
+      );
+    }
     const accessToken = openSecret(claimed.connection.token_sealed, input.encryptionKey);
     await withClient(async (client) => {
       const saved = await client.query(
@@ -698,24 +757,16 @@ export async function deliverGithubWebhook(
   }
 }
 
-export async function connectGithubRepository(
+async function saveGithubConnection(
   withClient: ClientScope,
   input: {
     workspaceId: string;
     userId: string;
     repository: string;
-    accessToken: string;
-    encryptionKey: string;
-    fetcher?: Fetcher;
+    tokenSealed: string | null;
+    pluginInstallationId: string | null;
   },
 ): Promise<GithubConnectionSummary> {
-  await withClient((client) => requireOwner(client, input.workspaceId, input.userId));
-  const repository = normalizeRepository(input.repository);
-  const accessToken = input.accessToken.trim();
-  if (!accessToken) throw new GithubConnectionError("GitHub token is required.", "token_required");
-  const fetcher = input.fetcher ?? fetch;
-  await verifyRepository(fetcher, repository, accessToken);
-  const tokenSealed = sealSecret(accessToken, input.encryptionKey);
   return withClient(async (client) => {
     await requireOwner(client, input.workspaceId, input.userId);
     const current = await client.query<ConnectionRow>(
@@ -724,7 +775,7 @@ export async function connectGithubRepository(
     );
     const existing = current.rows[0];
     if (existing) {
-      if (existing.repository !== repository) {
+      if (existing.repository !== input.repository) {
         throw new GithubConnectionError(
           `This workspace is already connected to ${existing.repository}.`,
           "source_already_connected",
@@ -733,9 +784,11 @@ export async function connectGithubRepository(
       }
       await client.query(
         `UPDATE github_connections
-            SET token_sealed = $2, active = true, last_error = NULL
+            SET token_sealed = COALESCE($2, token_sealed),
+                plugin_installation_id = $3,
+                active = true, last_error = NULL
           WHERE id = $1`,
-        [existing.id, tokenSealed],
+        [existing.id, input.tokenSealed, input.pluginInstallationId],
       );
       return summary(client, existing.id);
     }
@@ -777,19 +830,21 @@ export async function connectGithubRepository(
             ),
                 updated_at = now()
           WHERE id = $1`,
-        [code.collectionId, repository],
+        [code.collectionId, input.repository],
       );
       const id = `github_${generateUlid()}`;
       await client.query(
         `INSERT INTO github_connections
-           (id, workspace_id, repository, token_sealed, issues_collection_id,
-            pull_requests_collection_id, code_collection_id, created_by_user_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+           (id, workspace_id, repository, token_sealed, plugin_installation_id,
+            issues_collection_id, pull_requests_collection_id, code_collection_id,
+            created_by_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           id,
           input.workspaceId,
-          repository,
-          tokenSealed,
+          input.repository,
+          input.tokenSealed,
+          input.pluginInstallationId,
           issues.collectionId,
           pulls.collectionId,
           code.collectionId,
@@ -802,6 +857,97 @@ export async function connectGithubRepository(
       await client.query("ROLLBACK");
       throw error;
     }
+  });
+}
+
+/** Legacy PAT creation remains only so an existing connection can reach the App cutover UI. */
+export async function connectGithubRepository(
+  withClient: ClientScope,
+  input: {
+    workspaceId: string;
+    userId: string;
+    repository: string;
+    accessToken: string;
+    encryptionKey: string;
+    fetcher?: Fetcher;
+  },
+): Promise<GithubConnectionSummary> {
+  await withClient((client) => requireOwner(client, input.workspaceId, input.userId));
+  const repository = normalizeRepository(input.repository);
+  const accessToken = input.accessToken.trim();
+  if (!accessToken) throw new GithubConnectionError("GitHub token is required.", "token_required");
+  await verifyRepository(patGithubReader(input.fetcher ?? fetch, accessToken), repository);
+  return saveGithubConnection(withClient, {
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    repository,
+    tokenSealed: sealSecret(accessToken, input.encryptionKey),
+    pluginInstallationId: null,
+  });
+}
+
+/** Attach the scoped gateway plugin; the PAT is deleted only after a successful sync. */
+export async function connectGithubRepositoryWithPlugin(
+  withClient: ClientScope,
+  input: {
+    workspaceId: string;
+    userId: string;
+    repository: string;
+    plugin: PluginGithubProvider;
+  },
+): Promise<GithubConnectionSummary> {
+  await withClient((client) => requireOwner(client, input.workspaceId, input.userId));
+  const repository = normalizeRepository(input.repository);
+  if (input.plugin.installation.workspaceId !== input.workspaceId) {
+    throw new GithubConnectionError(
+      "GitHub plugin belongs to another workspace.",
+      "installation_unavailable",
+      404,
+    );
+  }
+  const available = await input.plugin.repositories();
+  if (!available.some((candidate) => candidate.fullName.toLowerCase() === repository)) {
+    throw new GithubConnectionError(
+      "The GitHub App installation does not include that repository.",
+      "repository_not_installed",
+      403,
+    );
+  }
+  await verifyRepository(pluginGithubReader(input.plugin), repository);
+  return saveGithubConnection(withClient, {
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    repository,
+    tokenSealed: null,
+    pluginInstallationId: input.plugin.installation.installationId,
+  });
+}
+
+export async function finishGithubGatewayMigration(
+  withClient: ClientScope,
+  input: { connectionId: string; pluginInstallationId: string },
+): Promise<GithubConnectionSummary> {
+  return withClient(async (client) => {
+    const migrated = await client.query(
+      `UPDATE github_connections
+          SET token_sealed = NULL,
+              webhook_id = NULL,
+              webhook_secret_sealed = NULL,
+              webhook_url = NULL,
+              webhook_created_at = NULL,
+              last_error = NULL
+        WHERE id = $1 AND plugin_installation_id = $2 AND active
+      RETURNING id`,
+      [input.connectionId, input.pluginInstallationId],
+    );
+    if (!migrated.rows[0]) {
+      throw new GithubConnectionError(
+        "GitHub connection changed during migration.",
+        "connection_changed",
+        409,
+      );
+    }
+    return summary(client, input.connectionId);
   });
 }
 
@@ -818,6 +964,225 @@ export async function listGithubConnections(
   return Promise.all(found.rows.map((row) => summary(client, row.id)));
 }
 
+export async function setGithubEnforcement(
+  withClient: ClientScope,
+  input: {
+    connectionId: string;
+    userId: string;
+    required: boolean;
+    plugin: PluginGithubProvider;
+  },
+): Promise<GithubConnectionSummary> {
+  const connection = await withClient(async (client) => {
+    const found = await client.query<ConnectionRow>(
+      "SELECT * FROM github_connections WHERE id = $1",
+      [input.connectionId],
+    );
+    const row = found.rows[0];
+    if (
+      !row ||
+      !row.active ||
+      row.plugin_installation_id !== input.plugin.installation.installationId
+    ) {
+      throw new GithubConnectionError(
+        "GitHub App connection is unavailable.",
+        "connection_inactive",
+        409,
+      );
+    }
+    await requireOwner(client, row.workspace_id, input.userId);
+    return row;
+  });
+  await input.plugin.reconcileRuleset({
+    repository: connection.repository,
+    checkName: "Braino",
+    required: input.required,
+  });
+  return withClient(async (client) => {
+    await client.query(
+      `UPDATE github_connections
+          SET require_braino = $2, last_error = NULL
+        WHERE id = $1`,
+      [connection.id, input.required],
+    );
+    return summary(client, connection.id);
+  });
+}
+
+const BRIEF_TRAILER = /(?:Doco|Braino)-Brief:\s*https?:\/\/\S+/i;
+const BRAINO_RECORD =
+  /https?:\/\/[^\s)]+\/(?:decision|rule|intent|idea|eval|reference|log|action|state)\/(?:decision|rule|intent|idea|eval|reference|log|action|state)_[0-9A-Z]+/i;
+
+export function pullRequestWentThroughBraino(input: {
+  body: string | null;
+  commitMessages: readonly string[];
+}): boolean {
+  return [input.body ?? "", ...input.commitMessages].some(
+    (value) => BRIEF_TRAILER.test(value) || BRAINO_RECORD.test(value),
+  );
+}
+
+function object(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+export interface GithubGatewayDeliveryResult {
+  event: string;
+  synced: boolean;
+  replayed: boolean;
+  checked: boolean;
+  created: number;
+  updated: number;
+  unchanged: number;
+}
+
+export async function deliverGithubGatewayWebhook(
+  withClient: ClientScope,
+  input: {
+    plugin: PluginGithubProvider;
+    headers: Readonly<Record<string, string>>;
+    body: string;
+  },
+): Promise<GithubGatewayDeliveryResult> {
+  const events = await input.plugin.receive({
+    body: input.body,
+    headers: input.headers,
+    receivedAt: Math.floor(Date.now() / 1000),
+  });
+  const received = events[0];
+  if (!received) {
+    throw new GithubConnectionError("GitHub delivery contained no event.", "payload_invalid");
+  }
+  const repository = object(received.data.repository)?.full_name;
+  if (typeof repository !== "string") {
+    return {
+      event: received.kind,
+      synced: false,
+      replayed: false,
+      checked: false,
+      created: 0,
+      updated: 0,
+      unchanged: 0,
+    };
+  }
+  const reserved = await withClient(async (client) => {
+    const found = await client.query<ConnectionRow>(
+      `SELECT * FROM github_connections
+        WHERE plugin_installation_id = $1
+          AND lower(repository) = lower($2) AND active`,
+      [input.plugin.installation.installationId, repository],
+    );
+    const row = found.rows[0];
+    if (!row) {
+      throw new GithubConnectionError(
+        "GitHub delivery is for a repository this workspace does not track.",
+        "connection_not_found",
+        404,
+      );
+    }
+    const inserted = await client.query(
+      `INSERT INTO github_webhook_deliveries (connection_id, delivery_id, event, status)
+       VALUES ($1, $2, $3, 'processing')
+       ON CONFLICT DO NOTHING
+       RETURNING delivery_id`,
+      [row.id, received.id.slice(0, 200), received.kind.slice(0, 100)],
+    );
+    if (inserted.rows[0]) return { row };
+    const prior = await client.query<{
+      status: string;
+      response: GithubGatewayDeliveryResult | null;
+    }>(
+      `SELECT status, response FROM github_webhook_deliveries
+        WHERE connection_id = $1 AND delivery_id = $2`,
+      [row.id, received.id.slice(0, 200)],
+    );
+    if (prior.rows[0]?.status === "completed" && prior.rows[0].response) {
+      return { replay: { ...prior.rows[0].response, replayed: true } };
+    }
+    throw new GithubConnectionError(
+      "This GitHub delivery is already processing.",
+      "delivery_in_progress",
+      409,
+    );
+  });
+  if ("replay" in reserved) return reserved.replay;
+
+  try {
+    const supported = ["issues", "pull_request", "push"].includes(received.kind);
+    let checked = false;
+    const pull = object(received.data.pull_request);
+    const head = object(pull?.head);
+    const pullNumber = Number(received.data.number ?? pull?.number);
+    if (
+      received.kind === "pull_request" &&
+      pull?.state === "open" &&
+      Number.isSafeInteger(pullNumber) &&
+      pullNumber > 0 &&
+      typeof head?.sha === "string"
+    ) {
+      const passed = pullRequestWentThroughBraino({
+        body: typeof pull.body === "string" ? pull.body : null,
+        commitMessages: await input.plugin.pullRequestCommits(repository, pullNumber),
+      });
+      const conclusion = passed ? "success" : reserved.row.require_braino ? "failure" : "neutral";
+      await input.plugin.publishCheck({
+        repository,
+        name: "Braino",
+        headSha: head.sha,
+        conclusion,
+        title: passed
+          ? "Went through Braino"
+          : reserved.row.require_braino
+            ? "Didn't go through Braino"
+            : "No Braino evidence",
+        summary: passed
+          ? "A pull-request commit or description cites the Braino brief or record used for this work."
+          : reserved.row.require_braino
+            ? "This repository requires Braino, but no commit trailer or Braino record was found."
+            : "No commit trailer or Braino record was found; enforcement is not enabled.",
+      });
+      checked = true;
+    }
+    const synced = supported
+      ? await syncGithubConnection(withClient, {
+          connectionId: reserved.row.id,
+          plugin: input.plugin,
+        })
+      : { created: 0, updated: 0, unchanged: 0 };
+    const result: GithubGatewayDeliveryResult = {
+      event: received.kind,
+      synced: supported,
+      replayed: false,
+      checked,
+      ...synced,
+    };
+    await withClient(async (client) => {
+      await client.query(
+        `UPDATE github_webhook_deliveries
+            SET status = 'completed', response = $3::jsonb, completed_at = now()
+          WHERE connection_id = $1 AND delivery_id = $2`,
+        [reserved.row.id, received.id.slice(0, 200), JSON.stringify(result)],
+      );
+      await client.query(
+        "UPDATE github_connections SET webhook_last_delivery_at = now() WHERE id = $1",
+        [reserved.row.id],
+      );
+    });
+    return result;
+  } catch (error) {
+    await withClient((client) =>
+      client.query(
+        `DELETE FROM github_webhook_deliveries
+          WHERE connection_id = $1 AND delivery_id = $2 AND status = 'processing'`,
+        [reserved.row.id, received.id.slice(0, 200)],
+      ),
+    );
+    throw error;
+  }
+}
+
 export async function disconnectGithubRepository(
   withClient: ClientScope,
   input: {
@@ -832,7 +1197,7 @@ export async function disconnectGithubRepository(
     userId: input.userId,
   });
   try {
-    if (claimed.connection.webhook_id !== null) {
+    if (claimed.connection.webhook_id !== null && claimed.connection.token_sealed) {
       await githubMutation(
         input.fetcher ?? fetch,
         `${API}/repos/${claimed.connection.repository}/hooks/${claimed.connection.webhook_id}`,
@@ -845,7 +1210,8 @@ export async function disconnectGithubRepository(
     await withClient(async (client) => {
       const disconnected = await client.query(
         `UPDATE github_connections
-            SET active = false, token_sealed = NULL, webhook_id = NULL,
+            SET active = false, token_sealed = NULL, plugin_installation_id = NULL,
+                webhook_id = NULL,
                 webhook_secret_sealed = NULL, webhook_url = NULL, last_error = NULL,
                 sync_token = NULL, sync_started_at = NULL
           WHERE id = $1 AND sync_token = $2
@@ -875,17 +1241,13 @@ function nextLink(value: string | null): string | null {
   return null;
 }
 
-async function fetchPages(
-  fetcher: Fetcher,
-  url: string,
-  accessToken: string,
-): Promise<GithubItem[]> {
+async function fetchPages(reader: GithubReader, url: string): Promise<GithubItem[]> {
   const items: GithubItem[] = [];
   let bytes = 0;
   let next: string | null = url;
   for (let page = 0; next && page < 100; page += 1) {
-    const pageResult = await githubJson(fetcher, next, accessToken);
-    const { value, response } = pageResult;
+    const pageResult = await reader.read(next);
+    const { value } = pageResult;
     if (!Array.isArray(value)) {
       throw new GithubConnectionError(
         "GitHub returned an invalid list.",
@@ -902,7 +1264,7 @@ async function fetchPages(
       );
     }
     items.push(...(value as GithubItem[]));
-    next = nextLink(response.headers.get("link"));
+    next = pageResult.next;
   }
   if (next)
     throw new GithubConnectionError(
@@ -977,16 +1339,13 @@ function decodedBlob(value: unknown, path: string): { content: string; omitted: 
 }
 
 async function fetchCodeSnapshot(
-  fetcher: Fetcher,
+  reader: GithubReader,
   repository: string,
-  accessToken: string,
   stored: Map<string, string>,
 ): Promise<CodeSnapshot> {
-  const defaultBranch = await verifyRepository(fetcher, repository, accessToken);
-  const { value } = await githubJson(
-    fetcher,
+  const defaultBranch = await verifyRepository(reader, repository);
+  const { value } = await reader.read(
     `${API}/repos/${repository}/git/trees/${encodeURIComponent(defaultBranch)}?recursive=1`,
-    accessToken,
   );
   const tree = value as { truncated?: unknown; tree?: unknown };
   if (!tree || tree.truncated === true || !Array.isArray(tree.tree)) {
@@ -1032,11 +1391,7 @@ async function fetchCodeSnapshot(
           return { ...file, content: "", omitted: "too_large" };
         }
         try {
-          const blob = await githubJson(
-            fetcher,
-            `${API}/repos/${repository}/git/blobs/${file.sha}`,
-            accessToken,
-          );
+          const blob = await reader.read(`${API}/repos/${repository}/git/blobs/${file.sha}`);
           return { ...file, ...decodedBlob(blob.value, file.path) };
         } catch (error) {
           if (error instanceof GithubConnectionError) throw error;
@@ -1267,7 +1622,8 @@ export async function syncGithubConnection(
   withClient: ClientScope,
   input: {
     connectionId: string;
-    encryptionKey: string;
+    encryptionKey?: string;
+    plugin?: PluginGithubProvider;
     userId?: string;
     fetcher?: Fetcher;
     codeGraphClient?: CodeGraphClient | null;
@@ -1278,8 +1634,31 @@ export async function syncGithubConnection(
     ...(input.userId ? { userId: input.userId } : {}),
   });
   try {
-    const accessToken = openSecret(claimed.connection.token_sealed, input.encryptionKey);
-    const fetcher = input.fetcher ?? fetch;
+    const reader = input.plugin
+      ? pluginGithubReader(input.plugin)
+      : claimed.connection.token_sealed && input.encryptionKey
+        ? patGithubReader(
+            input.fetcher ?? fetch,
+            openSecret(claimed.connection.token_sealed, input.encryptionKey),
+          )
+        : null;
+    if (!reader) {
+      throw new GithubConnectionError(
+        "Install the Braino GitHub App before syncing this connection.",
+        "github_app_required",
+        409,
+      );
+    }
+    if (
+      input.plugin &&
+      claimed.connection.plugin_installation_id !== input.plugin.installation.installationId
+    ) {
+      throw new GithubConnectionError(
+        "GitHub plugin does not match this connection.",
+        "installation_unavailable",
+        404,
+      );
+    }
     const stored = await storedCodeShas(
       withClient,
       claimed.connection.code_collection_id,
@@ -1287,16 +1666,14 @@ export async function syncGithubConnection(
     );
     const [issues, pulls, codeSnapshot] = await Promise.all([
       fetchPages(
-        fetcher,
+        reader,
         `${API}/repos/${claimed.connection.repository}/issues?state=all&per_page=100`,
-        accessToken,
       ),
       fetchPages(
-        fetcher,
+        reader,
         `${API}/repos/${claimed.connection.repository}/pulls?state=all&per_page=100`,
-        accessToken,
       ),
-      fetchCodeSnapshot(fetcher, claimed.connection.repository, accessToken, stored),
+      fetchCodeSnapshot(reader, claimed.connection.repository, stored),
     ]);
     const result = await withClient(async (client) => {
       await client.query("BEGIN");
@@ -1306,7 +1683,11 @@ export async function syncGithubConnection(
           [claimed.connection.id],
         );
         const current = locked.rows[0];
-        if (!current || !current.active || !current.token_sealed) {
+        if (
+          !current ||
+          !current.active ||
+          (!current.token_sealed && !current.plugin_installation_id)
+        ) {
           throw new GithubConnectionError(
             "GitHub connection is not active.",
             "connection_inactive",

@@ -72,6 +72,49 @@ export interface EmailSendCapability {
   send(input: EmailMessage): Promise<{ externalId: string }>;
 }
 
+export interface ScmRequestInput {
+  method: "GET" | "POST";
+  path: string;
+  body?: Record<string, unknown>;
+}
+
+export interface ScmRequestOutput {
+  data: unknown;
+  next: string | null;
+}
+
+export interface ScmRequestCapability {
+  request(input: ScmRequestInput): Promise<ScmRequestOutput>;
+}
+
+export type ScmCheckConclusion = "success" | "failure" | "neutral";
+
+export interface ScmCheckPublishInput {
+  repository: string;
+  name: string;
+  headSha: string;
+  conclusion: ScmCheckConclusion;
+  title: string;
+  summary: string;
+  detailsUrl?: string;
+}
+
+export interface ScmCheckPublishCapability {
+  publish(input: ScmCheckPublishInput): Promise<{ id: number }>;
+}
+
+export interface ScmRulesetReconcileInput {
+  repository: string;
+  checkName: string;
+  required: boolean;
+}
+
+export type ScmRulesetReconcileResult = "created" | "updated" | "removed" | "unchanged";
+
+export interface ScmRulesetReconcileCapability {
+  reconcile(input: ScmRulesetReconcileInput): Promise<ScmRulesetReconcileResult>;
+}
+
 export interface PluginCapabilityImplementations {
   "source.pull": SourcePullCapability;
   "event.receive": EventReceiveCapability;
@@ -80,6 +123,9 @@ export interface PluginCapabilityImplementations {
   "team_chat.send": TeamChatSendCapability;
   "embedding.embed": EmbeddingCapability;
   "chat.complete": ChatCompleteCapability;
+  "scm.request": ScmRequestCapability;
+  "scm.check.publish": ScmCheckPublishCapability;
+  "scm.ruleset.reconcile": ScmRulesetReconcileCapability;
 }
 
 export type PluginImplementations = Partial<PluginCapabilityImplementations>;
