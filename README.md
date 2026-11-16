@@ -152,6 +152,17 @@ Drive, enable the Drive API, create a service-account JSON key, and share the
 folders or files with that service account; Braino imports Docs, Sheets, Slides,
 and text files while ignoring binary files.
 
+Slack also has an assistant plugin, separate from that read-only channel import.
+Open **Admin → Integrations → Señor Braino for Slack** and follow the two-stage
+manifest flow: create and install the private Slack app from the bootstrap
+manifest, connect its Bot User OAuth Token and Signing Secret, then apply the
+final manifest to activate events. The final Events API URL points straight at
+this deployment's `DOCO_PUBLIC_HOST`, which must be public HTTPS. Slack requests
+are verified with the instance-held signing secret and durably queued before
+acknowledgement. Mentions and direct messages are answered from records the
+installing workspace owner can read. No Braino-operated relay, shared Slack app,
+or other Braino instance receives the credentials, events, or answers.
+
 Owners can also connect one GitHub repository from **Integrations** with a
 fine-grained personal access token scoped to that repository. Grant read access
 to Metadata, Contents, Issues, and Pull requests, plus Webhooks write access. Braino

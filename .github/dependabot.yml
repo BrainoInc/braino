@@ -58,3 +58,11 @@ updates:
     groups:
       openai-embedding-plugin-rust:
         patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /plugins/slack
+    schedule:
+      interval: weekly
+    groups:
+      slack-plugin-rust:
+        patterns: ["*"]

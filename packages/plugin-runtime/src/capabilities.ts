@@ -3,6 +3,7 @@ export const PLUGIN_CAPABILITY_CONTRACT_VERSIONS = {
   "source.pull": 1,
   "event.receive": 1,
   "email.send": 1,
+  "team_chat.connect": 1,
   "team_chat.send": 1,
   "embedding.embed": 1,
   "chat.complete": 1,

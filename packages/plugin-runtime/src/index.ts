@@ -5,9 +5,15 @@ import {
   type PluginCapabilityName,
 } from "./capabilities.js";
 import type { ChatCompleteCapability, EmbeddingCapability } from "./model-capability-contracts.js";
+import type {
+  EventReceiveCapability,
+  TeamChatConnectCapability,
+  TeamChatSendCapability,
+} from "./team-chat-capability-contracts.js";
 
 export * from "./capabilities.js";
 export * from "./model-capability-contracts.js";
+export * from "./team-chat-capability-contracts.js";
 
 export const PLUGIN_PROTOCOL_VERSION = 2 as const;
 
@@ -53,22 +59,6 @@ export interface SourcePullCapability {
 /** Existing connector consumers use this name; it is the source.pull capability. */
 export type ConnectorAdapter = SourcePullCapability;
 
-export interface PluginEventRequest {
-  body: Uint8Array;
-  headers: Readonly<Record<string, string>>;
-}
-
-export interface PluginEvent {
-  id: string;
-  occurredAt: string;
-  kind: string;
-  data: Record<string, unknown>;
-}
-
-export interface EventReceiveCapability {
-  receive(input: PluginEventRequest): Promise<readonly PluginEvent[]>;
-}
-
 export interface EmailMessage {
   from: string;
   to: readonly string[];
@@ -82,20 +72,11 @@ export interface EmailSendCapability {
   send(input: EmailMessage): Promise<{ externalId: string }>;
 }
 
-export interface TeamChatMessage {
-  channel: string;
-  text: string;
-  threadId?: string;
-}
-
-export interface TeamChatSendCapability {
-  send(input: TeamChatMessage): Promise<{ externalId: string }>;
-}
-
 export interface PluginCapabilityImplementations {
   "source.pull": SourcePullCapability;
   "event.receive": EventReceiveCapability;
   "email.send": EmailSendCapability;
+  "team_chat.connect": TeamChatConnectCapability;
   "team_chat.send": TeamChatSendCapability;
   "embedding.embed": EmbeddingCapability;
   "chat.complete": ChatCompleteCapability;

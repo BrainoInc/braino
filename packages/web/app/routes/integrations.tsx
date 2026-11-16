@@ -13,6 +13,7 @@ import {
   listConnectorConnections,
   listGithubConnections,
   listIncomingWebhooks,
+  listPluginInstallations,
   revokeIncomingWebhook,
   syncConnectorConnection,
   syncGithubConnection,
@@ -55,6 +56,10 @@ export async function loader({ request }: { request: Request }) {
         WHERE workspace_id = $1 AND deleted_at IS NULL ORDER BY handle`,
       [state.workspace.id],
     );
+    const pluginInstallations = await listPluginInstallations(client, {
+      workspaceId: state.workspace.id,
+      userId: user.id,
+    });
     return {
       collections: collections.rows,
       connectorConnections: await listConnectorConnections(client, state.workspace.id, user.id),
@@ -63,6 +68,9 @@ export async function loader({ request }: { request: Request }) {
         workspaceId: state.workspace.id,
         userId: user.id,
       }),
+      slackAppConnected: pluginInstallations.some(
+        (plugin) => plugin.enabled && plugin.manifest.id === "braino.slack",
+      ),
     };
   });
   const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
@@ -766,7 +774,25 @@ export default function IntegrationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{"Slack"}</CardTitle>
+          <CardTitle>Señor Braino for Slack</CardTitle>
+          <CardDescription>
+            Install Señor Braino in Slack for mentions, direct messages, and grounded answers from
+            this workspace.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            to="/integrations/slack-app"
+            className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            {data.slackAppConnected ? "Manage Slack app" : "Connect Slack app"}
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{"Slack channel import"}</CardTitle>
           <CardDescription>
             {t(
               "Copy one Slack workspace's public channels into a private Braino collection. Private, archived, and Slack Connect channels are never imported.",

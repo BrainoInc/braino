@@ -181,6 +181,7 @@ describe("the supported self-hosted stack", () => {
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_chat.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_openai_embedding.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_openai_chat.wasm");
+    expect(runtimeStage).toContain("/app/plugins/braino_slack.wasm");
     expect(runtimeStage).toContain("ARG DOCO_VERSION");
     expect(runtimeStage).toContain("ENV DOCO_VERSION=$DOCO_VERSION");
     expect(dockerfile).toContain("USER node");
@@ -237,6 +238,26 @@ describe("the supported self-hosted stack", () => {
     expect(workflow).toContain("plugins/openai-embedding/Cargo.toml");
   });
 
+  it("bundles the instance-local Slack app plugin and builds it in CI", () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/slack/manifest.json"), "utf8"),
+    ) as {
+      capabilities: Record<string, number>;
+      permissions: { network: string[] };
+      secretSchema: { required: string[] };
+    };
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+
+    expect(manifest.capabilities).toEqual({
+      "event.receive": 1,
+      "team_chat.connect": 1,
+      "team_chat.send": 1,
+    });
+    expect(manifest.permissions.network).toEqual(["slack.com"]);
+    expect(manifest.secretSchema.required).toEqual(["bot_token", "signing_secret"]);
+    expect(workflow).toContain("plugins/slack/Cargo.toml");
+  });
+
   it("runs installed embedding plugins through the durable retrieval scheduler", () => {
     const scheduler = readFileSync(resolve(root, "runtime/scheduler.mjs"), "utf8");
 
@@ -245,6 +266,16 @@ describe("the supported self-hosted stack", () => {
     expect(scheduler).toContain("syncQueuedEmbeddings");
     expect(scheduler).toContain("BRAINO_PLUGIN_HOST_URL");
     expect(scheduler).toContain("DOCO_ENCRYPTION_KEY");
+  });
+
+  it("drains workspace-scoped team-chat events through the installed providers", () => {
+    const scheduler = readFileSync(resolve(root, "runtime/scheduler.mjs"), "utf8");
+
+    expect(scheduler).toContain("processNextTeamChatEvent");
+    expect(scheduler).toContain("answerTeamChatQuestion");
+    expect(scheduler).toContain("resolveWorkspaceTeamChatPlugin");
+    expect(scheduler).toContain("resolveWorkspaceChatProvider");
+    expect(scheduler).toContain("BRAINO_TEAM_CHAT_POLL_MS");
   });
 
   it("fails CI on high or critical dependency advisories", () => {
