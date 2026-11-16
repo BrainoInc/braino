@@ -10,6 +10,8 @@ export default [
   route("times/:day", "routes/times.$day.tsx"),
   route("collaborators", "routes/collaborators.tsx"),
   route("integrations", "routes/integrations.tsx"),
+  route("integrations/github/app/callback", "routes/integrations.github.app.callback.ts"),
+  route("integrations/github/install", "routes/integrations.github.install.tsx"),
   route("mcp-tokens", "routes/mcp-tokens.tsx"),
   route("mcp", "routes/mcp.ts"),
   route(".well-known/oauth-authorization-server", "routes/oauth-metadata-authorization-server.ts"),
@@ -27,7 +29,7 @@ export default [
   route("api/v1/workspaces.json", "routes/api.v1.workspaces[.]json.ts"),
   route("api/v1/collections.json", "routes/api.v1.collections[.]json.ts"),
   route("api/v1/webhooks/:token", "routes/api.v1.webhooks.$token.ts"),
-  route("api/v1/github/webhooks/:connectionId", "routes/api.v1.github.webhooks.$connectionId.ts"),
+  route("api/v1/github/app/webhooks", "routes/api.v1.github.app.webhooks.ts"),
   route(
     ":collectionHandle/api/authoring-contract.json",
     "routes/$collectionHandle.api.authoring-contract[.]json.ts",

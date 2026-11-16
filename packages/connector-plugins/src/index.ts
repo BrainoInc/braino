@@ -10,6 +10,8 @@ import { googleDriveConnector } from "./google-drive.js";
 import { notionConnector } from "./notion.js";
 import { slackConnector } from "./slack.js";
 
+export * from "./github-app.js";
+
 export interface ConnectorPlugin extends BrainoPlugin {
   /** @deprecated Use manifest.name. */
   label: string;

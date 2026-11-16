@@ -9,6 +9,7 @@ export * from "./incoming-webhooks.js";
 export * from "./mcp-core.js";
 export * from "./mcp-oauth.js";
 export * from "./github-connections.js";
+export * from "./github-app-registration.js";
 export * from "./connectors.js";
 export * from "./password-sign-in.js";
 export * from "./workspace-admin.js";

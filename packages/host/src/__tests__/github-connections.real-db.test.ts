@@ -1,3 +1,4 @@
+import { createGithubAppPlugin } from "@doco/connector-plugins";
 import type { PoolClient } from "@doco/db";
 import type { CodeGraphClient } from "@doco/index";
 import type { PGlite } from "@electric-sql/pglite";
@@ -37,8 +38,7 @@ function recordingClient(statements: string[]): PoolClient {
 const recordingScope = (statements: string[]) =>
   (<T>(operation: (client: PoolClient) => Promise<T>) =>
     operation(recordingClient(statements))) as typeof scope;
-const encryptionKey = "github-connection-test-key-with-more-than-thirty-two-characters";
-const accessToken = "github_pat_test-only-never-store-plaintext";
+const accessToken = "installation-token";
 
 async function fixture() {
   return initializeSingleWorkspace(client(), {
@@ -60,8 +60,18 @@ interface GithubState {
 function fakeGithub(state: GithubState): typeof fetch {
   return (async (input, init) => {
     const url = typeof input === "string" ? input : input.toString();
+    const parsed = new URL(url);
     expect(activeScopes).toBe(0);
+    if (parsed.pathname === "/app/installations/7/access_tokens") {
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer app-jwt");
+      return Response.json({ token: accessToken, expires_at: "later" });
+    }
     expect(new Headers(init?.headers).get("authorization")).toBe(`Bearer ${accessToken}`);
+    if (parsed.pathname === "/installation/repositories") {
+      return Response.json({
+        repositories: [{ full_name: "acme/widgets", default_branch: "main" }],
+      });
+    }
     if (url === "https://api.github.com/repos/acme/widgets") {
       return Response.json({ full_name: "acme/widgets", default_branch: "main" });
     }
@@ -122,28 +132,37 @@ function fakeGithub(state: GithubState): typeof fetch {
   }) as typeof fetch;
 }
 
+function app(fetcher: typeof fetch) {
+  return createGithubAppPlugin({
+    credentials: { appId: 99, privateKey: "unused", webhookSecret: "webhook-secret" },
+    fetcher,
+    jwt: () => "app-jwt",
+  });
+}
+
 describe("self-hosted GitHub connections", () => {
-  it("encrypts the token and idempotently imports issues and pull requests with history", async () => {
+  it("mints App tokens and idempotently imports issues and pull requests with history", async () => {
     const setup = await fixture();
     const state: GithubState = { issueState: "open", pullState: "open", mergedAt: null };
+    const fetcher = fakeGithub(state);
+    const plugin = app(fetcher);
     const connection = await connectGithubRepository(scope, {
       workspaceId: setup.workspace.id,
       userId: setup.owner.id,
+      installationId: 7,
       repository: "acme/widgets",
-      accessToken,
-      encryptionKey,
-      fetcher: fakeGithub(state),
+      plugin,
     });
 
     expect(connection.repository).toBe("acme/widgets");
     expect(connection.issuesCollectionHandle).toBe("acme-github-issues");
     expect(connection.pullRequestsCollectionHandle).toBe("acme-github-pull-requests");
     expect(connection.codeCollectionHandle).toBe("acme-codebase");
-    const stored = await db.query<{ token_sealed: string }>(
-      "SELECT token_sealed FROM github_connections WHERE id = $1",
+    const stored = await db.query<{ installation_id: string }>(
+      "SELECT installation_id::text FROM github_connections WHERE id = $1",
       [connection.id],
     );
-    expect(stored.rows[0]?.token_sealed).not.toContain(accessToken);
+    expect(stored.rows[0]).toEqual({ installation_id: "7" });
     expect(await listGithubConnections(client(), setup.workspace.id, setup.owner.id)).toEqual([
       expect.objectContaining({ id: connection.id, repository: "acme/widgets" }),
     ]);
@@ -176,8 +195,8 @@ describe("self-hosted GitHub connections", () => {
     };
     const first = await syncGithubConnection(recordingScope(statements), {
       connectionId: connection.id,
-      encryptionKey,
-      fetcher: fakeGithub(state),
+      plugin,
+      fetcher,
       codeGraphClient,
     });
     expect(first).toEqual({ created: 2, updated: 0, unchanged: 0 });
@@ -233,8 +252,8 @@ describe("self-hosted GitHub connections", () => {
 
     const replay = await syncGithubConnection(scope, {
       connectionId: connection.id,
-      encryptionKey,
-      fetcher: fakeGithub(state),
+      plugin,
+      fetcher,
       codeGraphClient,
     });
     expect(replay).toEqual({ created: 0, updated: 0, unchanged: 2 });
@@ -255,8 +274,8 @@ describe("self-hosted GitHub connections", () => {
     state.mergedAt = "2026-11-03T12:00:00Z";
     const changed = await syncGithubConnection(scope, {
       connectionId: connection.id,
-      encryptionKey,
-      fetcher: fakeGithub(state),
+      plugin,
+      fetcher,
       codeGraphClient,
     });
     expect(changed).toEqual({ created: 0, updated: 2, unchanged: 0 });
@@ -288,10 +307,9 @@ describe("self-hosted GitHub connections", () => {
       connectGithubRepository(scope, {
         workspaceId: setup.workspace.id,
         userId: "user_writer",
+        installationId: 7,
         repository: "acme/widgets",
-        accessToken,
-        encryptionKey,
-        fetcher: fakeGithub({ issueState: "open", pullState: "open", mergedAt: null }),
+        plugin: app(fakeGithub({ issueState: "open", pullState: "open", mergedAt: null })),
       }),
     ).rejects.toMatchObject({ code: "owner_required", status: 403 });
   });
@@ -299,13 +317,14 @@ describe("self-hosted GitHub connections", () => {
   it("rejects overlapping syncs and releases a failed sync lease", async () => {
     const setup = await fixture();
     const state: GithubState = { issueState: "open", pullState: "open", mergedAt: null };
+    const fetcher = fakeGithub(state);
+    const plugin = app(fetcher);
     const connection = await connectGithubRepository(scope, {
       workspaceId: setup.workspace.id,
       userId: setup.owner.id,
+      installationId: 7,
       repository: "acme/widgets",
-      accessToken,
-      encryptionKey,
-      fetcher: fakeGithub(state),
+      plugin,
     });
     await db.query(
       "UPDATE github_connections SET sync_token = 'held', sync_started_at = now() WHERE id = $1",
@@ -314,8 +333,8 @@ describe("self-hosted GitHub connections", () => {
     await expect(
       syncGithubConnection(scope, {
         connectionId: connection.id,
-        encryptionKey,
-        fetcher: fakeGithub(state),
+        plugin,
+        fetcher,
       }),
     ).rejects.toMatchObject({ code: "sync_in_progress", status: 409 });
 
@@ -335,7 +354,7 @@ describe("self-hosted GitHub connections", () => {
     await expect(
       syncGithubConnection(scope, {
         connectionId: connection.id,
-        encryptionKey,
+        plugin,
         fetcher: oversized,
       }),
     ).rejects.toMatchObject({ code: "github_too_large", status: 422 });

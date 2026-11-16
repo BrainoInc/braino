@@ -92,6 +92,36 @@ export interface TeamChatSendCapability {
   send(input: TeamChatMessage): Promise<{ externalId: string }>;
 }
 
+export type ScmCheckConclusion = "success" | "failure" | "neutral";
+
+export interface ScmCheckPublishInput {
+  installationId: string;
+  repository: string;
+  name: string;
+  headSha: string;
+  conclusion: ScmCheckConclusion;
+  title: string;
+  summary: string;
+  detailsUrl?: string;
+}
+
+export interface ScmCheckPublishCapability {
+  publish(input: ScmCheckPublishInput): Promise<void>;
+}
+
+export interface ScmRulesetReconcileInput {
+  installationId: string;
+  repository: string;
+  checkName: string;
+  required: boolean;
+}
+
+export type ScmRulesetReconcileResult = "created" | "updated" | "removed" | "unchanged";
+
+export interface ScmRulesetReconcileCapability {
+  reconcile(input: ScmRulesetReconcileInput): Promise<ScmRulesetReconcileResult>;
+}
+
 export interface PluginCapabilityImplementations {
   "source.pull": SourcePullCapability;
   "event.receive": EventReceiveCapability;
@@ -99,6 +129,8 @@ export interface PluginCapabilityImplementations {
   "team_chat.send": TeamChatSendCapability;
   "embedding.embed": EmbeddingCapability;
   "chat.complete": ChatCompleteCapability;
+  "scm.check.publish": ScmCheckPublishCapability;
+  "scm.ruleset.reconcile": ScmRulesetReconcileCapability;
 }
 
 export type PluginImplementations = Partial<PluginCapabilityImplementations>;

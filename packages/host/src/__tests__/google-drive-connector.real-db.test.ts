@@ -1,10 +1,11 @@
 import { generateKeyPairSync } from "node:crypto";
-import { connectConnector, initializeSingleWorkspace, syncConnectorConnection } from "@doco/host";
+import { googleDriveConnector } from "@doco/connector-plugins";
 import type { PGlite } from "@electric-sql/pglite";
 import type { PoolClient } from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
-import { googleDriveConnector } from "../google-drive.js";
+import { connectConnector, syncConnectorConnection } from "../connectors.js";
+import { initializeSingleWorkspace } from "../single-workspace.js";
 
 let db: PGlite;
 

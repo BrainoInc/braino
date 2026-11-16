@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import type { GithubAppConnectorPlugin } from "@doco/connector-plugins";
 import {
   type PoolClient,
   appendAuditEventRow,
@@ -13,10 +13,10 @@ import {
   syncCodeGraphCollection,
   syncCodeGraphRepository,
 } from "@doco/index";
+import { pluginCapability } from "@doco/plugin-runtime";
 import { generateUlid, makeEntityId } from "@doco/shared";
 import type { ClientScope } from "./client-scope.js";
 import { createCollectionInWorkspace } from "./host.js";
-import { openSecret, sealSecret } from "./secret-box.js";
 
 const API = "https://api.github.com";
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -45,10 +45,11 @@ export interface GithubConnectionSummary {
   pullRequestsCollectionHandle: string;
   codeCollectionHandle: string;
   active: boolean;
+  installationId: number | null;
+  requireBraino: boolean;
+  appConnected: boolean;
   lastSyncedAt: string | null;
   lastError: string | null;
-  webhookConfigured: boolean;
-  webhookUrl: string | null;
   webhookLastDeliveryAt: string | null;
 }
 
@@ -58,21 +59,19 @@ interface ConnectionRow {
   id: string;
   workspace_id: string;
   repository: string;
-  token_sealed: string | null;
+  installation_id: number | string | null;
+  require_braino: boolean;
   issues_collection_id: string;
   pull_requests_collection_id: string;
   code_collection_id: string;
   created_by_user_id: string;
   active: boolean;
-  webhook_id: string | number | null;
-  webhook_secret_sealed: string | null;
-  webhook_url: string | null;
   sync_token: string | null;
   sync_started_at: Date | string | null;
 }
 
 interface ClaimedConnection {
-  connection: ConnectionRow & { token_sealed: string };
+  connection: ConnectionRow & { installation_id: number | string };
   syncToken: string;
 }
 
@@ -155,7 +154,7 @@ async function claimGithubOperation(
         [input.connectionId],
       );
       const row = found.rows[0];
-      if (!row || !row.active || !row.token_sealed) {
+      if (!row || !row.active || row.installation_id === null) {
         throw new GithubConnectionError(
           "GitHub connection is not active.",
           "connection_inactive",
@@ -175,7 +174,7 @@ async function claimGithubOperation(
         [row.id, syncToken],
       );
       const active = claimed.rows[0];
-      if (!active?.token_sealed) {
+      if (active?.installation_id === null || active?.installation_id === undefined) {
         throw new GithubConnectionError(
           "This GitHub connection already has an operation in progress.",
           "sync_in_progress",
@@ -183,7 +182,7 @@ async function claimGithubOperation(
         );
       }
       await client.query("COMMIT");
-      return active as ConnectionRow & { token_sealed: string };
+      return active as ConnectionRow & { installation_id: number | string };
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -372,14 +371,14 @@ async function summary(client: PoolClient, connectionId: string): Promise<Github
     active: boolean;
     last_synced_at: Date | string | null;
     last_error: string | null;
-    webhook_id: string | number | null;
-    webhook_url: string | null;
     webhook_last_delivery_at: Date | string | null;
+    installation_id: number | string | null;
+    require_braino: boolean;
   }>(
     `SELECT g.id, g.repository, i.handle AS issues_handle, p.handle AS pulls_handle,
             c.handle AS code_handle,
-            g.active, g.last_synced_at, g.last_error, g.webhook_id, g.webhook_url,
-            g.webhook_last_delivery_at
+            g.active, g.last_synced_at, g.last_error,
+            g.webhook_last_delivery_at, g.installation_id, g.require_braino
        FROM github_connections g
        JOIN collections i ON i.id = g.issues_collection_id
        JOIN collections p ON p.id = g.pull_requests_collection_id
@@ -397,305 +396,15 @@ async function summary(client: PoolClient, connectionId: string): Promise<Github
     pullRequestsCollectionHandle: row.pulls_handle,
     codeCollectionHandle: row.code_handle,
     active: row.active,
+    installationId: row.installation_id === null ? null : Number(row.installation_id),
+    requireBraino: row.require_braino,
+    appConnected: row.installation_id !== null,
     lastSyncedAt: row.last_synced_at ? new Date(row.last_synced_at).toISOString() : null,
     lastError: row.last_error,
-    webhookConfigured: row.webhook_id !== null && Boolean(row.webhook_url),
-    webhookUrl: row.webhook_url,
     webhookLastDeliveryAt: row.webhook_last_delivery_at
       ? new Date(row.webhook_last_delivery_at).toISOString()
       : null,
   };
-}
-
-async function githubMutation(
-  fetcher: Fetcher,
-  url: string,
-  accessToken: string,
-  method: "POST" | "PATCH" | "DELETE",
-  body?: Record<string, unknown>,
-  operation: "configure" | "delete" = "configure",
-): Promise<unknown> {
-  const response = await githubFetch(fetcher, url, {
-    method,
-    headers: { ...headers(accessToken), "Content-Type": "application/json" },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  if (operation === "delete" && response.status === 404) return null;
-  if (!response.ok) {
-    if (operation === "delete") {
-      throw new GithubConnectionError(
-        response.status === 401 || response.status === 403
-          ? "GitHub rejected webhook deletion. Keep Webhooks repository write access until disconnect completes."
-          : `GitHub returned ${response.status} while deleting the repository webhook.`,
-        "github_webhook_delete_failed",
-        502,
-      );
-    }
-    const message =
-      response.status === 401 || response.status === 403
-        ? "GitHub rejected webhook setup. Grant the token Webhooks repository write access."
-        : `GitHub returned ${response.status} while configuring automatic sync.`;
-    throw new GithubConnectionError(message, "github_webhook_setup_failed", 502);
-  }
-  if (response.status === 204) return null;
-  return response.json();
-}
-
-function githubWebhookUrl(publicHost: string, connectionId: string): string {
-  let url: URL;
-  try {
-    url = new URL(publicHost);
-  } catch {
-    throw new GithubConnectionError(
-      "DOCO_PUBLIC_HOST must be a valid HTTPS URL before automatic GitHub sync can be enabled.",
-      "public_host_invalid",
-    );
-  }
-  if (url.protocol !== "https:" || url.username || url.password) {
-    throw new GithubConnectionError(
-      "DOCO_PUBLIC_HOST must be a public HTTPS URL before automatic GitHub sync can be enabled.",
-      "public_host_invalid",
-    );
-  }
-  return `${url.origin}/api/v1/github/webhooks/${connectionId}`;
-}
-
-/** Register or rotate the repository webhook that turns GitHub events into a full, idempotent sync. */
-export async function configureGithubWebhook(
-  withClient: ClientScope,
-  input: {
-    connectionId: string;
-    userId: string;
-    publicHost: string;
-    encryptionKey: string;
-    fetcher?: Fetcher;
-  },
-): Promise<GithubConnectionSummary> {
-  const webhookUrl = githubWebhookUrl(input.publicHost, input.connectionId);
-  const webhookSecret = randomBytes(32).toString("base64url");
-  const secretSealed = sealSecret(webhookSecret, input.encryptionKey);
-  const claimed = await claimGithubOperation(withClient, {
-    connectionId: input.connectionId,
-    userId: input.userId,
-  });
-  try {
-    const accessToken = openSecret(claimed.connection.token_sealed, input.encryptionKey);
-    await withClient(async (client) => {
-      const saved = await client.query(
-        `UPDATE github_connections
-            SET webhook_secret_sealed = $2, webhook_url = $3
-          WHERE id = $1 AND sync_token = $4
-        RETURNING id`,
-        [claimed.connection.id, secretSealed, webhookUrl, claimed.syncToken],
-      );
-      if (!saved.rows[0]) {
-        throw new GithubConnectionError(
-          "This GitHub operation no longer owns the connection lease.",
-          "sync_lease_lost",
-          409,
-        );
-      }
-    });
-    const body = {
-      name: "web",
-      config: {
-        url: webhookUrl,
-        content_type: "json",
-        secret: webhookSecret,
-        insecure_ssl: "0",
-      },
-      events: ["issues", "pull_request", "push"],
-      active: true,
-    };
-    const remote = (await githubMutation(
-      input.fetcher ?? fetch,
-      claimed.connection.webhook_id
-        ? `${API}/repos/${claimed.connection.repository}/hooks/${claimed.connection.webhook_id}`
-        : `${API}/repos/${claimed.connection.repository}/hooks`,
-      accessToken,
-      claimed.connection.webhook_id ? "PATCH" : "POST",
-      body,
-    )) as { id?: unknown } | null;
-    const webhookId = claimed.connection.webhook_id ?? remote?.id;
-    if (typeof webhookId !== "number" && typeof webhookId !== "string") {
-      throw new GithubConnectionError(
-        "GitHub returned an invalid webhook identity.",
-        "github_response_invalid",
-        502,
-      );
-    }
-    return withClient(async (client) => {
-      const saved = await client.query(
-        `UPDATE github_connections
-            SET webhook_id = $2, webhook_created_at = coalesce(webhook_created_at, now()),
-                last_error = NULL, sync_token = NULL, sync_started_at = NULL
-          WHERE id = $1 AND sync_token = $3
-        RETURNING id`,
-        [claimed.connection.id, webhookId, claimed.syncToken],
-      );
-      if (!saved.rows[0]) {
-        throw new GithubConnectionError(
-          "This GitHub operation no longer owns the connection lease.",
-          "sync_lease_lost",
-          409,
-        );
-      }
-      return summary(client, claimed.connection.id);
-    });
-  } catch (error) {
-    await withClient((client) =>
-      client.query(
-        `UPDATE github_connections
-            SET webhook_secret_sealed = $2, webhook_url = $3, last_error = $4,
-                sync_token = NULL, sync_started_at = NULL
-          WHERE id = $1 AND sync_token = $5`,
-        [
-          claimed.connection.id,
-          claimed.connection.webhook_secret_sealed,
-          claimed.connection.webhook_url,
-          error instanceof Error ? error.message.slice(0, 500) : "GitHub webhook setup failed.",
-          claimed.syncToken,
-        ],
-      ),
-    );
-    throw error;
-  }
-}
-
-export interface GithubWebhookDeliveryResult {
-  event: string;
-  synced: boolean;
-  replayed: boolean;
-  created: number;
-  updated: number;
-  unchanged: number;
-}
-
-function verifyGithubSignature(body: string, signature: string, secret: string): void {
-  const expected = `sha256=${createHmac("sha256", secret).update(body, "utf8").digest("hex")}`;
-  const actualBytes = Buffer.from(signature, "utf8");
-  const expectedBytes = Buffer.from(expected, "utf8");
-  if (actualBytes.length !== expectedBytes.length || !timingSafeEqual(actualBytes, expectedBytes)) {
-    throw new GithubConnectionError(
-      "GitHub webhook signature is invalid.",
-      "signature_invalid",
-      401,
-    );
-  }
-}
-
-/** Validate, deduplicate, and apply one signed GitHub delivery. */
-export async function deliverGithubWebhook(
-  withClient: ClientScope,
-  input: {
-    connectionId: string;
-    deliveryId: string;
-    event: string;
-    signature: string;
-    body: string;
-    encryptionKey: string;
-    fetcher?: Fetcher;
-  },
-): Promise<GithubWebhookDeliveryResult> {
-  const deliveryId = input.deliveryId.trim().slice(0, 200);
-  const event = input.event.trim().slice(0, 100);
-  if (!deliveryId || !event) {
-    throw new GithubConnectionError("GitHub delivery headers are required.", "headers_required");
-  }
-  const reservation = await withClient(async (client) => {
-    const found = await client.query<ConnectionRow>(
-      "SELECT * FROM github_connections WHERE id = $1",
-      [input.connectionId],
-    );
-    const connection = found.rows[0];
-    if (!connection || !connection.active || !connection.webhook_secret_sealed) {
-      throw new GithubConnectionError("GitHub webhook is not active.", "webhook_inactive", 404);
-    }
-    const webhookSecret = openSecret(connection.webhook_secret_sealed, input.encryptionKey);
-    verifyGithubSignature(input.body, input.signature.trim(), webhookSecret);
-    let payload: unknown;
-    try {
-      payload = JSON.parse(input.body);
-    } catch {
-      throw new GithubConnectionError("GitHub webhook payload is invalid.", "payload_invalid");
-    }
-    const repository =
-      payload && typeof payload === "object"
-        ? (payload as { repository?: { full_name?: unknown } }).repository?.full_name
-        : null;
-    if (typeof repository !== "string" || repository.toLowerCase() !== connection.repository) {
-      throw new GithubConnectionError(
-        "GitHub webhook repository does not match this connection.",
-        "repository_mismatch",
-        403,
-      );
-    }
-    const reserved = await client.query(
-      `INSERT INTO github_webhook_deliveries (connection_id, delivery_id, event, status)
-       VALUES ($1, $2, $3, 'processing')
-       ON CONFLICT DO NOTHING
-       RETURNING delivery_id`,
-      [connection.id, deliveryId, event],
-    );
-    if (!reserved.rows[0]) {
-      const prior = await client.query<{
-        status: string;
-        response: GithubWebhookDeliveryResult | null;
-      }>(
-        `SELECT status, response FROM github_webhook_deliveries
-          WHERE connection_id = $1 AND delivery_id = $2`,
-        [connection.id, deliveryId],
-      );
-      if (prior.rows[0]?.status === "completed" && prior.rows[0].response) {
-        return { replay: { ...prior.rows[0].response, replayed: true } };
-      }
-      throw new GithubConnectionError(
-        "This GitHub delivery is already processing.",
-        "delivery_in_progress",
-        409,
-      );
-    }
-    return { connectionId: connection.id };
-  });
-  if ("replay" in reservation) return reservation.replay;
-  try {
-    const supported = event === "issues" || event === "pull_request" || event === "push";
-    const synced = supported
-      ? await syncGithubConnection(withClient, {
-          connectionId: reservation.connectionId,
-          encryptionKey: input.encryptionKey,
-          ...(input.fetcher ? { fetcher: input.fetcher } : {}),
-        })
-      : { created: 0, updated: 0, unchanged: 0 };
-    const result: GithubWebhookDeliveryResult = {
-      event,
-      synced: supported,
-      replayed: false,
-      ...synced,
-    };
-    await withClient(async (client) => {
-      await client.query(
-        `UPDATE github_webhook_deliveries
-            SET status = 'completed', response = $3::jsonb, completed_at = now()
-          WHERE connection_id = $1 AND delivery_id = $2`,
-        [reservation.connectionId, deliveryId, JSON.stringify(result)],
-      );
-      await client.query(
-        "UPDATE github_connections SET webhook_last_delivery_at = now() WHERE id = $1",
-        [reservation.connectionId],
-      );
-    });
-    return result;
-  } catch (error) {
-    await withClient((client) =>
-      client.query(
-        `DELETE FROM github_webhook_deliveries
-          WHERE connection_id = $1 AND delivery_id = $2 AND status = 'processing'`,
-        [reservation.connectionId, deliveryId],
-      ),
-    );
-    throw error;
-  }
 }
 
 export async function connectGithubRepository(
@@ -703,19 +412,24 @@ export async function connectGithubRepository(
   input: {
     workspaceId: string;
     userId: string;
+    installationId: number;
     repository: string;
-    accessToken: string;
-    encryptionKey: string;
-    fetcher?: Fetcher;
+    plugin: GithubAppConnectorPlugin;
   },
 ): Promise<GithubConnectionSummary> {
   await withClient((client) => requireOwner(client, input.workspaceId, input.userId));
   const repository = normalizeRepository(input.repository);
-  const accessToken = input.accessToken.trim();
-  if (!accessToken) throw new GithubConnectionError("GitHub token is required.", "token_required");
-  const fetcher = input.fetcher ?? fetch;
-  await verifyRepository(fetcher, repository, accessToken);
-  const tokenSealed = sealSecret(accessToken, input.encryptionKey);
+  if (!Number.isInteger(input.installationId) || input.installationId <= 0) {
+    throw new GithubConnectionError("GitHub installation is invalid.", "installation_invalid");
+  }
+  const available = await input.plugin.github.repositories(input.installationId);
+  if (!available.some((candidate) => candidate.fullName.toLowerCase() === repository)) {
+    throw new GithubConnectionError(
+      "The GitHub App installation does not include that repository.",
+      "repository_not_installed",
+      403,
+    );
+  }
   return withClient(async (client) => {
     await requireOwner(client, input.workspaceId, input.userId);
     const current = await client.query<ConnectionRow>(
@@ -733,9 +447,9 @@ export async function connectGithubRepository(
       }
       await client.query(
         `UPDATE github_connections
-            SET token_sealed = $2, active = true, last_error = NULL
+            SET installation_id = $2, active = true, last_error = NULL
           WHERE id = $1`,
-        [existing.id, tokenSealed],
+        [existing.id, input.installationId],
       );
       return summary(client, existing.id);
     }
@@ -772,24 +486,27 @@ export async function connectGithubRepository(
             SET data = jsonb_set(
               data || '{"github_integration": {}}'::jsonb,
               '{github_integration,connections}',
-              jsonb_build_array(jsonb_build_object('repo', $2::text)),
+              jsonb_build_array(jsonb_build_object(
+                'repo', $2::text,
+                'installation_id', $3::bigint
+              )),
               true
             ),
                 updated_at = now()
           WHERE id = $1`,
-        [code.collectionId, repository],
+        [code.collectionId, repository, input.installationId],
       );
       const id = `github_${generateUlid()}`;
       await client.query(
         `INSERT INTO github_connections
-           (id, workspace_id, repository, token_sealed, issues_collection_id,
+           (id, workspace_id, repository, installation_id, issues_collection_id,
             pull_requests_collection_id, code_collection_id, created_by_user_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           id,
           input.workspaceId,
           repository,
-          tokenSealed,
+          input.installationId,
           issues.collectionId,
           pulls.collectionId,
           code.collectionId,
@@ -818,13 +535,255 @@ export async function listGithubConnections(
   return Promise.all(found.rows.map((row) => summary(client, row.id)));
 }
 
+/** Make GitHub's required-check rule match this connection's Braino setting. */
+export async function setGithubEnforcement(
+  withClient: ClientScope,
+  input: {
+    connectionId: string;
+    userId: string;
+    required: boolean;
+    plugin: GithubAppConnectorPlugin;
+  },
+): Promise<GithubConnectionSummary> {
+  const connection = await withClient(async (client) => {
+    const found = await client.query<ConnectionRow>(
+      "SELECT * FROM github_connections WHERE id = $1",
+      [input.connectionId],
+    );
+    const row = found.rows[0];
+    if (!row || !row.active || row.installation_id === null) {
+      throw new GithubConnectionError(
+        "GitHub connection is not active.",
+        "connection_inactive",
+        409,
+      );
+    }
+    await requireOwner(client, row.workspace_id, input.userId);
+    return row as ConnectionRow & { installation_id: number | string };
+  });
+  await pluginCapability(input.plugin, "scm.ruleset.reconcile").reconcile({
+    installationId: String(connection.installation_id),
+    repository: connection.repository,
+    checkName: "Braino",
+    required: input.required,
+  });
+  return withClient(async (client) => {
+    const changed = await client.query(
+      `UPDATE github_connections
+          SET require_braino = $2, last_error = NULL
+        WHERE id = $1 AND active AND installation_id = $3
+      RETURNING id`,
+      [connection.id, input.required, connection.installation_id],
+    );
+    if (!changed.rows[0]) {
+      throw new GithubConnectionError(
+        "GitHub connection changed while enforcement was being configured.",
+        "connection_changed",
+        409,
+      );
+    }
+    return summary(client, connection.id);
+  });
+}
+
+const BRIEF_TRAILER = /(?:Doco|Braino)-Brief:\s*https?:\/\/\S+/i;
+const RECORD_REFERENCE =
+  /https?:\/\/[^\s)]+\/(?:decision|rule|intent|idea|eval|reference|log|action|state)\/(?:decision|rule|intent|idea|eval|reference|log|action|state)_[0-9A-Z]+/i;
+
+export function pullRequestWentThroughBraino(input: {
+  body: string | null;
+  commitMessages: readonly string[];
+}): boolean {
+  return [input.body ?? "", ...input.commitMessages].some(
+    (value) => BRIEF_TRAILER.test(value) || RECORD_REFERENCE.test(value),
+  );
+}
+
+function object(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+export interface GithubWebhookDeliveryResult {
+  event: string;
+  synced: boolean;
+  replayed: boolean;
+  created: number;
+  updated: number;
+  unchanged: number;
+}
+
+/** Validate, deduplicate, sync, and check one delivery from the App-level webhook. */
+export async function deliverGithubAppWebhook(
+  withClient: ClientScope,
+  input: {
+    plugin: GithubAppConnectorPlugin;
+    headers: Readonly<Record<string, string>>;
+    body: string;
+    fetcher?: Fetcher;
+    codeGraphClient?: CodeGraphClient | null;
+  },
+): Promise<GithubWebhookDeliveryResult & { checked: boolean }> {
+  const events = await pluginCapability(input.plugin, "event.receive").receive({
+    body: new TextEncoder().encode(input.body),
+    headers: input.headers,
+  });
+  const received = events[0];
+  if (!received) {
+    throw new GithubConnectionError("GitHub delivery contained no event.", "payload_invalid");
+  }
+  const payload = received.data;
+  const installationId = Number(object(payload.installation)?.id);
+  const repository = object(payload.repository)?.full_name;
+  if (!Number.isInteger(installationId) || installationId <= 0 || typeof repository !== "string") {
+    return {
+      event: received.kind,
+      synced: false,
+      replayed: false,
+      created: 0,
+      updated: 0,
+      unchanged: 0,
+      checked: false,
+    };
+  }
+  const connection = await withClient(async (client) => {
+    const found = await client.query<ConnectionRow>(
+      `SELECT * FROM github_connections
+        WHERE installation_id = $1 AND lower(repository) = lower($2) AND active`,
+      [installationId, repository],
+    );
+    const row = found.rows[0];
+    if (!row) {
+      throw new GithubConnectionError(
+        "GitHub delivery is for a repository this workspace does not track.",
+        "connection_not_found",
+        404,
+      );
+    }
+    const reserved = await client.query(
+      `INSERT INTO github_webhook_deliveries (connection_id, delivery_id, event, status)
+       VALUES ($1, $2, $3, 'processing')
+       ON CONFLICT DO NOTHING
+       RETURNING delivery_id`,
+      [row.id, received.id.slice(0, 200), received.kind.slice(0, 100)],
+    );
+    if (reserved.rows[0]) return { row };
+    const prior = await client.query<{
+      status: string;
+      response: (GithubWebhookDeliveryResult & { checked?: boolean }) | null;
+    }>(
+      `SELECT status, response FROM github_webhook_deliveries
+        WHERE connection_id = $1 AND delivery_id = $2`,
+      [row.id, received.id.slice(0, 200)],
+    );
+    if (prior.rows[0]?.status === "completed" && prior.rows[0].response) {
+      return {
+        replay: {
+          ...prior.rows[0].response,
+          replayed: true,
+          checked: prior.rows[0].response.checked ?? false,
+        },
+      };
+    }
+    throw new GithubConnectionError(
+      "This GitHub delivery is already processing.",
+      "delivery_in_progress",
+      409,
+    );
+  });
+  if ("replay" in connection) return connection.replay;
+
+  try {
+    const supported =
+      received.kind === "issues" || received.kind === "pull_request" || received.kind === "push";
+    let checked = false;
+    const pullRequest = object(payload.pull_request);
+    const head = object(pullRequest?.head);
+    const pullNumber = Number(pullRequest?.number);
+    if (
+      received.kind === "pull_request" &&
+      pullRequest?.state === "open" &&
+      Number.isInteger(pullNumber) &&
+      pullNumber > 0 &&
+      typeof head?.sha === "string"
+    ) {
+      const commitMessages = await input.plugin.github.pullRequestCommits({
+        installationId,
+        repository,
+        pullNumber,
+      });
+      const passed = pullRequestWentThroughBraino({
+        body: typeof pullRequest.body === "string" ? pullRequest.body : null,
+        commitMessages,
+      });
+      const conclusion = passed ? "success" : connection.row.require_braino ? "failure" : "neutral";
+      await pluginCapability(input.plugin, "scm.check.publish").publish({
+        installationId: String(installationId),
+        repository,
+        name: "Braino",
+        headSha: head.sha,
+        conclusion,
+        title: passed
+          ? "Went through Braino"
+          : connection.row.require_braino
+            ? "Didn't go through Braino"
+            : "No Braino evidence",
+        summary: passed
+          ? "A pull-request commit or description cites the Braino brief or record used for this work."
+          : connection.row.require_braino
+            ? "This repository requires Braino, but no commit trailer or Braino record was found. Read the Braino brief and end the next commit with its Doco-Brief line."
+            : "No commit trailer or Braino record was found; enforcement is not enabled for this repository.",
+      });
+      checked = true;
+    }
+    const synced = supported
+      ? await syncGithubConnection(withClient, {
+          connectionId: connection.row.id,
+          plugin: input.plugin,
+          ...(input.fetcher ? { fetcher: input.fetcher } : {}),
+          ...(input.codeGraphClient !== undefined
+            ? { codeGraphClient: input.codeGraphClient }
+            : {}),
+        })
+      : { created: 0, updated: 0, unchanged: 0 };
+    const result = {
+      event: received.kind,
+      synced: supported,
+      replayed: false,
+      ...synced,
+      checked,
+    };
+    await withClient(async (client) => {
+      await client.query(
+        `UPDATE github_webhook_deliveries
+            SET status = 'completed', response = $3::jsonb, completed_at = now()
+          WHERE connection_id = $1 AND delivery_id = $2`,
+        [connection.row.id, received.id.slice(0, 200), JSON.stringify(result)],
+      );
+      await client.query(
+        "UPDATE github_connections SET webhook_last_delivery_at = now() WHERE id = $1",
+        [connection.row.id],
+      );
+    });
+    return result;
+  } catch (error) {
+    await withClient((client) =>
+      client.query(
+        `DELETE FROM github_webhook_deliveries
+          WHERE connection_id = $1 AND delivery_id = $2 AND status = 'processing'`,
+        [connection.row.id, received.id.slice(0, 200)],
+      ),
+    );
+    throw error;
+  }
+}
+
 export async function disconnectGithubRepository(
   withClient: ClientScope,
   input: {
     connectionId: string;
     userId: string;
-    encryptionKey: string;
-    fetcher?: Fetcher;
   },
 ): Promise<void> {
   const claimed = await claimGithubOperation(withClient, {
@@ -832,21 +791,10 @@ export async function disconnectGithubRepository(
     userId: input.userId,
   });
   try {
-    if (claimed.connection.webhook_id !== null) {
-      await githubMutation(
-        input.fetcher ?? fetch,
-        `${API}/repos/${claimed.connection.repository}/hooks/${claimed.connection.webhook_id}`,
-        openSecret(claimed.connection.token_sealed, input.encryptionKey),
-        "DELETE",
-        undefined,
-        "delete",
-      );
-    }
     await withClient(async (client) => {
       const disconnected = await client.query(
         `UPDATE github_connections
-            SET active = false, token_sealed = NULL, webhook_id = NULL,
-                webhook_secret_sealed = NULL, webhook_url = NULL, last_error = NULL,
+            SET active = false, installation_id = NULL, last_error = NULL,
                 sync_token = NULL, sync_started_at = NULL
           WHERE id = $1 AND sync_token = $2
         RETURNING id`,
@@ -1267,7 +1215,7 @@ export async function syncGithubConnection(
   withClient: ClientScope,
   input: {
     connectionId: string;
-    encryptionKey: string;
+    plugin: GithubAppConnectorPlugin;
     userId?: string;
     fetcher?: Fetcher;
     codeGraphClient?: CodeGraphClient | null;
@@ -1278,7 +1226,9 @@ export async function syncGithubConnection(
     ...(input.userId ? { userId: input.userId } : {}),
   });
   try {
-    const accessToken = openSecret(claimed.connection.token_sealed, input.encryptionKey);
+    const accessToken = await input.plugin.github.mintInstallationToken(
+      claimed.connection.installation_id,
+    );
     const fetcher = input.fetcher ?? fetch;
     const stored = await storedCodeShas(
       withClient,
@@ -1306,7 +1256,7 @@ export async function syncGithubConnection(
           [claimed.connection.id],
         );
         const current = locked.rows[0];
-        if (!current || !current.active || !current.token_sealed) {
+        if (!current || !current.active || current.installation_id === null) {
           throw new GithubConnectionError(
             "GitHub connection is not active.",
             "connection_inactive",

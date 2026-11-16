@@ -1,9 +1,10 @@
-import { connectConnector, initializeSingleWorkspace, syncConnectorConnection } from "@doco/host";
+import { notionConnector } from "@doco/connector-plugins";
 import type { PGlite } from "@electric-sql/pglite";
 import type { PoolClient } from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
-import { notionConnector } from "../notion.js";
+import { connectConnector, syncConnectorConnection } from "../connectors.js";
+import { initializeSingleWorkspace } from "../single-workspace.js";
 
 let db: PGlite;
 

@@ -152,15 +152,21 @@ Drive, enable the Drive API, create a service-account JSON key, and share the
 folders or files with that service account; Braino imports Docs, Sheets, Slides,
 and text files while ignoring binary files.
 
-Owners can also connect one GitHub repository from **Integrations** with a
-fine-grained personal access token scoped to that repository. Grant read access
-to Metadata, Contents, Issues, and Pull requests, plus Webhooks write access. Braino
-encrypts the token with `DOCO_ENCRYPTION_KEY`, imports into dedicated GitHub
-codebase, issue, and pull-request collections, and records every source change in the
-same immutable history. When `DOCO_PUBLIC_HOST` is public HTTPS, Braino registers
-a signed repository webhook and refreshes automatically on issue and pull
-request and push events; delivery IDs make retries idempotent. **Sync now** remains the
-fallback, and unchanged items do not create versions.
+Owners connect GitHub from **Integrations** by creating a private GitHub App for
+their Braino deployment, then choosing which repositories to install it on. The
+manifest flow configures the callback, signed webhook, subscribed events, and
+least-privilege repository permissions. Braino encrypts the App private key and
+webhook secret with `DOCO_ENCRYPTION_KEY`; repository access uses short-lived
+installation tokens, never a personal access token.
+
+Each installed repository imports into dedicated codebase, issue, and
+pull-request collections with the same immutable history as every other source.
+Signed webhooks at `DOCO_PUBLIC_HOST` refresh issue, pull-request, and push events
+automatically, and delivery IDs make retries idempotent. **Sync now** remains a
+fallback. Owners may also require Braino from the repository card: Braino
+reconciles a non-strict GitHub ruleset and publishes a `Braino` check for each
+pull-request head commit. Pull requests with a `Braino-Brief:` or `Doco-Brief:`
+commit trailer pass; missing evidence fails the required check.
 
 ## Operations
 

@@ -20,6 +20,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@doco/connector-plugins": "workspace:*",
     "@doco/db": "workspace:*",
     "@doco/index": "workspace:*",
     "@doco/plugin-runtime": "workspace:*",

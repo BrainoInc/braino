@@ -1641,16 +1641,33 @@ CREATE TABLE IF NOT EXISTS connector_documents (
 CREATE INDEX IF NOT EXISTS connector_documents_seen_idx
   ON connector_documents (connection_id, seen_run_id);
 
--- One operator-managed GitHub source for the single workspace. The personal
--- access token is encrypted with DOCO_ENCRYPTION_KEY; it is never returned by
--- list APIs or written into collection metadata. Imported issues and pull
--- requests live in dedicated collections and use the ordinary immutable
--- node/history/audit spine.
+-- One deployment-owned GitHub App registration backs the bundled GitHub
+-- provider plugin. App secrets stay instance-local and encrypted; the one-time
+-- client secret returned by GitHub's manifest flow is deliberately discarded.
+CREATE TABLE IF NOT EXISTS github_app_registrations (
+  workspace_id            text PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+  app_id                  bigint NOT NULL UNIQUE CHECK (app_id > 0),
+  slug                    text NOT NULL CHECK (slug <> ''),
+  html_url                text NOT NULL CHECK (html_url <> ''),
+  client_id               text NOT NULL CHECK (client_id <> ''),
+  private_key_sealed      text NOT NULL,
+  webhook_secret_sealed   text NOT NULL,
+  created_by_user_id      text NOT NULL REFERENCES users(id),
+  updated_by_user_id      text NOT NULL REFERENCES users(id),
+  created_at              timestamptz NOT NULL DEFAULT now(),
+  updated_at              timestamptz NOT NULL DEFAULT now()
+);
+
+-- One operator-managed GitHub source for the single workspace. Repository API
+-- access comes from an App installation token minted per operation. Imported
+-- issues and pull requests live in dedicated collections and use the ordinary
+-- immutable node/history/audit spine.
 CREATE TABLE IF NOT EXISTS github_connections (
   id                           text PRIMARY KEY,
   workspace_id                 text NOT NULL UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,
   repository                   text NOT NULL,
-  token_sealed                 text,
+  installation_id              bigint,
+  require_braino               boolean NOT NULL DEFAULT false,
   issues_collection_id         text NOT NULL REFERENCES collections(id),
   pull_requests_collection_id  text NOT NULL REFERENCES collections(id),
   code_collection_id           text NOT NULL REFERENCES collections(id),
@@ -1659,10 +1676,6 @@ CREATE TABLE IF NOT EXISTS github_connections (
   created_at                   timestamptz NOT NULL DEFAULT now(),
   last_synced_at               timestamptz,
   last_error                   text,
-  webhook_id                   bigint,
-  webhook_secret_sealed        text,
-  webhook_url                  text,
-  webhook_created_at           timestamptz,
   webhook_last_delivery_at     timestamptz,
   sync_token                   text,
   sync_started_at              timestamptz
@@ -1670,13 +1683,17 @@ CREATE TABLE IF NOT EXISTS github_connections (
 CREATE UNIQUE INDEX IF NOT EXISTS github_connections_repository_idx
   ON github_connections (lower(repository));
 ALTER TABLE github_connections
-  ADD COLUMN IF NOT EXISTS webhook_id bigint,
-  ADD COLUMN IF NOT EXISTS webhook_secret_sealed text,
-  ADD COLUMN IF NOT EXISTS webhook_url text,
-  ADD COLUMN IF NOT EXISTS webhook_created_at timestamptz,
+  ADD COLUMN IF NOT EXISTS installation_id bigint,
+  ADD COLUMN IF NOT EXISTS require_braino boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS webhook_last_delivery_at timestamptz,
   ADD COLUMN IF NOT EXISTS sync_token text,
   ADD COLUMN IF NOT EXISTS sync_started_at timestamptz;
+ALTER TABLE github_connections
+  DROP COLUMN IF EXISTS token_sealed,
+  DROP COLUMN IF EXISTS webhook_id,
+  DROP COLUMN IF EXISTS webhook_secret_sealed,
+  DROP COLUMN IF EXISTS webhook_url,
+  DROP COLUMN IF EXISTS webhook_created_at;
 
 -- GitHub names every webhook request with a globally unique delivery id. This
 -- ledger makes redelivery safe: a completed refresh is returned verbatim and

@@ -1,15 +1,15 @@
-import {
-  type ConnectorAdapter,
-  connectConnector,
-  initializeSingleWorkspace,
-  listConnectorConnections,
-  syncConnectorConnection,
-} from "@doco/host";
+import { slackConnector } from "@doco/connector-plugins";
+import type { ConnectorAdapter } from "@doco/plugin-runtime";
 import type { PGlite } from "@electric-sql/pglite";
 import type { PoolClient } from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
-import { slackConnector } from "../slack.js";
+import {
+  connectConnector,
+  listConnectorConnections,
+  syncConnectorConnection,
+} from "../connectors.js";
+import { initializeSingleWorkspace } from "../single-workspace.js";
 
 let db: PGlite;
 

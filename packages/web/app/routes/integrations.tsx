@@ -1,19 +1,21 @@
-import { connectorPlugin } from "@doco/connector-plugins";
+import { connectorPlugin, githubAppSetup } from "@doco/connector-plugins";
 import { withClient } from "@doco/db";
 import {
   type ConnectorConnectionSummary,
   type GithubConnectionSummary,
-  configureGithubWebhook,
   connectConnector,
-  connectGithubRepository,
+  createGithubSetupState,
   createIncomingWebhook,
   disconnectConnector,
   disconnectGithubRepository,
+  getGithubAppRegistration,
+  getGithubAppRegistrationSummary,
   getSingleWorkspaceState,
   listConnectorConnections,
   listGithubConnections,
   listIncomingWebhooks,
   revokeIncomingWebhook,
+  setGithubEnforcement,
   syncConnectorConnection,
   syncGithubConnection,
 } from "@doco/host";
@@ -24,6 +26,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { githubEncryptionKey, githubPublicUrl } from "~/lib/github-app.server";
 import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
 interface ActionData {
@@ -59,17 +62,46 @@ export async function loader({ request }: { request: Request }) {
       collections: collections.rows,
       connectorConnections: await listConnectorConnections(client, state.workspace.id, user.id),
       githubConnections: await listGithubConnections(client, state.workspace.id, user.id),
+      githubApp: await getGithubAppRegistrationSummary(client, state.workspace.id),
       webhooks: await listIncomingWebhooks(client, {
         workspaceId: state.workspace.id,
         userId: user.id,
       }),
     };
   });
-  const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
-    /\/$/,
-    "",
-  );
-  return { workspace: state.workspace, publicHost, ...loaded };
+  const publicHost = githubPublicUrl(request);
+  let githubManifest: string | null = null;
+  let githubManifestUrl: string | null = null;
+  let githubInstallUrl: string | null = null;
+  let githubSetupError: string | null = null;
+  try {
+    if (loaded.githubApp) {
+      const installState = createGithubSetupState(
+        { workspaceId: state.workspace.id, userId: user.id, purpose: "install" },
+        githubEncryptionKey(),
+      );
+      githubInstallUrl = `${loaded.githubApp.htmlUrl}/installations/new?state=${encodeURIComponent(installState)}`;
+    } else {
+      const createState = createGithubSetupState(
+        { workspaceId: state.workspace.id, userId: user.id, purpose: "create" },
+        githubEncryptionKey(),
+      );
+      githubManifest = JSON.stringify(githubAppSetup().manifest(publicHost));
+      githubManifestUrl = `https://github.com/settings/apps/new?state=${encodeURIComponent(createState)}`;
+    }
+  } catch (error) {
+    githubSetupError =
+      error instanceof Error ? error.message : "GitHub App setup is not available.";
+  }
+  return {
+    workspace: state.workspace,
+    publicHost,
+    githubManifest,
+    githubManifestUrl,
+    githubInstallUrl,
+    githubSetupError,
+    ...loaded,
+  };
 }
 
 function text(form: FormData, name: string) {
@@ -227,80 +259,18 @@ export async function action({ request }: { request: Request }): Promise<ActionD
     }
   }
 
-  if (intent === "connect_github") {
-    try {
-      const connected = await connectGithubRepository(withClient, {
-        workspaceId: state.workspace.id,
-        userId: user.id,
-        repository: text(form, "repository"),
-        accessToken: text(form, "access_token"),
-        encryptionKey: encryptionKey(),
-      });
-      const synced = await syncGithubConnection(withClient, {
-        connectionId: connected.id,
-        encryptionKey: encryptionKey(),
-        userId: user.id,
-      });
-      const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
-        /\/$/,
-        "",
-      );
-      let webhookError: string | undefined;
-      if (publicHost.startsWith("https://")) {
-        try {
-          await configureGithubWebhook(withClient, {
-            connectionId: connected.id,
-            userId: user.id,
-            publicHost,
-            encryptionKey: encryptionKey(),
-          });
-        } catch (error) {
-          webhookError =
-            error instanceof Error ? t(error.message) : t("Automatic sync setup failed.");
-        }
-      } else {
-        webhookError = t(
-          "Automatic sync needs DOCO_PUBLIC_HOST set to this deployment's public HTTPS URL.",
-        );
-      }
-      return {
-        message: t(
-          "Connected {repository}. Imported {created} and updated {updated, plural, one {# record} other {# records}}.",
-          { repository: connected.repository, created: synced.created, updated: synced.updated },
-        ),
-        ...(webhookError ? { error: webhookError } : {}),
-      };
-    } catch (error) {
-      return { error: error instanceof Error ? t(error.message) : t("Could not connect GitHub.") };
-    }
-  }
-
-  if (intent === "configure_github_webhook") {
-    try {
-      const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
-        /\/$/,
-        "",
-      );
-      await configureGithubWebhook(withClient, {
-        connectionId: text(form, "connection_id"),
-        userId: user.id,
-        publicHost,
-        encryptionKey: encryptionKey(),
-      });
-      return { message: t("Automatic GitHub sync is enabled.") };
-    } catch (error) {
-      return {
-        error:
-          error instanceof Error ? t(error.message) : t("Could not enable automatic GitHub sync."),
-      };
-    }
-  }
-
   if (intent === "sync_github") {
     try {
+      const registration = await withClient((client) =>
+        getGithubAppRegistration(client, {
+          workspaceId: state.workspace.id,
+          encryptionKey: githubEncryptionKey(),
+        }),
+      );
+      if (!registration) throw new Error(t("Create the GitHub App first."));
       const synced = await syncGithubConnection(withClient, {
         connectionId: text(form, "connection_id"),
-        encryptionKey: encryptionKey(),
+        plugin: registration.plugin,
         userId: user.id,
       });
       return {
@@ -314,12 +284,39 @@ export async function action({ request }: { request: Request }): Promise<ActionD
     }
   }
 
+  if (intent === "enforce_github") {
+    try {
+      const registration = await withClient((client) =>
+        getGithubAppRegistration(client, {
+          workspaceId: state.workspace.id,
+          encryptionKey: githubEncryptionKey(),
+        }),
+      );
+      if (!registration) throw new Error(t("Create the GitHub App first."));
+      const connection = await setGithubEnforcement(withClient, {
+        connectionId: text(form, "connection_id"),
+        userId: user.id,
+        required: form.get("required") === "true",
+        plugin: registration.plugin,
+      });
+      return {
+        message: connection.requireBraino
+          ? t("GitHub now blocks pull requests that do not go through Braino.")
+          : t("GitHub no longer requires the Braino check."),
+      };
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error ? t(error.message) : t("Could not change GitHub enforcement."),
+      };
+    }
+  }
+
   if (intent === "disconnect_github") {
     try {
       await disconnectGithubRepository(withClient, {
         connectionId: text(form, "connection_id"),
         userId: user.id,
-        encryptionKey: encryptionKey(),
       });
       return { message: t("GitHub disconnected. Imported records and history were kept.") };
     } catch (error) {
@@ -551,70 +548,69 @@ function ConnectorConnection({
   );
 }
 
-function GithubConnectionForm({
-  repository,
-  submitLabel,
+function GithubAppSetup({
+  appName,
+  manifest,
+  manifestUrl,
+  installUrl,
+  error,
 }: {
-  repository?: string;
-  submitLabel: string;
+  appName: string | null;
+  manifest: string | null;
+  manifestUrl: string | null;
+  installUrl: string | null;
+  error: string | null;
 }) {
   const t = useT();
-  const navigation = useNavigation();
-  const connecting =
-    navigation.state !== "idle" && navigation.formData?.get("intent") === "connect_github";
-  return (
-    <Form method="post" className="grid gap-3 sm:grid-cols-2">
-      <input type="hidden" name="intent" value="connect_github" />
-      <label className="text-xs">
-        <span className="mb-1 block text-muted-foreground">{t("Repository")}</span>
-        <input
-          name="repository"
-          required
-          defaultValue={repository}
-          readOnly={Boolean(repository)}
-          placeholder={t("owner/repository")}
-          className="w-full rounded-md px-3 py-2 font-mono text-sm"
-        />
-      </label>
-      <label className="text-xs">
-        <span className="mb-1 block text-muted-foreground">
-          {t("Fine-grained personal access token")}
-        </span>
-        <input
-          name="access_token"
-          type="password"
-          required
-          autoComplete="new-password"
-          className="w-full rounded-md px-3 py-2 font-mono text-sm"
-        />
-      </label>
-      <p className="text-xs text-muted-foreground sm:col-span-2">
-        {t(
-          "Grant read access to Metadata, Contents, Issues, and Pull requests, plus Webhooks write access for automatic sync. Scope the token to this repository only.",
-        )}
-      </p>
-      <div className="sm:col-span-2 sm:text-end">
+  if (error) return <p className="text-sm text-destructive">{error}</p>;
+  if (manifest && manifestUrl) {
+    return (
+      <form method="post" action={manifestUrl} className="space-y-3">
+        <input type="hidden" name="manifest" value={manifest} />
+        <p className="text-sm text-muted-foreground">
+          {t(
+            "Create a private GitHub App owned by this deployment. GitHub returns its credentials directly to Braino, where they are encrypted at rest.",
+          )}
+        </p>
         <button
           type="submit"
-          disabled={connecting}
-          className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
         >
-          {connecting ? t("Connecting…") : submitLabel}
+          {t("Create GitHub App")}
         </button>
+      </form>
+    );
+  }
+  if (installUrl) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {t(
+            "Choose the repositories Braino may sync and protect. GitHub grants short-lived installation tokens; no personal access token is stored.",
+          )}
+        </p>
+        <a
+          href={installUrl}
+          className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+        >
+          {t("Install {name}", { name: appName ?? "Braino GitHub App" })}
+        </a>
       </div>
-    </Form>
-  );
+    );
+  }
+  return <p className="text-sm text-muted-foreground">{t("GitHub App setup is unavailable.")}</p>;
 }
 
 function GithubConnection({ connection }: { connection: GithubConnectionSummary }) {
   const t = useT();
+  const connected = connection.active && connection.appConnected;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-mono text-sm font-semibold">{connection.repository}</p>
           <p className="text-xs text-muted-foreground">
-            {connection.active
+            {connected
               ? connection.lastSyncedAt
                 ? t("Last synced {when}", {
                     when: new Date(connection.lastSyncedAt).toLocaleString(t.locale),
@@ -623,32 +619,36 @@ function GithubConnection({ connection }: { connection: GithubConnectionSummary 
               : t("Disconnected")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {connection.webhookConfigured
-              ? connection.webhookLastDeliveryAt
-                ? t("Automatic sync · last delivery {when}", {
-                    when: new Date(connection.webhookLastDeliveryAt).toLocaleString(t.locale),
-                  })
-                : t("Automatic sync enabled")
-              : t("Manual sync only")}
+            {connected && connection.webhookLastDeliveryAt
+              ? t("GitHub App connected · last delivery {when}", {
+                  when: new Date(connection.webhookLastDeliveryAt).toLocaleString(t.locale),
+                })
+              : connected
+                ? t("GitHub App connected · automatic sync enabled")
+                : t("GitHub App installation disconnected")}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {connection.requireBraino
+              ? t("Pull requests must pass the Braino check before merging.")
+              : t("Braino reports checks without blocking pull requests.")}
           </p>
           {connection.lastError ? (
             <p className="mt-1 text-xs text-destructive">{connection.lastError}</p>
           ) : null}
         </div>
-        {connection.active ? (
-          <div className="flex gap-2">
-            {!connection.webhookConfigured ? (
-              <Form method="post">
-                <input type="hidden" name="intent" value="configure_github_webhook" />
-                <input type="hidden" name="connection_id" value={connection.id} />
-                <button
-                  type="submit"
-                  className="neu-button rounded-md px-3 py-2 text-xs font-semibold"
-                >
-                  {t("Enable automatic sync")}
-                </button>
-              </Form>
-            ) : null}
+        {connected ? (
+          <div className="flex flex-wrap gap-2">
+            <Form method="post">
+              <input type="hidden" name="intent" value="enforce_github" />
+              <input type="hidden" name="connection_id" value={connection.id} />
+              <input type="hidden" name="required" value={String(!connection.requireBraino)} />
+              <button
+                type="submit"
+                className="neu-button rounded-md px-3 py-2 text-xs font-semibold"
+              >
+                {connection.requireBraino ? t("Stop requiring Braino") : t("Require Braino")}
+              </button>
+            </Form>
             <Form method="post">
               <input type="hidden" name="intent" value="sync_github" />
               <input type="hidden" name="connection_id" value={connection.id} />
@@ -692,12 +692,6 @@ function GithubConnection({ connection }: { connection: GithubConnectionSummary 
           {t("Codebase")}
         </Link>
       </div>
-      {!connection.active ? (
-        <GithubConnectionForm
-          repository={connection.repository}
-          submitLabel={t("Reconnect GitHub")}
-        />
-      ) : null}
     </div>
   );
 }
@@ -835,18 +829,27 @@ export default function IntegrationsPage() {
           <CardTitle>{"GitHub"}</CardTitle>
           <CardDescription>
             {t(
-              "Import one repository's code, issues, and pull requests into dedicated Braino collections. Signed GitHub webhooks refresh changes automatically when DOCO_PUBLIC_HOST is public HTTPS; Sync now remains available as a fallback.",
+              "Install a deployment-owned GitHub App to sync repositories with signed webhooks and short-lived credentials. Braino can publish a required check that blocks pull requests without Braino evidence.",
             )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <GithubAppSetup
+            appName={data.githubApp?.slug ?? null}
+            manifest={data.githubManifest}
+            manifestUrl={data.githubManifestUrl}
+            installUrl={data.githubInstallUrl}
+            error={data.githubSetupError}
+          />
           {data.githubConnections.length ? (
             data.githubConnections.map((connection) => (
               <GithubConnection key={connection.id} connection={connection} />
             ))
-          ) : (
-            <GithubConnectionForm submitLabel={t("Connect and sync")} />
-          )}
+          ) : data.githubApp ? (
+            <p className="text-sm text-muted-foreground">
+              {t("Install the app on at least one repository to begin syncing.")}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

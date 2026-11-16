@@ -6,5 +6,9 @@
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/__tests__/**", "src/**/*.test.ts"],
-  "references": [{ "path": "../shared" }, { "path": "../plugin-runtime" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../plugin-runtime" },
+    { "path": "../connector-plugins" }
+  ]
 }

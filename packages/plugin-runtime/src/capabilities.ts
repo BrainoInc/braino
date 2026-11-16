@@ -6,6 +6,8 @@ export const PLUGIN_CAPABILITY_CONTRACT_VERSIONS = {
   "team_chat.send": 1,
   "embedding.embed": 1,
   "chat.complete": 1,
+  "scm.check.publish": 1,
+  "scm.ruleset.reconcile": 1,
 } as const;
 
 export const PLUGIN_CAPABILITIES = Object.freeze(
