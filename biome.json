@@ -11,6 +11,7 @@
       "*.md",
       "*.yaml",
       "*.yml",
+      ".doco/hook.mjs",
       "packages/db/src/schema-embedded.ts"
     ]
   },

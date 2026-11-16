@@ -13,11 +13,14 @@ import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { pluginSecretsKey } from "~/lib/model-setup.server";
 import {
+  brainoPluginGatewayUrl,
+  createPluginGatewayState,
+} from "~/lib/plugin-gateway-state.server";
+import {
   MAX_FORM_BODY_BYTES,
   RequestBodyError,
   readBoundedUrlEncodedForm,
 } from "~/lib/request-body.server";
-import { brainoPluginGatewayUrl, createSlackGatewayState } from "~/lib/slack-gateway-state.server";
 
 const SLACK_PLUGIN_ID = "braino.slack";
 
@@ -56,7 +59,10 @@ export async function loader({ request }: { request: Request }) {
     );
     url.searchParams.set(
       "state",
-      createSlackGatewayState({ userId: user.id, workspaceId: workspace.id }, stateSecret),
+      createPluginGatewayState(
+        { provider: "slack", userId: user.id, workspaceId: workspace.id },
+        stateSecret,
+      ),
     );
     installUrl = url.toString();
   }

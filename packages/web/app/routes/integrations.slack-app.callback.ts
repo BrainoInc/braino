@@ -9,15 +9,19 @@ import { redirect } from "react-router";
 import { bundledPlugin } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
-import { brainoPluginGatewayUrl, verifySlackGatewayState } from "~/lib/slack-gateway-state.server";
+import {
+  brainoPluginGatewayUrl,
+  verifyPluginGatewayState,
+} from "~/lib/plugin-gateway-state.server";
 
 const SLACK_PLUGIN_ID = "braino.slack";
 
 interface GatewayExchange {
   installationId: string;
   gatewaySecret: string;
-  externalWorkspaceId: string;
-  workspaceName: string;
+  provider: "slack";
+  externalAccountId: string;
+  accountName: string;
 }
 
 function exchange(value: unknown): GatewayExchange {
@@ -26,8 +30,9 @@ function exchange(value: unknown): GatewayExchange {
     !input ||
     typeof input.installationId !== "string" ||
     typeof input.gatewaySecret !== "string" ||
-    typeof input.externalWorkspaceId !== "string" ||
-    typeof input.workspaceName !== "string"
+    input.provider !== "slack" ||
+    typeof input.externalAccountId !== "string" ||
+    typeof input.accountName !== "string"
   ) {
     throw new Error("The plugin gateway returned an invalid installation.");
   }
@@ -48,7 +53,7 @@ export async function loader({ request }: { request: Request }) {
   if (!code || !stateValue) throw redirect("/integrations/slack-app?error=gateway");
   let state: { userId: string; workspaceId: string };
   try {
-    state = verifySlackGatewayState(stateValue, stateSecret);
+    state = verifyPluginGatewayState(stateValue, "slack", stateSecret);
   } catch {
     throw redirect("/integrations/slack-app?error=state");
   }

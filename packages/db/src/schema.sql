@@ -1665,16 +1665,17 @@ CREATE TABLE IF NOT EXISTS connector_documents (
 CREATE INDEX IF NOT EXISTS connector_documents_seen_idx
   ON connector_documents (connection_id, seen_run_id);
 
--- One operator-managed GitHub source for the single workspace. The personal
--- access token is encrypted with DOCO_ENCRYPTION_KEY; it is never returned by
--- list APIs or written into collection metadata. Imported issues and pull
--- requests live in dedicated collections and use the ordinary immutable
--- node/history/audit spine.
+-- One operator-managed GitHub source for the single workspace. New connections
+-- use the bundled gateway plugin: this database stores only its local plugin
+-- installation id, whose one secret is scoped to the provider installation.
+-- token_sealed remains nullable only while existing PAT connections migrate.
 CREATE TABLE IF NOT EXISTS github_connections (
   id                           text PRIMARY KEY,
   workspace_id                 text NOT NULL UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,
   repository                   text NOT NULL,
   token_sealed                 text,
+  plugin_installation_id       text REFERENCES plugin_installations(id),
+  require_braino               boolean NOT NULL DEFAULT false,
   issues_collection_id         text NOT NULL REFERENCES collections(id),
   pull_requests_collection_id  text NOT NULL REFERENCES collections(id),
   code_collection_id           text NOT NULL REFERENCES collections(id),
@@ -1694,6 +1695,9 @@ CREATE TABLE IF NOT EXISTS github_connections (
 CREATE UNIQUE INDEX IF NOT EXISTS github_connections_repository_idx
   ON github_connections (lower(repository));
 ALTER TABLE github_connections
+  ALTER COLUMN token_sealed DROP NOT NULL,
+  ADD COLUMN IF NOT EXISTS plugin_installation_id text REFERENCES plugin_installations(id),
+  ADD COLUMN IF NOT EXISTS require_braino boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS webhook_id bigint,
   ADD COLUMN IF NOT EXISTS webhook_secret_sealed text,
   ADD COLUMN IF NOT EXISTS webhook_url text,
@@ -1701,6 +1705,9 @@ ALTER TABLE github_connections
   ADD COLUMN IF NOT EXISTS webhook_last_delivery_at timestamptz,
   ADD COLUMN IF NOT EXISTS sync_token text,
   ADD COLUMN IF NOT EXISTS sync_started_at timestamptz;
+CREATE INDEX IF NOT EXISTS github_connections_plugin_installation_idx
+  ON github_connections (plugin_installation_id)
+  WHERE plugin_installation_id IS NOT NULL;
 
 -- GitHub names every webhook request with a globally unique delivery id. This
 -- ledger makes redelivery safe: a completed refresh is returned verbatim and

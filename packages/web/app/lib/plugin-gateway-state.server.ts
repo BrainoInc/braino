@@ -2,7 +2,10 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 
-interface SlackGatewayState {
+export type GatewayProvider = "slack" | "github";
+
+interface PluginGatewayState {
+  provider: GatewayProvider;
   userId: string;
   workspaceId: string;
   nonce: string;
@@ -19,12 +22,12 @@ function equal(left: string, right: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function createSlackGatewayState(
-  input: { userId: string; workspaceId: string },
+export function createPluginGatewayState(
+  input: { provider: GatewayProvider; userId: string; workspaceId: string },
   secret: string,
   now = Date.now(),
 ): string {
-  const state: SlackGatewayState = {
+  const state: PluginGatewayState = {
     ...input,
     nonce: randomBytes(16).toString("base64url"),
     issuedAt: now,
@@ -33,26 +36,33 @@ export function createSlackGatewayState(
   return `${payload}.${signature(payload, secret)}`;
 }
 
-export function verifySlackGatewayState(
+export function verifyPluginGatewayState(
   value: string,
+  provider: GatewayProvider,
   secret: string,
   now = Date.now(),
 ): { userId: string; workspaceId: string } {
   const [payload, supplied] = value.split(".");
   if (!payload || !supplied || !equal(supplied, signature(payload, secret))) {
-    throw new Error("Slack gateway state is invalid.");
+    throw new Error("Plugin gateway state is invalid.");
   }
-  let state: SlackGatewayState;
+  let state: PluginGatewayState;
   try {
-    state = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as SlackGatewayState;
+    state = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as PluginGatewayState;
   } catch {
-    throw new Error("Slack gateway state is invalid.");
+    throw new Error("Plugin gateway state is invalid.");
   }
-  if (!state.userId || !state.workspaceId || !state.nonce || typeof state.issuedAt !== "number") {
-    throw new Error("Slack gateway state is invalid.");
+  if (
+    state.provider !== provider ||
+    !state.userId ||
+    !state.workspaceId ||
+    !state.nonce ||
+    typeof state.issuedAt !== "number"
+  ) {
+    throw new Error("Plugin gateway state is invalid.");
   }
   if (now - state.issuedAt > STATE_TTL_MS || state.issuedAt - now > 60_000) {
-    throw new Error("Slack gateway state expired.");
+    throw new Error("Plugin gateway state expired.");
   }
   return { userId: state.userId, workspaceId: state.workspaceId };
 }

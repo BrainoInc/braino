@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  createSlackGatewayState: vi.fn(),
+  createPluginGatewayState: vi.fn(),
   getCurrentUser: vi.fn(),
   getSingleWorkspaceState: vi.fn(),
   getWorkspaceRole: vi.fn(),
@@ -21,9 +21,9 @@ vi.mock("@doco/host", () => ({
 }));
 vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("~/lib/model-setup.server", () => ({ pluginSecretsKey: mocks.pluginSecretsKey }));
-vi.mock("~/lib/slack-gateway-state.server", () => ({
+vi.mock("~/lib/plugin-gateway-state.server", () => ({
   brainoPluginGatewayUrl: () => "https://plugins.braino.dev",
-  createSlackGatewayState: mocks.createSlackGatewayState,
+  createPluginGatewayState: mocks.createPluginGatewayState,
 }));
 
 import { action, loader } from "./integrations.slack-app";
@@ -39,7 +39,7 @@ beforeEach(() => {
   mocks.getWorkspaceRole.mockResolvedValue("owner");
   mocks.listPluginInstallations.mockResolvedValue([]);
   mocks.pluginSecretsKey.mockReturnValue("instance-state-secret");
-  mocks.createSlackGatewayState.mockReturnValue("signed-instance-state");
+  mocks.createPluginGatewayState.mockReturnValue("signed-instance-state");
 });
 
 describe("Señor Braino Slack setup", () => {
@@ -54,8 +54,8 @@ describe("Señor Braino Slack setup", () => {
         "https%3A%2F%2Fmeta.braino.dev%2Fintegrations%2Fslack-app%2Fcallback&state=" +
         "signed-instance-state",
     );
-    expect(mocks.createSlackGatewayState).toHaveBeenCalledWith(
-      { userId: "user_owner", workspaceId: "workspace_meta" },
+    expect(mocks.createPluginGatewayState).toHaveBeenCalledWith(
+      { provider: "slack", userId: "user_owner", workspaceId: "workspace_meta" },
       "instance-state-secret",
     );
     expect(JSON.stringify(result)).not.toContain("bot_token");

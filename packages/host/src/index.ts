@@ -15,6 +15,7 @@ export * from "./workspace-admin.js";
 export * from "./times.js";
 export * from "./plugin-installations.js";
 export * from "./plugin-invocation.js";
+export * from "./plugin-github.js";
 export * from "./plugin-chat-provider.js";
 export * from "./plugin-team-chat.js";
 export * from "./team-chat-events.js";

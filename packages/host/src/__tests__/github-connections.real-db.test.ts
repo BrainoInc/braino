@@ -5,9 +5,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
 import {
   connectGithubRepository,
+  connectGithubRepositoryWithPlugin,
+  finishGithubGatewayMigration,
   listGithubConnections,
   syncGithubConnection,
 } from "../github-connections.js";
+import type { PluginGithubProvider } from "../plugin-github.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
 
 let db: PGlite;
@@ -122,7 +125,196 @@ function fakeGithub(state: GithubState): typeof fetch {
   }) as typeof fetch;
 }
 
+async function fakeGithubPlugin(
+  workspaceId: string,
+  ownerId: string,
+  state: GithubState,
+): Promise<PluginGithubProvider> {
+  const digest = `sha256:${"0".repeat(64)}`;
+  await db.query(
+    `INSERT INTO plugin_artifacts (digest, component) VALUES ($1, $2)
+     ON CONFLICT DO NOTHING`,
+    [digest, new Uint8Array([0])],
+  );
+  await db.query(
+    `INSERT INTO plugin_installations
+       (id, workspace_id, manifest, artifact_digest, configuration,
+        created_by_user_id, updated_by_user_id)
+     VALUES ('plugin_installation_github', $1, $2::jsonb, $3, '{}'::jsonb, $4, $4)`,
+    [workspaceId, JSON.stringify({ id: "braino.github" }), digest, ownerId],
+  );
+  return {
+    installation: {
+      workspaceId,
+      installationId: "plugin_installation_github",
+      pluginId: "braino.github",
+    },
+    repositories: async () => [{ fullName: "acme/widgets", defaultBranch: "main" }],
+    request: async ({ path }: { path: string }) => {
+      if (path === "/repos/acme/widgets") {
+        return { data: { full_name: "acme/widgets", default_branch: "main" }, next: null };
+      }
+      if (path === "/repos/acme/widgets/git/trees/main?recursive=1") {
+        return {
+          data: {
+            truncated: false,
+            tree: [{ path: "app.py", type: "blob", sha: "code-sha", size: 24 }],
+          },
+          next: null,
+        };
+      }
+      if (path === "/repos/acme/widgets/git/blobs/code-sha") {
+        return {
+          data: {
+            encoding: "base64",
+            content: Buffer.from("from worker import run\nrun()\n").toString("base64"),
+          },
+          next: null,
+        };
+      }
+      if (path.includes("/issues?")) {
+        return {
+          data: [
+            {
+              number: 17,
+              title: "Document retry behavior",
+              body: "Make retries explicit for operators.",
+              html_url: "https://github.com/acme/widgets/issues/17",
+              state: state.issueState,
+              created_at: "2026-11-01T10:00:00Z",
+              updated_at: "2026-11-01T10:00:00Z",
+              user: { login: "octo" },
+              labels: [],
+            },
+          ],
+          next: null,
+        };
+      }
+      if (path.includes("/pulls?")) return { data: [], next: null };
+      throw new Error(`Unexpected GitHub plugin path: ${path}`);
+    },
+  } as unknown as PluginGithubProvider;
+}
+
 describe("self-hosted GitHub connections", () => {
+  it("removes a legacy PAT and webhook secrets only after a successful gateway sync", async () => {
+    const setup = await fixture();
+    const state: GithubState = { issueState: "open", pullState: "open", mergedAt: null };
+    const legacy = await connectGithubRepository(scope, {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      repository: "acme/widgets",
+      accessToken,
+      encryptionKey,
+      fetcher: fakeGithub(state),
+    });
+    await db.query(
+      `UPDATE github_connections
+          SET webhook_id = 42, webhook_secret_sealed = 'legacy-secret',
+              webhook_url = 'https://old.example/webhook'
+        WHERE id = $1`,
+      [legacy.id],
+    );
+    const plugin = await fakeGithubPlugin(setup.workspace.id, setup.owner.id, state);
+
+    const attached = await connectGithubRepositoryWithPlugin(scope, {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      repository: "acme/widgets",
+      plugin,
+    });
+    expect(
+      (
+        await db.query<{ token_sealed: string | null; plugin_installation_id: string | null }>(
+          "SELECT token_sealed, plugin_installation_id FROM github_connections WHERE id = $1",
+          [legacy.id],
+        )
+      ).rows[0],
+    ).toEqual({
+      token_sealed: expect.any(String),
+      plugin_installation_id: "plugin_installation_github",
+    });
+
+    await syncGithubConnection(scope, {
+      connectionId: attached.id,
+      plugin,
+      userId: setup.owner.id,
+      codeGraphClient: null,
+    });
+    expect(
+      (
+        await db.query<{ token_sealed: string | null }>(
+          "SELECT token_sealed FROM github_connections WHERE id = $1",
+          [legacy.id],
+        )
+      ).rows[0]?.token_sealed,
+    ).toEqual(expect.any(String));
+
+    await finishGithubGatewayMigration(scope, {
+      connectionId: attached.id,
+      pluginInstallationId: plugin.installation.installationId,
+    });
+    expect(
+      (
+        await db.query<{
+          token_sealed: string | null;
+          webhook_id: number | null;
+          webhook_secret_sealed: string | null;
+          webhook_url: string | null;
+        }>(
+          `SELECT token_sealed, webhook_id, webhook_secret_sealed, webhook_url
+             FROM github_connections WHERE id = $1`,
+          [legacy.id],
+        )
+      ).rows[0],
+    ).toEqual({
+      token_sealed: null,
+      webhook_id: null,
+      webhook_secret_sealed: null,
+      webhook_url: null,
+    });
+  });
+
+  it("keeps a legacy PAT when the first gateway sync fails", async () => {
+    const setup = await fixture();
+    const state: GithubState = { issueState: "open", pullState: "open", mergedAt: null };
+    const legacy = await connectGithubRepository(scope, {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      repository: "acme/widgets",
+      accessToken,
+      encryptionKey,
+      fetcher: fakeGithub(state),
+    });
+    const plugin = await fakeGithubPlugin(setup.workspace.id, setup.owner.id, state);
+    await connectGithubRepositoryWithPlugin(scope, {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      repository: "acme/widgets",
+      plugin,
+    });
+    plugin.request = async () => {
+      throw new Error("gateway unavailable");
+    };
+
+    await expect(
+      syncGithubConnection(scope, {
+        connectionId: legacy.id,
+        plugin,
+        userId: setup.owner.id,
+        codeGraphClient: null,
+      }),
+    ).rejects.toThrow("gateway unavailable");
+    expect(
+      (
+        await db.query<{ token_sealed: string | null }>(
+          "SELECT token_sealed FROM github_connections WHERE id = $1",
+          [legacy.id],
+        )
+      ).rows[0]?.token_sealed,
+    ).toEqual(expect.any(String));
+  });
+
   it("encrypts the token and idempotently imports issues and pull requests with history", async () => {
     const setup = await fixture();
     const state: GithubState = { issueState: "open", pullState: "open", mergedAt: null };

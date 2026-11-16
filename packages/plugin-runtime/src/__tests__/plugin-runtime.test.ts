@@ -41,6 +41,29 @@ function sourcePlugin() {
 }
 
 describe("Braino plugin protocol", () => {
+  it("recognizes the versioned GitHub gateway capabilities", () => {
+    expect(
+      parsePluginManifest({
+        protocolVersion: 2,
+        id: "braino.github",
+        name: "GitHub",
+        version: "1.0.0",
+        capabilities: {
+          "event.receive": 1,
+          "scm.request": 1,
+          "scm.check.publish": 1,
+          "scm.ruleset.reconcile": 1,
+        },
+        permissions: { network: ["plugins.braino.dev"] },
+      }).capabilities,
+    ).toEqual({
+      "event.receive": 1,
+      "scm.request": 1,
+      "scm.check.publish": 1,
+      "scm.ruleset.reconcile": 1,
+    });
+  });
+
   it("ships one canonical WASI component world with the runtime package", () => {
     const packageJson = JSON.parse(
       readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
