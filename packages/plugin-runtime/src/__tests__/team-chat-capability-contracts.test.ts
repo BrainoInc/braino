@@ -146,4 +146,205 @@ describe("team-chat capability contracts", () => {
       ),
     ).toThrow("senderEmail");
   });
+
+  it("keeps optional fields optional and normalizes every supported event shape", () => {
+    expect(parseTeamChatCapabilityInput("team_chat.connect", {})).toEqual({});
+    expect(parseTeamChatCapabilityInput("team_chat.connect", { installer: {} })).toEqual({
+      installer: {},
+    });
+    expect(
+      parseTeamChatCapabilityInput("team_chat.send", {
+        target: { kind: "user", id: " U1 " },
+        text: " Hello ",
+      }),
+    ).toEqual({ target: { kind: "user", id: "U1" }, text: "Hello" });
+
+    expect(
+      parseTeamChatCapabilityOutput(
+        "team_chat.connect",
+        {
+          externalWorkspaceId: "T1",
+          workspaceName: "Acme",
+          botUserId: "U-BOT",
+          channels: [],
+        },
+        {},
+      ),
+    ).toEqual({
+      externalWorkspaceId: "T1",
+      workspaceName: "Acme",
+      botUserId: "U-BOT",
+      channels: [],
+    });
+
+    expect(
+      parseTeamChatCapabilityOutput(
+        "event.receive",
+        [
+          {
+            id: "challenge-1",
+            occurredAt: "1794808800",
+            kind: "webhook.challenge",
+            data: { challenge: " verify-me " },
+          },
+          {
+            id: "uninstalled-1",
+            occurredAt: "2026-11-16T06:00:00.000Z",
+            kind: "team_chat.uninstalled",
+            data: {},
+          },
+          {
+            id: "provider-event-1",
+            occurredAt: "2026-11-16T06:00:00.000Z",
+            kind: "provider.custom",
+            data: { providerField: true },
+          },
+          {
+            id: "message-1",
+            occurredAt: "2026-11-16T06:00:00.000Z",
+            kind: "team_chat.message",
+            data: {
+              channelId: "D1",
+              senderId: "U1",
+              senderEmail: "OWNER@EXAMPLE.COM",
+              text: "Hello",
+              messageId: "1",
+              direct: true,
+            },
+          },
+        ],
+        {},
+      ),
+    ).toEqual([
+      {
+        id: "challenge-1",
+        occurredAt: "2026-11-16T06:00:00.000Z",
+        kind: "webhook.challenge",
+        data: { challenge: "verify-me" },
+      },
+      {
+        id: "uninstalled-1",
+        occurredAt: "2026-11-16T06:00:00.000Z",
+        kind: "team_chat.uninstalled",
+        data: {},
+      },
+      {
+        id: "provider-event-1",
+        occurredAt: "2026-11-16T06:00:00.000Z",
+        kind: "provider.custom",
+        data: { providerField: true },
+      },
+      {
+        id: "message-1",
+        occurredAt: "2026-11-16T06:00:00.000Z",
+        kind: "team_chat.message",
+        data: {
+          channelId: "D1",
+          senderId: "U1",
+          senderEmail: "owner@example.com",
+          text: "Hello",
+          messageId: "1",
+          direct: true,
+        },
+      },
+    ]);
+  });
+
+  it.each([
+    ["object", () => parseTeamChatCapabilityInput("team_chat.connect", [])],
+    [
+      "unknown field",
+      () => parseTeamChatCapabilityInput("team_chat.connect", { unsupported: true }),
+    ],
+    [
+      "body",
+      () =>
+        parseTeamChatCapabilityInput("event.receive", {
+          body: {},
+          headers: {},
+          receivedAt: 1,
+        }),
+    ],
+    [
+      "Header",
+      () =>
+        parseTeamChatCapabilityInput("event.receive", {
+          body: "{}",
+          headers: { broken: " " },
+          receivedAt: 1,
+        }),
+    ],
+    [
+      "receivedAt",
+      () =>
+        parseTeamChatCapabilityInput("event.receive", {
+          body: "{}",
+          headers: {},
+          receivedAt: 1.5,
+        }),
+    ],
+    [
+      "channels",
+      () =>
+        parseTeamChatCapabilityOutput(
+          "team_chat.connect",
+          {
+            externalWorkspaceId: "T1",
+            workspaceName: "Acme",
+            botUserId: "U-BOT",
+            channels: {},
+          },
+          {},
+        ),
+    ],
+    [
+      "senderEmail",
+      () =>
+        parseTeamChatCapabilityOutput(
+          "event.receive",
+          [
+            {
+              id: "event",
+              occurredAt: "2026-11-16T04:00:00.000Z",
+              kind: "team_chat.message",
+              data: {
+                channelId: "C1",
+                senderId: "U1",
+                senderEmail: "not-an-email",
+                text: "Question",
+                messageId: "1",
+                direct: false,
+              },
+            },
+          ],
+          {},
+        ),
+    ],
+    [
+      "direct",
+      () =>
+        parseTeamChatCapabilityOutput(
+          "event.receive",
+          [
+            {
+              id: "event",
+              occurredAt: "2026-11-16T04:00:00.000Z",
+              kind: "team_chat.message",
+              data: {
+                channelId: "C1",
+                senderId: "U1",
+                senderEmail: "owner@example.com",
+                text: "Question",
+                messageId: "1",
+                direct: "yes",
+              },
+            },
+          ],
+          {},
+        ),
+    ],
+    ["array", () => parseTeamChatCapabilityOutput("event.receive", {}, {})],
+  ])("rejects invalid %s contract data", (message, operation) => {
+    expect(operation).toThrow(message);
+  });
 });
