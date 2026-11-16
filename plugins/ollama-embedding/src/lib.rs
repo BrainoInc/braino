@@ -121,7 +121,10 @@ impl Guest for OllamaEmbeddingPlugin {
         let dimensions = result.embeddings.first().map(Vec::len).unwrap_or(0);
         if dimensions == 0
             || result.embeddings.len() != input.inputs.len()
-            || result.embeddings.iter().any(|vector| vector.len() != dimensions)
+            || result
+                .embeddings
+                .iter()
+                .any(|vector| vector.len() != dimensions)
         {
             return Err("Ollama returned unexpected embedding dimensions".to_string());
         }
