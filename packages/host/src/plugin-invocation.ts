@@ -6,9 +6,14 @@ import {
   type PluginCapabilityName,
   PluginContractError,
   type PluginManifest,
+  TEAM_CHAT_CAPABILITY_CONTRACT_VERSIONS,
+  type TeamChatCapabilityInput,
+  type TeamChatCapabilityName,
   parseModelCapabilityInput,
   parseModelCapabilityOutput,
   parsePluginManifest,
+  parseTeamChatCapabilityInput,
+  parseTeamChatCapabilityOutput,
   pluginProvidesCapability,
 } from "@doco/plugin-runtime";
 import { PluginInstallationError } from "./plugin-installations.js";
@@ -86,10 +91,15 @@ function modelCapability(value: PluginCapabilityName): value is ModelCapabilityN
   return Object.hasOwn(MODEL_CAPABILITY_CONTRACT_VERSIONS, value);
 }
 
+function teamChatCapability(value: PluginCapabilityName): value is TeamChatCapabilityName {
+  return Object.hasOwn(TEAM_CHAT_CAPABILITY_CONTRACT_VERSIONS, value);
+}
+
 function contractInput(capability: PluginCapabilityName, input: unknown): unknown {
-  if (!modelCapability(capability)) return input;
   try {
-    return parseModelCapabilityInput(capability, input);
+    if (modelCapability(capability)) return parseModelCapabilityInput(capability, input);
+    if (teamChatCapability(capability)) return parseTeamChatCapabilityInput(capability, input);
+    return input;
   } catch (error) {
     if (error instanceof PluginContractError) {
       throw new PluginInvocationError(error.message, "plugin_input_invalid", 400);
@@ -103,13 +113,22 @@ function contractOutput(
   output: unknown,
   input: unknown,
 ): unknown {
-  if (!modelCapability(capability)) return output;
   try {
-    return parseModelCapabilityOutput(
-      capability,
-      output,
-      input as ModelCapabilityInput<typeof capability>,
-    );
+    if (modelCapability(capability)) {
+      return parseModelCapabilityOutput(
+        capability,
+        output,
+        input as ModelCapabilityInput<typeof capability>,
+      );
+    }
+    if (teamChatCapability(capability)) {
+      return parseTeamChatCapabilityOutput(
+        capability,
+        output,
+        input as TeamChatCapabilityInput<typeof capability>,
+      );
+    }
+    return output;
   } catch (error) {
     if (error instanceof PluginContractError) {
       throw new PluginInvocationError(error.message, "plugin_output_invalid", 502);

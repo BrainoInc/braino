@@ -1,0 +1,16 @@
+[package]
+name = "braino-slack"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dlmalloc = { version = "0.2", features = ["global"] }
+hmac = { version = "0.12", default-features = false }
+serde = { version = "1", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }
+sha2 = { version = "0.10", default-features = false }
+wit-bindgen = { version = "0.63", default-features = false, features = ["macros", "realloc"] }

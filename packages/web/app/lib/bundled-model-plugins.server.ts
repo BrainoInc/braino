@@ -1,5 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
+import { type PluginManifest, parsePluginManifest } from "@doco/plugin-runtime";
 import {
   type ModelPluginEntry,
   includedWithBraino,
@@ -39,15 +40,31 @@ export async function bundledModelPluginCatalog(): Promise<ModelPluginEntry[]> {
   );
 }
 
+/** One immutable plugin artifact shipped inside this Braino image. */
+export async function bundledPlugin(
+  pluginId: string,
+): Promise<{ manifest: Readonly<PluginManifest>; component: Uint8Array } | null> {
+  for (const bundled of await bundledManifests()) {
+    if (
+      !bundled.manifest ||
+      typeof bundled.manifest !== "object" ||
+      Array.isArray(bundled.manifest) ||
+      (bundled.manifest as { id?: unknown }).id !== pluginId
+    ) {
+      continue;
+    }
+    const component = await readFile(resolve(bundleDirectory(), `${bundled.stem}.wasm`));
+    return { manifest: parsePluginManifest(bundled.manifest), component };
+  }
+  return null;
+}
+
 /** One bundled model plugin, ready to install: its catalogue entry, manifest and component. */
 export async function bundledModelPlugin(
   pluginId: string,
 ): Promise<{ entry: ModelPluginEntry; manifest: unknown; component: Uint8Array } | null> {
-  for (const bundled of await bundledManifests()) {
-    const entry = modelPluginEntry(bundled.manifest);
-    if (entry?.id !== pluginId) continue;
-    const component = await readFile(resolve(bundleDirectory(), `${bundled.stem}.wasm`));
-    return { entry, manifest: bundled.manifest, component };
-  }
-  return null;
+  const bundled = await bundledPlugin(pluginId);
+  if (!bundled) return null;
+  const entry = modelPluginEntry(bundled.manifest);
+  return entry ? { entry, ...bundled } : null;
 }

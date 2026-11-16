@@ -2,7 +2,7 @@
   "protocolVersion": 2,
   "id": "braino.ollama-chat",
   "name": "Ollama chat",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "capabilities": { "chat.complete": 1 },
   "permissions": { "network": ["ollama:11434"] },
   "configurationSchema": {

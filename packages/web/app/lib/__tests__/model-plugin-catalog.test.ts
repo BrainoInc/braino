@@ -2,7 +2,11 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bundledModelPlugin, bundledModelPluginCatalog } from "~/lib/bundled-model-plugins.server";
+import {
+  bundledModelPlugin,
+  bundledModelPluginCatalog,
+  bundledPlugin,
+} from "~/lib/bundled-model-plugins.server";
 import {
   type InstalledModelPlugin,
   includedWithBraino,
@@ -130,6 +134,15 @@ describe("the model plugin catalogue", () => {
     expect(plugin?.manifest).toEqual(manifest("openai-embedding"));
     expect(Buffer.from(plugin?.component ?? []).toString()).toBe("component of openai-embedding");
     await expect(bundledModelPlugin("braino.unknown")).resolves.toBeNull();
+  });
+
+  it("loads non-model plugins through the same bundle boundary", async () => {
+    vi.stubEnv("BRAINO_PLUGIN_BUNDLE_DIR", bundle());
+
+    const plugin = await bundledPlugin("braino.slack");
+
+    expect(plugin?.manifest).toEqual(manifest("slack"));
+    expect(Buffer.from(plugin?.component ?? []).toString()).toBe("component of slack");
   });
 
   it("has no bundled plugins when the deployment has no bundle", async () => {

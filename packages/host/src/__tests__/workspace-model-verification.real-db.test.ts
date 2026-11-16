@@ -72,15 +72,21 @@ async function fixture() {
 describe("workspace model verification", () => {
   it("keeps configured plugins unready until both answer, then stores observed dimensions", async () => {
     const setup = await fixture();
+    await db.query("UPDATE plugin_installations SET updated_at = '2026-11-16 13:03:03.241335+00'");
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
       ready: false,
       chat: "unverified",
       embedding: "unverified",
     });
 
+    let activeCalls = 0;
+    let maxActiveCalls = 0;
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      activeCalls += 1;
+      maxActiveCalls = Math.max(maxActiveCalls, activeCalls);
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const envelope = JSON.parse(String(init?.body));
-      return Response.json({
+      const response = Response.json({
         outputJson:
           envelope.capability === "chat.complete"
             ? JSON.stringify({ content: "OK", model: "local:small-chat" })
@@ -90,6 +96,8 @@ describe("workspace model verification", () => {
                 vectors: [[0.1, 0.2, 0.3]],
               }),
       });
+      activeCalls -= 1;
+      return response;
     }) as typeof fetch;
 
     await expect(
@@ -104,6 +112,7 @@ describe("workspace model verification", () => {
       embeddingModel: "local:small-embedding",
       embeddingDimensions: 3,
     });
+    expect(maxActiveCalls).toBe(1);
 
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
       ready: true,

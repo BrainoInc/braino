@@ -129,6 +129,8 @@ describe("the supported self-hosted stack", () => {
     expect(compose.services["plugin-host"]?.ports).toBeUndefined();
     expect(compose.services["plugin-host"]?.environment).toMatchObject({
       BRAINO_PLUGIN_LOCAL_NETWORK_HOSTS: "${BRAINO_PLUGIN_LOCAL_NETWORK_HOSTS:-ollama:11434}",
+      BRAINO_PLUGIN_MAX_EXECUTION_MS: "${BRAINO_PLUGIN_MAX_EXECUTION_MS:-60000}",
+      BRAINO_PLUGIN_HTTP_TIMEOUT_MS: "${BRAINO_PLUGIN_HTTP_TIMEOUT_MS:-50000}",
     });
     expect(compose.services.ollama?.profiles).toEqual(["models"]);
     expect(compose.services.ollama?.ports).toBeUndefined();
@@ -181,6 +183,7 @@ describe("the supported self-hosted stack", () => {
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_chat.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_openai_embedding.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_openai_chat.wasm");
+    expect(runtimeStage).toContain("/app/plugins/braino_slack.wasm");
     expect(runtimeStage).toContain("ARG DOCO_VERSION");
     expect(runtimeStage).toContain("ENV DOCO_VERSION=$DOCO_VERSION");
     expect(dockerfile).toContain("USER node");
@@ -201,6 +204,9 @@ describe("the supported self-hosted stack", () => {
     expect(chatManifest.configurationSchema.properties.model.default).toBe("qwen3.5:2b");
     expect(embeddingManifest.configurationSchema.properties.model.default).toBe(
       "embeddinggemma-2:270m",
+    );
+    expect(readFileSync(resolve(root, "plugins/ollama-chat/src/lib.rs"), "utf8")).toContain(
+      "think: false",
     );
     // Setup reads its defaults from those manifests; the web code names no model.
     for (const file of readdirSync(resolve(root, "packages/web/app"), { recursive: true })) {
@@ -237,6 +243,28 @@ describe("the supported self-hosted stack", () => {
     expect(workflow).toContain("plugins/openai-embedding/Cargo.toml");
   });
 
+  it("bundles the shared-gateway Slack app plugin and builds it in CI", () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/slack/manifest.json"), "utf8"),
+    ) as {
+      capabilities: Record<string, number>;
+      permissions: { network: string[] };
+      configurationSchema: { required: string[] };
+      secretSchema: { required: string[] };
+    };
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+
+    expect(manifest.capabilities).toEqual({
+      "event.receive": 1,
+      "team_chat.connect": 1,
+      "team_chat.send": 1,
+    });
+    expect(manifest.permissions.network).toEqual(["*.braino.dev"]);
+    expect(manifest.configurationSchema.required).toEqual(["gateway_url", "installation_id"]);
+    expect(manifest.secretSchema.required).toEqual(["gateway_secret"]);
+    expect(workflow).toContain("plugins/slack/Cargo.toml");
+  });
+
   it("runs installed embedding plugins through the durable retrieval scheduler", () => {
     const scheduler = readFileSync(resolve(root, "runtime/scheduler.mjs"), "utf8");
 
@@ -245,6 +273,16 @@ describe("the supported self-hosted stack", () => {
     expect(scheduler).toContain("syncQueuedEmbeddings");
     expect(scheduler).toContain("BRAINO_PLUGIN_HOST_URL");
     expect(scheduler).toContain("DOCO_ENCRYPTION_KEY");
+  });
+
+  it("drains workspace-scoped team-chat events through the installed providers", () => {
+    const scheduler = readFileSync(resolve(root, "runtime/scheduler.mjs"), "utf8");
+
+    expect(scheduler).toContain("processNextTeamChatEvent");
+    expect(scheduler).toContain("answerTeamChatQuestion");
+    expect(scheduler).toContain("resolveWorkspaceTeamChatPlugin");
+    expect(scheduler).toContain("resolveWorkspaceChatProvider");
+    expect(scheduler).toContain("BRAINO_TEAM_CHAT_POLL_MS");
   });
 
   it("fails CI on high or critical dependency advisories", () => {

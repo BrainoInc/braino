@@ -6,7 +6,7 @@ interface InstallationRow {
   id: string;
   manifest: unknown;
   configuration: unknown;
-  updated_at: Date | string;
+  updated_at: string;
   verified_embedding_dimensions: number | null;
 }
 
@@ -46,7 +46,8 @@ export async function resolveAssignedModelPlugin(
 ): Promise<AssignedModelPlugin | null> {
   const requireVerified = options.requireVerified !== false;
   const found = await client.query<InstallationRow>(
-    `SELECT id, manifest, configuration, updated_at, verified_embedding_dimensions
+    `SELECT id, manifest, configuration, updated_at::text AS updated_at,
+            verified_embedding_dimensions
        FROM plugin_installations
       WHERE workspace_id = $1 AND enabled
         AND manifest->'capabilities' ? $2
@@ -76,10 +77,7 @@ export async function resolveAssignedModelPlugin(
     pluginId: manifest.id,
     model,
     configuration,
-    updatedAt: (row.updated_at instanceof Date
-      ? row.updated_at
-      : new Date(row.updated_at)
-    ).toISOString(),
+    updatedAt: row.updated_at,
     verifiedEmbeddingDimensions: row.verified_embedding_dimensions,
   };
 }

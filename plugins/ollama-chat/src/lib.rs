@@ -75,6 +75,7 @@ struct OllamaRequest<'a> {
     model: &'a str,
     messages: &'a [ChatMessage],
     stream: bool,
+    think: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<&'a serde_json::Value>,
 }
@@ -117,6 +118,7 @@ impl Guest for OllamaChatPlugin {
             model: &model,
             messages: &input.messages,
             stream: false,
+            think: false,
             format: input.response_schema.as_ref(),
         })
         .map_err(|_| "chat request could not be encoded".to_string())?;
