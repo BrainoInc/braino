@@ -72,9 +72,7 @@ async function fixture() {
 describe("workspace model verification", () => {
   it("keeps configured plugins unready until both answer, then stores observed dimensions", async () => {
     const setup = await fixture();
-    await db.query(
-      "UPDATE plugin_installations SET updated_at = '2026-11-16 13:03:03.241335+00'",
-    );
+    await db.query("UPDATE plugin_installations SET updated_at = '2026-11-16 13:03:03.241335+00'");
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
       ready: false,
       chat: "unverified",
