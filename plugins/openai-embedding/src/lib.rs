@@ -127,7 +127,11 @@ impl Guest for OpenAiEmbeddingPlugin {
         let mut result: OpenAiResponse = serde_json::from_slice(&response.body)
             .map_err(|_| "OpenAI embedding response is invalid".to_string())?;
         result.data.sort_by_key(|item| item.index);
-        let dimensions = result.data.first().map(|item| item.embedding.len()).unwrap_or(0);
+        let dimensions = result
+            .data
+            .first()
+            .map(|item| item.embedding.len())
+            .unwrap_or(0);
         if dimensions == 0
             || result.data.len() != input.inputs.len()
             || result
