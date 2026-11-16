@@ -24,13 +24,14 @@ vi.mock("~/lib/model-setup.server", () => ({
 
 import { action } from "./api.v1.plugins.slack.events";
 
-function request(body = "signed slack body") {
+function request(body = JSON.stringify({ events: [] })) {
   return new Request("https://meta.braino.dev/api/v1/plugins/slack/events", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-slack-request-timestamp": "1794800000",
-      "x-slack-signature": "v0=signature",
+      "x-braino-gateway-installation": "installation_gateway",
+      "x-braino-gateway-timestamp": "1794800000",
+      "x-braino-gateway-signature": "v0=signature",
     },
     body,
   });
@@ -55,32 +56,7 @@ beforeEach(() => {
 });
 
 describe("Slack Events API", () => {
-  it("answers Slack's signed URL verification challenge through the plugin", async () => {
-    mocks.receive.mockResolvedValue([
-      {
-        id: "challenge:abc",
-        occurredAt: "2026-11-16T00:00:00.000Z",
-        kind: "webhook.challenge",
-        data: { challenge: "abc" },
-      },
-    ]);
-
-    const response = await action({ request: request() });
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ challenge: "abc" });
-    expect(mocks.receive).toHaveBeenCalledWith({
-      body: "signed slack body",
-      headers: expect.objectContaining({
-        "x-slack-request-timestamp": "1794800000",
-        "x-slack-signature": "v0=signature",
-      }),
-      receivedAt: expect.any(Number),
-    });
-    expect(mocks.enqueueTeamChatEvents).not.toHaveBeenCalled();
-  });
-
-  it("durably enqueues a canonical message before acknowledging Slack", async () => {
+  it("durably enqueues a canonical gateway message before acknowledging it", async () => {
     const events = [
       {
         id: "Ev1",
@@ -91,7 +67,8 @@ describe("Slack Events API", () => {
     ];
     mocks.receive.mockResolvedValue(events);
 
-    const response = await action({ request: request() });
+    const body = JSON.stringify({ events });
+    const response = await action({ request: request(body) });
 
     await expect(response.json()).resolves.toEqual({ ok: true });
     expect(mocks.enqueueTeamChatEvents).toHaveBeenCalledWith(
@@ -102,6 +79,14 @@ describe("Slack Events API", () => {
         events,
       },
     );
+    expect(mocks.receive).toHaveBeenCalledWith({
+      body,
+      headers: expect.objectContaining({
+        "x-braino-gateway-installation": "installation_gateway",
+        "x-braino-gateway-signature": "v0=signature",
+      }),
+      receivedAt: expect.any(Number),
+    });
   });
 
   it("does not accept events until this instance has a Slack plugin", async () => {

@@ -13,7 +13,7 @@ function json(error: string, status: number) {
   return Response.json({ error }, { status });
 }
 
-/** The one instance-local endpoint configured in this deployment's Slack app. */
+/** The installation-scoped endpoint called only by the Braino plugin gateway. */
 export async function action({ request }: { request: Request }): Promise<Response> {
   if (request.method !== "POST") return json("Method not allowed.", 405);
 
@@ -48,16 +48,9 @@ export async function action({ request }: { request: Request }): Promise<Respons
       });
     } catch (error) {
       if (error instanceof PluginInvocationError) {
-        return json("Slack request verification failed.", 401);
+        return json("Plugin gateway verification failed.", 401);
       }
       throw error;
-    }
-
-    const challenge = events.find((event) => event.kind === "webhook.challenge");
-    if (challenge) {
-      const value = challenge.data.challenge;
-      if (typeof value !== "string" || !value) return json("Slack challenge is invalid.", 400);
-      return Response.json({ challenge: value });
     }
 
     await enqueueTeamChatEvents(client, {

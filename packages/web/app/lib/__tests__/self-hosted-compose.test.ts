@@ -243,12 +243,13 @@ describe("the supported self-hosted stack", () => {
     expect(workflow).toContain("plugins/openai-embedding/Cargo.toml");
   });
 
-  it("bundles the instance-local Slack app plugin and builds it in CI", () => {
+  it("bundles the shared-gateway Slack app plugin and builds it in CI", () => {
     const manifest = JSON.parse(
       readFileSync(resolve(root, "plugins/slack/manifest.json"), "utf8"),
     ) as {
       capabilities: Record<string, number>;
       permissions: { network: string[] };
+      configurationSchema: { required: string[] };
       secretSchema: { required: string[] };
     };
     const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
@@ -258,8 +259,9 @@ describe("the supported self-hosted stack", () => {
       "team_chat.connect": 1,
       "team_chat.send": 1,
     });
-    expect(manifest.permissions.network).toEqual(["slack.com"]);
-    expect(manifest.secretSchema.required).toEqual(["bot_token", "signing_secret"]);
+    expect(manifest.permissions.network).toEqual(["*.braino.dev"]);
+    expect(manifest.configurationSchema.required).toEqual(["gateway_url", "installation_id"]);
+    expect(manifest.secretSchema.required).toEqual(["gateway_secret"]);
     expect(workflow).toContain("plugins/slack/Cargo.toml");
   });
 

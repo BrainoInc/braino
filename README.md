@@ -127,8 +127,8 @@ third-party code runs only as a digest-pinned WebAssembly Component in a fresh
 Wasmtime sandbox. It receives no ambient WASI capabilities: configuration,
 secrets, allowlisted HTTPS, and
 explicit operator-approved local services are mediated by the instance-local
-plugin host. No Braino-operated plugin relay is
-in the data path. PostgreSQL stores the immutable component bytes by their
+plugin host. Ordinary plugin calls have no Braino-operated relay in their data
+path. PostgreSQL stores the immutable component bytes by their
 computed SHA-256 digest. The application is the only invocation broker: it
 selects an enabled installation by workspace, validates the requested
 capability, opens only that installation's secrets, and sends one complete
@@ -153,15 +153,15 @@ folders or files with that service account; Braino imports Docs, Sheets, Slides,
 and text files while ignoring binary files.
 
 Slack also has an assistant plugin, separate from that read-only channel import.
-Open **Admin → Integrations → Señor Braino for Slack** and follow the two-stage
-manifest flow: create and install the private Slack app from the bootstrap
-manifest, connect its Bot User OAuth Token and Signing Secret, then apply the
-final manifest to activate events. The final Events API URL points straight at
-this deployment's `DOCO_PUBLIC_HOST`, which must be public HTTPS. Slack requests
-are verified with the instance-held signing secret and durably queued before
-acknowledgement. Mentions and direct messages are answered from records the
-installing workspace owner can read. No Braino-operated relay, shared Slack app,
-or other Braino instance receives the credentials, events, or answers.
+Open **Admin → Integrations → Señor Braino for Slack** and install the official
+Marketplace app. The independently deployed Braino plugin gateway owns Slack's
+OAuth client, signing secret, and bot token; this instance receives only a
+revocable credential scoped to its one installation. The gateway verifies Slack,
+normalizes the event, and signs delivery to this deployment's public HTTPS
+`DOCO_PUBLIC_HOST`. Braino durably queues that event before acknowledgement and
+returns replies through the same gateway contract. The gateway cannot access
+this instance's PostgreSQL, Qdrant, model credentials, retrieval state, or agent
+tools, and no Braino instance can access another installation.
 
 Owners can also connect one GitHub repository from **Integrations** with a
 fine-grained personal access token scoped to that repository. Grant read access

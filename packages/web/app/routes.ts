@@ -11,6 +11,7 @@ export default [
   route("collaborators", "routes/collaborators.tsx"),
   route("integrations", "routes/integrations.tsx"),
   route("integrations/slack-app", "routes/integrations.slack-app.tsx"),
+  route("integrations/slack-app/callback", "routes/integrations.slack-app.callback.ts"),
   route("mcp-tokens", "routes/mcp-tokens.tsx"),
   route("mcp", "routes/mcp.ts"),
   route(".well-known/oauth-authorization-server", "routes/oauth-metadata-authorization-server.ts"),
