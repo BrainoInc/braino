@@ -2,12 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  bundledOllamaModelPlugins: vi.fn(),
   getCurrentUser: vi.fn(),
   getSingleWorkspaceState: vi.fn(),
   getWorkspaceModelPluginReadiness: vi.fn(),
   initializeSingleWorkspace: vi.fn(),
-  installRequiredModelPlugins: vi.fn(),
   hashPassword: vi.fn(),
   passwordError: vi.fn(),
 }));
@@ -20,12 +18,8 @@ vi.mock("@doco/host", () => ({
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace: mocks.initializeSingleWorkspace,
-  installRequiredModelPlugins: mocks.installRequiredModelPlugins,
   reservePasswordSignInAttempt: vi.fn(),
   revokeUserSessions: vi.fn(),
-}));
-vi.mock("~/lib/bundled-model-plugins.server", () => ({
-  bundledOllamaModelPlugins: mocks.bundledOllamaModelPlugins,
 }));
 vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("~/lib/password.server", () => ({
@@ -42,23 +36,11 @@ vi.mock("~/lib/sign-in.server", () => ({ passwordAttemptBuckets: vi.fn() }));
 
 import { action, loader } from "./_index";
 
-const bundledPlugins = {
-  chat: {
-    manifest: { id: "braino.ollama-chat", capabilities: ["chat.complete"] },
-    component: new Uint8Array([1]),
-  },
-  embedding: {
-    manifest: { id: "braino.ollama-embedding", capabilities: ["embedding.embed"] },
-    component: new Uint8Array([2]),
-  },
-};
-
-describe("first-run setup password", () => {
-  it("creates the workspace from one password field", async () => {
+describe("first-run workspace setup", () => {
+  it("creates the workspace before asking the owner to choose model plugins", async () => {
     mocks.getSingleWorkspaceState.mockResolvedValue({ initialized: false });
     mocks.hashPassword.mockResolvedValue("scrypt$test");
     mocks.passwordError.mockReturnValue(null);
-    mocks.bundledOllamaModelPlugins.mockResolvedValue(bundledPlugins);
     mocks.initializeSingleWorkspace.mockResolvedValue({
       owner: { id: "user_owner", stamp: "stamp_owner" },
       workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
@@ -72,9 +54,6 @@ describe("first-run setup password", () => {
       owner_email: "owner@example.com",
       setup_token: "valid-setup-token",
       password: "generated-password-123",
-      chat_model: "qwen3.5:2b",
-      embedding_model: "embeddinggemma-2:270m",
-      embedding_dimensions: "768",
     });
 
     const response = await action({
@@ -89,21 +68,6 @@ describe("first-run setup password", () => {
     expect(mocks.initializeSingleWorkspace).toHaveBeenCalledWith(
       {},
       expect.objectContaining({ ownerPasswordHash: "scrypt$test" }),
-    );
-    expect(mocks.installRequiredModelPlugins).toHaveBeenCalledWith(
-      {},
-      {
-        workspaceId: "workspace_meta",
-        userId: "user_owner",
-        chat: expect.objectContaining({
-          manifest: bundledPlugins.chat.manifest,
-          configuration: { model: "qwen3.5:2b" },
-        }),
-        embedding: expect.objectContaining({
-          manifest: bundledPlugins.embedding.manifest,
-          configuration: { model: "embeddinggemma-2:270m", dimensions: "768" },
-        }),
-      },
     );
     expect(response).toBeInstanceOf(Response);
     if (!(response instanceof Response)) throw new Error("Expected setup to redirect.");
@@ -136,7 +100,6 @@ describe("first-run setup password", () => {
     mocks.getSingleWorkspaceState.mockResolvedValue({ initialized: false });
     mocks.hashPassword.mockResolvedValue("scrypt$test");
     mocks.passwordError.mockReturnValue(null);
-    mocks.bundledOllamaModelPlugins.mockResolvedValue(bundledPlugins);
     mocks.initializeSingleWorkspace.mockResolvedValue({
       owner: { id: "user_owner", stamp: "stamp_owner" },
       workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
@@ -151,9 +114,6 @@ describe("first-run setup password", () => {
       owner_email: "owner@example.com",
       setup_token: "valid-setup-token",
       password,
-      chat_model: "qwen3.5:2b",
-      embedding_model: "embeddinggemma-2:270m",
-      embedding_dimensions: "768",
     });
 
     await action({
@@ -178,17 +138,19 @@ describe("first-run setup password", () => {
     expect(source).not.toContain("Confirm password");
   });
 
-  it("requires both model plugin configurations in first-run setup", () => {
+  it("keeps provider internals out of workspace creation", () => {
     const source = readFileSync(new URL("./_index.tsx", import.meta.url), "utf8");
+    const setup = source.slice(source.indexOf("function Setup"), source.indexOf("function SignIn"));
 
-    expect(source).toContain('name="chat_model"');
-    expect(source).toContain('name="embedding_model"');
-    expect(source).toContain('name="embedding_dimensions"');
+    expect(setup).not.toContain('name="chat_model"');
+    expect(setup).not.toContain('name="embedding_model"');
+    expect(setup).not.toContain('name="embedding_dimensions"');
+    expect(setup).toContain("Step 1 of 2");
   });
 });
 
 describe("model plugin readiness gate", () => {
-  it("keeps an initialized workspace out of the dashboard until both plugins are ready", async () => {
+  it("sends an initialized workspace to model setup until both plugins are ready", async () => {
     mocks.getSingleWorkspaceState.mockResolvedValue({
       initialized: true,
       workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
@@ -205,11 +167,22 @@ describe("model plugin readiness gate", () => {
       embedding: "ready",
     });
 
-    await expect(loader({ request: new Request("https://meta.braino.dev/") })).resolves.toEqual({
-      screen: "models-required",
-      workspaceName: "Meta Braino",
-      chat: "missing",
-      embedding: "ready",
-    });
+    const sent = await loader({ request: new Request("https://meta.braino.dev/") }).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(sent).toBeInstanceOf(Response);
+    if (!(sent instanceof Response)) throw new Error("Expected a redirect to model setup.");
+    expect(sent.status).toBe(302);
+    expect(sent.headers.get("location")).toBe("/admin/models");
+  });
+
+  it("has no model form or install action of its own", () => {
+    const source = readFileSync(new URL("./_index.tsx", import.meta.url), "utf8");
+
+    expect(source).not.toContain("install_model_provider");
+    expect(source).not.toContain("ModelsRequired");
+    expect(source).not.toContain("api_key");
+    expect(source).not.toContain("assignWorkspaceModelPlugin");
   });
 });

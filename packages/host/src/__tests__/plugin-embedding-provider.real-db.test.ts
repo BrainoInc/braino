@@ -18,11 +18,11 @@ const encryptionKey = "plugin-embedding-key-with-more-than-thirty-two-characters
 const apiToken = "plugin-host-token-with-more-than-thirty-two-characters";
 
 const manifest: PluginManifest = {
-  protocolVersion: 1,
+  protocolVersion: 2,
   id: "braino.ollama-embedding",
   name: "Ollama embeddings",
   version: "0.1.0",
-  capabilities: ["embedding.embed"],
+  capabilities: { "embedding.embed": 1 },
   permissions: { network: ["ollama:11434"] },
   configurationSchema: {
     type: "object",
@@ -93,7 +93,6 @@ describe("workspace embedding plugin", () => {
     const [, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
     const envelope = JSON.parse(String(init.body));
     expect(JSON.parse(envelope.inputJson)).toEqual({
-      model: "embeddinggemma",
       inputs: ["first", "second"],
       inputType: "document",
     });
@@ -135,6 +134,9 @@ describe("workspace embedding plugin", () => {
       ) as typeof fetch,
     });
 
-    await expect(provider?.embed(["unsafe"], "query")).rejects.toThrow("invalid embedding vectors");
+    await expect(provider?.embed(["unsafe"], "query")).rejects.toMatchObject({
+      code: "plugin_output_invalid",
+      status: 502,
+    });
   });
 });

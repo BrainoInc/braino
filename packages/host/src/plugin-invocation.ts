@@ -1,8 +1,15 @@
 import type { PoolClient } from "@doco/db";
 import {
+  MODEL_CAPABILITY_CONTRACT_VERSIONS,
+  type ModelCapabilityInput,
+  type ModelCapabilityName,
   type PluginCapabilityName,
+  PluginContractError,
   type PluginManifest,
+  parseModelCapabilityInput,
+  parseModelCapabilityOutput,
   parsePluginManifest,
+  pluginProvidesCapability,
 } from "@doco/plugin-runtime";
 import { PluginInstallationError } from "./plugin-installations.js";
 import { openSecret } from "./secret-box.js";
@@ -75,6 +82,42 @@ function serializedInput(input: unknown): string {
   }
 }
 
+function modelCapability(value: PluginCapabilityName): value is ModelCapabilityName {
+  return Object.hasOwn(MODEL_CAPABILITY_CONTRACT_VERSIONS, value);
+}
+
+function contractInput(capability: PluginCapabilityName, input: unknown): unknown {
+  if (!modelCapability(capability)) return input;
+  try {
+    return parseModelCapabilityInput(capability, input);
+  } catch (error) {
+    if (error instanceof PluginContractError) {
+      throw new PluginInvocationError(error.message, "plugin_input_invalid", 400);
+    }
+    throw error;
+  }
+}
+
+function contractOutput(
+  capability: PluginCapabilityName,
+  output: unknown,
+  input: unknown,
+): unknown {
+  if (!modelCapability(capability)) return output;
+  try {
+    return parseModelCapabilityOutput(
+      capability,
+      output,
+      input as ModelCapabilityInput<typeof capability>,
+    );
+  } catch (error) {
+    if (error instanceof PluginContractError) {
+      throw new PluginInvocationError(error.message, "plugin_output_invalid", 502);
+    }
+    throw error;
+  }
+}
+
 async function responseText(response: Response): Promise<string> {
   if (!response.body) return "";
   const reader = response.body.getReader();
@@ -108,7 +151,7 @@ function manifestForCapability(
   capability: PluginCapabilityName,
 ): Readonly<PluginManifest> {
   const manifest = parsePluginManifest(value);
-  if (!manifest.capabilities.includes(capability)) {
+  if (!pluginProvidesCapability(manifest, capability)) {
     throw new PluginInstallationError(
       `Plugin installation is not approved for ${capability}.`,
       "capability_not_approved",
@@ -130,6 +173,7 @@ export async function invokePlugin(
     fetcher?: Fetcher;
   },
 ): Promise<unknown> {
+  const canonicalInput = contractInput(input.capability, input.input);
   const found = await client.query<InvocationRow>(
     `SELECT i.id, i.workspace_id, i.manifest, i.artifact_digest,
             i.configuration, a.component,
@@ -179,7 +223,7 @@ export async function invokePlugin(
         artifactDigest: row.artifact_digest,
         componentBase64: Buffer.from(row.component).toString("base64"),
         capability: input.capability,
-        inputJson: serializedInput(input.input),
+        inputJson: serializedInput(canonicalInput),
         configuration,
         secrets,
         networkHosts: manifest.permissions.network,
@@ -227,8 +271,9 @@ export async function invokePlugin(
       502,
     );
   }
+  let output: unknown;
   try {
-    return JSON.parse(body.outputJson);
+    output = JSON.parse(body.outputJson);
   } catch {
     throw new PluginInvocationError(
       "The plugin host returned invalid plugin output.",
@@ -236,4 +281,5 @@ export async function invokePlugin(
       502,
     );
   }
+  return contractOutput(input.capability, output, canonicalInput);
 }

@@ -42,3 +42,19 @@ updates:
     groups:
       ollama-embedding-plugin-rust:
         patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /plugins/openai-chat
+    schedule:
+      interval: weekly
+    groups:
+      openai-chat-plugin-rust:
+        patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /plugins/openai-embedding
+    schedule:
+      interval: weekly
+    groups:
+      openai-embedding-plugin-rust:
+        patterns: ["*"]

@@ -103,6 +103,53 @@ function requireDeclaredKeys(
   }
 }
 
+function validatedSecretChanges(
+  value: unknown,
+  schema: Readonly<Record<string, unknown>> | undefined,
+): Record<string, string | null> {
+  const secrets = jsonObject(value, "Plugin secrets") as Record<string, string | null>;
+  requireDeclaredKeys(secrets, schema, "secret");
+  for (const [name, secret] of Object.entries(secrets)) {
+    if (!SECRET_NAME.test(name)) {
+      throw new PluginInstallationError("Plugin secret name is invalid.", "secret_name_invalid");
+    }
+    if (secret !== null && (typeof secret !== "string" || secret.length === 0)) {
+      throw new PluginInstallationError("Plugin secrets cannot be empty.", "secret_value_invalid");
+    }
+  }
+  return secrets;
+}
+
+async function applySecretChanges(
+  client: PoolClient,
+  input: {
+    installationId: string;
+    userId: string;
+    secrets: Readonly<Record<string, string | null>>;
+    encryptionKey: string;
+  },
+): Promise<void> {
+  for (const [name, value] of Object.entries(input.secrets)) {
+    if (value === null) {
+      await client.query(
+        "DELETE FROM plugin_installation_secrets WHERE installation_id = $1 AND name = $2",
+        [input.installationId, name],
+      );
+    } else {
+      await client.query(
+        `INSERT INTO plugin_installation_secrets
+           (installation_id, name, value_sealed, updated_by_user_id)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (installation_id, name) DO UPDATE
+           SET value_sealed = EXCLUDED.value_sealed,
+               updated_by_user_id = EXCLUDED.updated_by_user_id,
+               updated_at = now()`,
+        [input.installationId, name, sealSecret(value, input.encryptionKey), input.userId],
+      );
+    }
+  }
+}
+
 function installation(row: InstallationRow): PluginInstallation {
   const configuration = jsonObject(row.configuration, "Stored configuration");
   for (const value of Object.values(configuration)) {
@@ -145,19 +192,35 @@ async function requireOwner(
   }
 }
 
-export async function installPlugin(
+export interface PluginInstallationInput {
+  workspaceId: string;
+  userId: string;
+  manifest: unknown;
+  component: Uint8Array;
+  configuration?: unknown;
+  secrets?: Readonly<Record<string, string>>;
+  encryptionKey?: string;
+}
+
+/**
+ * Installs or updates one plugin and enables it. The caller owns the
+ * transaction, so further changes can commit or roll back with the install.
+ */
+export async function installPluginInTransaction(
   client: PoolClient,
-  input: {
-    workspaceId: string;
-    userId: string;
-    manifest: unknown;
-    component: Uint8Array;
-    configuration?: unknown;
-  },
+  input: PluginInstallationInput,
 ): Promise<PluginInstallation> {
   const manifest = parsePluginManifest(input.manifest);
   const configured = serializedConfiguration(input.configuration ?? {});
   requireDeclaredKeys(configured.configuration, manifest.configurationSchema, "configuration");
+  const secrets = validatedSecretChanges(input.secrets ?? {}, manifest.secretSchema);
+  if (Object.keys(secrets).length > 0 && !input.encryptionKey) {
+    throw new PluginInstallationError(
+      "An encryption key is required to install plugin secrets.",
+      "encryption_key_required",
+      500,
+    );
+  }
   if (input.component.byteLength === 0 || input.component.byteLength > MAX_COMPONENT_BYTES) {
     throw new PluginInstallationError(
       `Plugin artifacts must contain between 1 and ${MAX_COMPONENT_BYTES} bytes.`,
@@ -166,43 +229,57 @@ export async function installPlugin(
   }
   const artifactDigest = `sha256:${createHash("sha256").update(input.component).digest("hex")}`;
   const id = `plugin_installation_${generateUlid()}`;
+  await requireOwner(client, input.workspaceId, input.userId);
+  await client.query(
+    `INSERT INTO plugin_artifacts (digest, component)
+     VALUES ($1, $2)
+     ON CONFLICT (digest) DO NOTHING`,
+    [artifactDigest, Buffer.from(input.component)],
+  );
+  const result = await client.query<InstallationRow>(
+    `INSERT INTO plugin_installations
+       (id, workspace_id, manifest, artifact_digest, configuration, enabled,
+        created_by_user_id, updated_by_user_id)
+     VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, true, $6, $6)
+     ON CONFLICT (workspace_id, (manifest->>'id')) DO UPDATE
+       SET manifest = EXCLUDED.manifest,
+           artifact_digest = EXCLUDED.artifact_digest,
+           configuration = EXCLUDED.configuration,
+           enabled = true,
+           updated_by_user_id = EXCLUDED.updated_by_user_id,
+           updated_at = now()
+     RETURNING ${INSTALLATION_COLUMNS}`,
+    [
+      id,
+      input.workspaceId,
+      JSON.stringify(manifest),
+      artifactDigest,
+      configured.serialized,
+      input.userId,
+    ],
+  );
+  const row = result.rows[0];
+  if (!row) {
+    throw new PluginInstallationError("Plugin installation failed.", "installation_failed", 500);
+  }
+  await applySecretChanges(client, {
+    installationId: row.id,
+    userId: input.userId,
+    secrets,
+    encryptionKey: input.encryptionKey ?? "",
+  });
+  return installation(row);
+}
+
+export async function installPlugin(
+  client: PoolClient,
+  input: PluginInstallationInput,
+): Promise<PluginInstallation> {
   await client.query("BEGIN");
   try {
-    await requireOwner(client, input.workspaceId, input.userId);
-    await client.query(
-      `INSERT INTO plugin_artifacts (digest, component)
-       VALUES ($1, $2)
-       ON CONFLICT (digest) DO NOTHING`,
-      [artifactDigest, Buffer.from(input.component)],
-    );
-    const result = await client.query<InstallationRow>(
-      `INSERT INTO plugin_installations
-         (id, workspace_id, manifest, artifact_digest, configuration, enabled,
-          created_by_user_id, updated_by_user_id)
-       VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, true, $6, $6)
-       ON CONFLICT (workspace_id, (manifest->>'id')) DO UPDATE
-         SET manifest = EXCLUDED.manifest,
-             artifact_digest = EXCLUDED.artifact_digest,
-             configuration = EXCLUDED.configuration,
-             enabled = true,
-             updated_by_user_id = EXCLUDED.updated_by_user_id,
-             updated_at = now()
-       RETURNING ${INSTALLATION_COLUMNS}`,
-      [
-        id,
-        input.workspaceId,
-        JSON.stringify(manifest),
-        artifactDigest,
-        configured.serialized,
-        input.userId,
-      ],
-    );
-    const row = result.rows[0];
-    if (!row) {
-      throw new PluginInstallationError("Plugin installation failed.", "installation_failed", 500);
-    }
+    const installed = await installPluginInTransaction(client, input);
     await client.query("COMMIT");
-    return installation(row);
+    return installed;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -264,7 +341,10 @@ export async function configurePluginInstallation(
   },
 ): Promise<{ installation: PluginInstallation; secretNames: string[] }> {
   const configured = serializedConfiguration(input.configuration);
-  const secrets = jsonObject(input.secrets, "Plugin secrets") as Record<string, string | null>;
+  const proposedSecrets = jsonObject(input.secrets, "Plugin secrets") as Record<
+    string,
+    string | null
+  >;
   await client.query("BEGIN");
   try {
     await requireOwner(client, input.workspaceId, input.userId);
@@ -285,18 +365,7 @@ export async function configurePluginInstallation(
     }
     const manifest = parsePluginManifest(row.manifest);
     requireDeclaredKeys(configured.configuration, manifest.configurationSchema, "configuration");
-    requireDeclaredKeys(secrets, manifest.secretSchema, "secret");
-    for (const [name, value] of Object.entries(secrets)) {
-      if (!SECRET_NAME.test(name)) {
-        throw new PluginInstallationError("Plugin secret name is invalid.", "secret_name_invalid");
-      }
-      if (value !== null && (typeof value !== "string" || value.length === 0)) {
-        throw new PluginInstallationError(
-          "Plugin secrets cannot be empty.",
-          "secret_value_invalid",
-        );
-      }
-    }
+    const secrets = validatedSecretChanges(proposedSecrets, manifest.secretSchema);
     const updated = await client.query<InstallationRow>(
       `UPDATE plugin_installations
           SET configuration = $3::jsonb, updated_by_user_id = $4, updated_at = now()
@@ -304,25 +373,12 @@ export async function configurePluginInstallation(
         RETURNING ${INSTALLATION_COLUMNS}`,
       [input.workspaceId, input.installationId, configured.serialized, input.userId],
     );
-    for (const [name, value] of Object.entries(secrets)) {
-      if (value === null) {
-        await client.query(
-          "DELETE FROM plugin_installation_secrets WHERE installation_id = $1 AND name = $2",
-          [input.installationId, name],
-        );
-      } else {
-        await client.query(
-          `INSERT INTO plugin_installation_secrets
-             (installation_id, name, value_sealed, updated_by_user_id)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (installation_id, name) DO UPDATE
-             SET value_sealed = EXCLUDED.value_sealed,
-                 updated_by_user_id = EXCLUDED.updated_by_user_id,
-                 updated_at = now()`,
-          [input.installationId, name, sealSecret(value, input.encryptionKey), input.userId],
-        );
-      }
-    }
+    await applySecretChanges(client, {
+      installationId: input.installationId,
+      userId: input.userId,
+      secrets,
+      encryptionKey: input.encryptionKey,
+    });
     const names = await client.query<{ name: string }>(
       "SELECT name FROM plugin_installation_secrets WHERE installation_id = $1 ORDER BY name",
       [input.installationId],

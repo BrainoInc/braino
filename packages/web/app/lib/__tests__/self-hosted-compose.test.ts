@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -167,8 +175,12 @@ describe("the supported self-hosted stack", () => {
     expect(dockerfile).toContain("pnpm --filter @doco/web build");
     expect(dockerfile).toContain("plugins/ollama-embedding");
     expect(dockerfile).toContain("plugins/ollama-chat");
+    expect(dockerfile).toContain("plugins/openai-embedding");
+    expect(dockerfile).toContain("plugins/openai-chat");
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_embedding.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_chat.wasm");
+    expect(runtimeStage).toContain("/app/plugins/braino_openai_embedding.wasm");
+    expect(runtimeStage).toContain("/app/plugins/braino_openai_chat.wasm");
     expect(runtimeStage).toContain("ARG DOCO_VERSION");
     expect(runtimeStage).toContain("ENV DOCO_VERSION=$DOCO_VERSION");
     expect(dockerfile).toContain("USER node");
@@ -185,14 +197,44 @@ describe("the supported self-hosted stack", () => {
     const embeddingManifest = JSON.parse(
       readFileSync(resolve(root, "plugins/ollama-embedding/manifest.json"), "utf8"),
     ) as { configurationSchema: { properties: { model: { default: string } } } };
-    const setup = readFileSync(resolve(root, "packages/web/app/routes/_index.tsx"), "utf8");
 
     expect(chatManifest.configurationSchema.properties.model.default).toBe("qwen3.5:2b");
     expect(embeddingManifest.configurationSchema.properties.model.default).toBe(
       "embeddinggemma-2:270m",
     );
-    expect(setup).toContain('defaultValue="qwen3.5:2b"');
-    expect(setup).toContain('defaultValue="embeddinggemma-2:270m"');
+    // Setup reads its defaults from those manifests; the web code names no model.
+    for (const file of readdirSync(resolve(root, "packages/web/app"), { recursive: true })) {
+      if (typeof file !== "string" || !/\.tsx?$/.test(file) || /test\.ts$/.test(file)) continue;
+      const source = readFileSync(resolve(root, "packages/web/app", file), "utf8");
+      expect(source, file).not.toMatch(/qwen3|embeddinggemma|gpt-4|text-embedding-3/);
+    }
+  });
+
+  it("bundles OpenAI chat and embedding plugins that each require their own API key", () => {
+    const chatManifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/openai-chat/manifest.json"), "utf8"),
+    ) as {
+      capabilities: Record<string, number>;
+      permissions: { network: string[] };
+      secretSchema: { required: string[] };
+    };
+    const embeddingManifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/openai-embedding/manifest.json"), "utf8"),
+    ) as {
+      capabilities: Record<string, number>;
+      permissions: { network: string[] };
+      secretSchema: { required: string[] };
+    };
+
+    expect(chatManifest.capabilities).toEqual({ "chat.complete": 1 });
+    expect(embeddingManifest.capabilities).toEqual({ "embedding.embed": 1 });
+    expect(chatManifest.permissions.network).toEqual(["api.openai.com"]);
+    expect(embeddingManifest.permissions.network).toEqual(["api.openai.com"]);
+    expect(chatManifest.secretSchema.required).toEqual(["api_key"]);
+    expect(embeddingManifest.secretSchema.required).toEqual(["api_key"]);
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+    expect(workflow).toContain("plugins/openai-chat/Cargo.toml");
+    expect(workflow).toContain("plugins/openai-embedding/Cargo.toml");
   });
 
   it("runs installed embedding plugins through the durable retrieval scheduler", () => {
@@ -240,6 +282,8 @@ describe("the supported self-hosted stack", () => {
       "/services/plugin-host/fixtures/echo-plugin",
       "/plugins/ollama-embedding",
       "/plugins/ollama-chat",
+      "/plugins/openai-embedding",
+      "/plugins/openai-chat",
     ]) {
       expect(dependabot.updates).toContainEqual(
         expect.objectContaining({ "package-ecosystem": "cargo", directory }),

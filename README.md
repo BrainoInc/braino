@@ -41,7 +41,13 @@ from claiming ownership. After the sole workspace is created, first-run setup
 is closed and the token cannot initialize another workspace.
 
 Open `http://localhost:3000`, enter `BRAINO_SETUP_TOKEN`, and create the owner and
-sole workspace. The application port binds to loopback; the optional Caddy
+sole workspace. Braino then opens **Model setup**, which lists the two models it
+needs: a chat model and an embedding model. Each comes from one plugin. The
+bundled Ollama plugins are pre-selected with their default models, so **Check
+and finish** completes setup without choosing anything. **Configure** on either
+model lists the plugins available for it; a plugin's own page shows the one
+host it may reach, a picker of suggested models, and a field for its own key
+when it needs one. The application port binds to loopback; the optional Caddy
 profile is the supported way to expose Braino publicly. Records
 can be captured from a collection page or created, related, transitioned, and
 superseded through its compatible `/<collection-handle>/api/changesets.json`
@@ -57,10 +63,13 @@ people and roles, source connections, webhooks, GitHub sync, and agent/MCP
 access. It reports configuration readiness without displaying secret values;
 privileged backup, restore, and upgrade commands stay on the host.
 
-Every workspace requires one chat model plugin and one embedding model plugin.
-To keep both on the same machine, start the model profile; first-run setup
-installs the bundled Ollama plugins, and **Admin → Required model plugins** is
-the single place to change either model later:
+Every workspace requires one chat model plugin and one embedding model plugin;
+the dashboard stays closed until both are ready. Several plugins may be
+installed, but exactly one is assigned to each model, and the two are chosen
+independently: chat can run on OpenAI while embeddings stay on Ollama.
+**Admin → Required model plugins** leads to the same Model setup screens to
+change a model, a plugin, or a key later. To keep both models on the same
+machine, start the model profile:
 
 ```sh
 docker compose --profile models up -d
@@ -74,6 +83,10 @@ documents and projects the resulting vectors to Qdrant; workspace content,
 model input, completions, and vectors do not pass through Braino Cloud or
 another Braino instance. The workspace dashboard remains unavailable until
 exactly one enabled, valid provider for each required model capability exists.
+The OpenAI chat and OpenAI embeddings plugins use the same sandbox and can reach
+only `https://api.openai.com`. Each plugin holds its own API key, even when both
+come from the same provider; keys are encrypted in the workspace database and
+are never returned by the application.
 
 Señor Braino and other agents connect directly to the deployment over stateless
 MCP. Open **MCP** on the workspace page, copy this instance's `/mcp` URL, then
@@ -104,10 +117,11 @@ the same key returns the original response without writing twice.
 Owners can connect Slack, Notion, and Google Drive from the same page. They are
 built-in `source.pull` plugins using the same versioned manifest and capability
 protocol that other plugin categories will use. The manifest declares each
-plugin's capabilities and network destinations; Braino rejects incompatible or
-mismatched definitions before execution. When invoked, third-party code runs only as a
-digest-pinned WebAssembly Component in a fresh Wasmtime sandbox. It receives no
-ambient WASI capabilities: configuration, secrets, allowlisted HTTPS, and
+plugin's capability contract versions and network destinations; Braino rejects
+incompatible or mismatched definitions before execution. When invoked,
+third-party code runs only as a digest-pinned WebAssembly Component in a fresh
+Wasmtime sandbox. It receives no ambient WASI capabilities: configuration,
+secrets, allowlisted HTTPS, and
 explicit operator-approved local services are mediated by the instance-local
 plugin host. No Braino-operated plugin relay is
 in the data path. PostgreSQL stores the immutable component bytes by their
@@ -115,6 +129,14 @@ computed SHA-256 digest. The application is the only invocation broker: it
 selects an enabled installation by workspace, validates the requested
 capability, opens only that installation's secrets, and sends one complete
 envelope to the private host.
+
+Chat and embedding providers use the same boundary. Braino depends only on the
+versioned `chat.complete` and `embedding.embed` contracts; model names,
+credentials, endpoints, and provider-specific request formats belong to the
+installed plugin. The application validates canonical inputs and outputs on
+both sides of every invocation, and resolves exactly one enabled provider for
+each capability. Adding another provider therefore requires a conforming plugin,
+not a provider branch in Braino.
 
 Each external source is bound to this Braino workspace, its credential is encrypted with
 `DOCO_ENCRYPTION_KEY`, and its read-only records land in a private collection

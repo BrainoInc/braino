@@ -32,13 +32,6 @@ describe("open Braino administration", () => {
     expect(mcpTokens).toContain("OAuth");
     expect(mcpTokens).toContain("This instance connects directly");
     expect(admin).toContain("Deployment");
-    expect(admin).toContain("Embedding model plugin");
-    expect(admin).toContain('name="embedding_model"');
-    expect(admin).toContain('name="embedding_dimensions"');
-    expect(admin).toContain('"install_ollama_embedding"');
-    expect(admin).toContain("listPluginInstallations");
-    expect(admin).toContain("installPlugin");
-    expect(admin).toContain("configurePluginInstallation");
     expect(admin).toContain("Operations");
     expect(admin).toContain("CodeLinker");
     expect(admin).toContain("BRAINO_CODELINKER_URL");
@@ -46,6 +39,23 @@ describe("open Braino administration", () => {
     expect(admin).toContain('to="/collaborators"');
     expect(admin).toContain('to="/integrations"');
     expect(admin).toContain('to="/mcp-tokens"');
+  });
+
+  it("changes models through the setup screens, with no model form of its own", () => {
+    expect(routes).toContain('route("admin/models", "routes/admin.models._index.tsx")');
+    expect(routes).toContain('route("admin/models/:model", "routes/admin.models.$model.tsx")');
+    expect(routes).toContain(
+      'route("admin/models/:model/:pluginId", "routes/admin.models.$model.$pluginId.tsx")',
+    );
+    expect(admin).toContain('id="model-plugins"');
+    expect(admin).toContain("Required model plugins");
+    expect(admin).toContain('to="/admin/models"');
+    expect(admin).toContain("loadModelSetup");
+    expect(admin).not.toMatch(/name="(chat_model|embedding_model|embedding_dimensions|api_key)"/);
+    expect(admin).not.toMatch(/install_ollama|configure_ollama|configure_openai_provider/);
+    expect(admin).not.toMatch(
+      /installPlugin|configurePluginInstallation|assignWorkspaceModelPlugin/,
+    );
   });
 
   it("shows rolling operational metrics with the required comparison context", () => {

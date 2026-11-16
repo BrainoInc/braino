@@ -105,11 +105,22 @@ setup_status=$(curl --silent --show-error -o "$runtime/setup-response" -w '%{htt
   --data-urlencode 'owner_username=conformance-owner' \
   --data-urlencode 'owner_email=owner@conformance.invalid' \
   --data-urlencode "setup_token=$BRAINO_SETUP_TOKEN" \
-  --data-urlencode 'password=conformance-owner-password' \
-  --data-urlencode 'chat_model=qwen3:0.6b' \
-  --data-urlencode 'embedding_model=embeddinggemma' \
-  --data-urlencode 'embedding_dimensions=768')
+  --data-urlencode 'password=conformance-owner-password')
 [[ "$setup_status" == "302" || "$setup_status" == "303" ]]
+
+# A fresh workspace is sent to model setup, where the bundled local plugins are
+# pre-selected; "Check and finish" installs them and lets the owner in.
+model_gate=$(curl --silent --show-error -o /dev/null -w '%{http_code} %{redirect_url}' \
+  -b "$cookies" "$origin/")
+[[ "$model_gate" == "302 $origin/admin/models" ]]
+curl --fail --silent --show-error -b "$cookies" "$origin/admin/models" >"$runtime/model-setup"
+grep -q 'Set up your models' "$runtime/model-setup"
+grep -q 'Ollama chat' "$runtime/model-setup"
+grep -q 'Ollama embeddings' "$runtime/model-setup"
+finish_status=$(curl --silent --show-error -o "$runtime/model-setup-response" \
+  -w '%{http_code}' -b "$cookies" -X POST "$origin/admin/models" \
+  -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'intent=finish')
+[[ "$finish_status" == "302" || "$finish_status" == "303" ]]
 
 curl --fail --silent --show-error -b "$cookies" "$origin/" >"$runtime/dashboard"
 grep -q 'Conformance Workspace' "$runtime/dashboard"

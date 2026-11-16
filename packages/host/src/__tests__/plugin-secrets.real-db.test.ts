@@ -21,11 +21,11 @@ const client = () => db as unknown as PoolClient;
 const encryptionKey = "plugin-secret-test-key-with-more-than-thirty-two-characters";
 const component = new TextEncoder().encode("postmark component");
 const manifest: PluginManifest = {
-  protocolVersion: 1,
+  protocolVersion: 2,
   id: "acme.postmark",
   name: "Postmark",
   version: "1.0.0",
-  capabilities: ["email.send", "event.receive"],
+  capabilities: { "email.send": 1, "event.receive": 1 },
   permissions: { network: ["api.postmarkapp.com"] },
   configurationSchema: {
     type: "object",
@@ -74,6 +74,39 @@ async function fixture() {
 }
 
 describe("workspace-bound plugin secrets", () => {
+  it("can seal initial secrets in the same operation that installs a plugin", async () => {
+    const initialized = await initializeSingleWorkspace(client(), {
+      workspaceHandle: "acme",
+      workspaceName: "Acme",
+      ownerEmail: "owner@example.com",
+      ownerUsername: "owner",
+      ownerName: "Acme Owner",
+      ownerPasswordHash: "scrypt$salt$key",
+    });
+
+    const installation = await installPlugin(client(), {
+      workspaceId: initialized.workspace.id,
+      userId: initialized.owner.id,
+      manifest,
+      component,
+      configuration: { from: "braino@example.com" },
+      secrets: { server_token: "postmark-server-token" },
+      encryptionKey,
+    });
+
+    await expect(
+      listPluginSecretNames(client(), {
+        workspaceId: initialized.workspace.id,
+        userId: initialized.owner.id,
+        installationId: installation.id,
+      }),
+    ).resolves.toEqual(["server_token"]);
+    const stored = await db.query<{ value_sealed: string }>(
+      "SELECT value_sealed FROM plugin_installation_secrets",
+    );
+    expect(JSON.stringify(stored.rows)).not.toContain("postmark-server-token");
+  });
+
   it("stores configuration and sealed secrets without returning their values", async () => {
     const setup = await fixture();
     const configured = await configurePluginInstallation(client(), {

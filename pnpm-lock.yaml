@@ -122,6 +122,9 @@ importers:
       '@doco/index':
         specifier: workspace:*
         version: link:../index
+      '@doco/plugin-runtime':
+        specifier: workspace:*
+        version: link:../plugin-runtime
       '@doco/shared':
         specifier: workspace:*
         version: link:../shared

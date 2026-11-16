@@ -1,0 +1,28 @@
+{
+  "protocolVersion": 2,
+  "id": "braino.openai-embedding",
+  "name": "OpenAI embeddings",
+  "version": "0.1.0",
+  "capabilities": { "embedding.embed": 1 },
+  "permissions": { "network": ["api.openai.com"] },
+  "configurationSchema": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string",
+        "default": "text-embedding-3-small",
+        "examples": ["text-embedding-3-small", "text-embedding-3-large"]
+      },
+      "dimensions": { "type": "string", "default": "1536" }
+    },
+    "additionalProperties": false
+  },
+  "secretSchema": {
+    "type": "object",
+    "properties": {
+      "api_key": { "type": "string" }
+    },
+    "required": ["api_key"],
+    "additionalProperties": false
+  }
+}

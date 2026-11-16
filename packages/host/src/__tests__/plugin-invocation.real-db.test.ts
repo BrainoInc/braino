@@ -22,11 +22,11 @@ const encryptionKey = "plugin-invocation-key-with-more-than-thirty-two-character
 const apiToken = "plugin-host-token-with-more-than-thirty-two-characters";
 const component = new TextEncoder().encode("postmark component bytes");
 const manifest: PluginManifest = {
-  protocolVersion: 1,
+  protocolVersion: 2,
   id: "acme.postmark",
   name: "Postmark",
   version: "1.0.0",
-  capabilities: ["email.send"],
+  capabilities: { "email.send": 1 },
   permissions: { network: ["api.postmarkapp.com"] },
   configurationSchema: {
     type: "object",

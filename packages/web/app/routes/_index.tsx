@@ -4,7 +4,6 @@ import {
   getSingleWorkspaceState,
   getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace,
-  installRequiredModelPlugins,
   reservePasswordSignInAttempt,
   revokeUserSessions,
 } from "@doco/host";
@@ -14,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { CollectionTypeIcon } from "~/components/collection-type-icon";
 import { PageHeader } from "~/components/page-header";
 import { NarrowPageMain, PageMain } from "~/components/page-main";
-import { bundledOllamaModelPlugins } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { hashPassword, passwordError, verifyPassword } from "~/lib/password.server";
 import {
@@ -48,12 +46,6 @@ type LoaderData =
   | { screen: "setup" }
   | { screen: "signin"; workspaceName: string; next: string }
   | {
-      screen: "models-required";
-      workspaceName: string;
-      chat: "missing" | "invalid" | "ambiguous" | "ready";
-      embedding: "missing" | "invalid" | "ambiguous" | "ready";
-    }
-  | {
       screen: "dashboard";
       workspace: WorkspaceView;
       user: { id: string; email: string; username: string; name: string };
@@ -79,14 +71,8 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
   const modelPlugins = await withClient((client) =>
     getWorkspaceModelPluginReadiness(client, state.workspace.id),
   );
-  if (!modelPlugins.ready) {
-    return {
-      screen: "models-required",
-      workspaceName: state.workspace.name,
-      chat: modelPlugins.chat,
-      embedding: modelPlugins.embedding,
-    };
-  }
+  // Nothing in the workspace works without its two models, so setup comes first.
+  if (!modelPlugins.ready) throw redirect("/admin/models");
   return withClient(async (client) => {
     const workspaceResult = await client.query<WorkspaceView>(
       "SELECT id, handle, name, constitution FROM workspaces WHERE id = $1",
@@ -150,41 +136,18 @@ export async function action({ request }: { request: Request }) {
     const password = rawText(form, "password");
     const error = passwordError(password, t);
     if (error) return formError(error);
-    const chatModel = text(form, "chat_model");
-    const embeddingModel = text(form, "embedding_model");
-    const embeddingDimensions = text(form, "embedding_dimensions");
-    if (!chatModel || !embeddingModel) {
-      return formError(t("Both model plugins require a model."));
-    }
-    if (!Number.isInteger(Number(embeddingDimensions)) || Number(embeddingDimensions) < 1) {
-      return formError(t("Embedding dimensions must be a positive integer."));
-    }
     try {
-      const plugins = await bundledOllamaModelPlugins();
       const ownerPasswordHash = await hashPassword(password);
-      const initialized = await withClient(async (client) => {
-        const created = await initializeSingleWorkspace(client, {
+      const initialized = await withClient((client) =>
+        initializeSingleWorkspace(client, {
           workspaceHandle: text(form, "workspace_handle"),
           workspaceName: text(form, "workspace_name"),
           ownerEmail: text(form, "owner_email"),
           ownerUsername: text(form, "owner_username"),
           ownerName: text(form, "owner_name"),
           ownerPasswordHash,
-        });
-        await installRequiredModelPlugins(client, {
-          workspaceId: created.workspace.id,
-          userId: created.owner.id,
-          chat: {
-            ...plugins.chat,
-            configuration: { model: chatModel },
-          },
-          embedding: {
-            ...plugins.embedding,
-            configuration: { model: embeddingModel, dimensions: embeddingDimensions },
-          },
-        });
-        return created;
-      });
+        }),
+      );
       return redirect("/", {
         headers: {
           "Set-Cookie": createSessionCookie({
@@ -252,7 +215,6 @@ export default function Home() {
   if (data.screen === "signin") {
     return <SignIn workspaceName={data.workspaceName} next={data.next} error={actionData?.error} />;
   }
-  if (data.screen === "models-required") return <ModelsRequired data={data} />;
   return <WorkspaceHome data={data} />;
 }
 
@@ -295,9 +257,12 @@ function Setup({ error }: { error?: string }) {
   const t = useT();
   return (
     <PageMain className="space-y-4 py-6">
-      <PageHeader breadcrumb={<Breadcrumb>{t("First run")}</Breadcrumb>} title={t("Set up Braino")}>
+      <PageHeader
+        breadcrumb={<Breadcrumb>{t("Step 1 of 2")}</Breadcrumb>}
+        title={t("Create your Braino")}
+      >
         <p className="text-xs text-muted-foreground">
-          {t("Create the owner, the one workspace, and its required local model plugins.")}
+          {t("Set up the owner and workspace. Next, you will set up the two models Braino needs.")}
         </p>
       </PageHeader>
       <Card>
@@ -337,21 +302,6 @@ function Setup({ error }: { error?: string }) {
                 autoComplete="new-password"
                 required
               />
-              <Field label={t("Chat model")} name="chat_model" defaultValue="qwen3.5:2b" required />
-              <Field
-                label={t("Embedding model")}
-                name="embedding_model"
-                defaultValue="embeddinggemma-2:270m"
-                required
-              />
-              <Field
-                label={t("Embedding dimensions")}
-                name="embedding_dimensions"
-                type="number"
-                min="1"
-                defaultValue="768"
-                required
-              />
             </div>
             <ErrorMessage error={error} />
             <button
@@ -364,44 +314,6 @@ function Setup({ error }: { error?: string }) {
         </CardContent>
       </Card>
     </PageMain>
-  );
-}
-
-function ModelsRequired({
-  data,
-}: {
-  data: Extract<LoaderData, { screen: "models-required" }>;
-}) {
-  const t = useT();
-  return (
-    <NarrowPageMain className="space-y-4 py-10">
-      <Breadcrumb>{t("Model setup")}</Breadcrumb>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("Finish model setup")}</CardTitle>
-          <CardDescription>
-            {t(
-              "{workspace} cannot open until exactly one chat plugin and one embedding plugin are configured.",
-              { workspace: data.workspaceName },
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <dl className="grid grid-cols-[1fr_auto] gap-2 text-xs">
-            <dt>{t("Chat plugin")}</dt>
-            <dd className="font-mono">{data.chat}</dd>
-            <dt>{t("Embedding plugin")}</dt>
-            <dd className="font-mono">{data.embedding}</dd>
-          </dl>
-          <Link
-            to="/admin#model-plugins"
-            className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-          >
-            {t("Configure model plugins")}
-          </Link>
-        </CardContent>
-      </Card>
-    </NarrowPageMain>
   );
 }
 

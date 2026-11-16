@@ -1,28 +1,20 @@
 import { withClient } from "@doco/db";
 import {
   type ActivityPeriod,
-  PluginInstallationError,
   WorkspaceAdminError,
-  configurePluginInstallation,
   getSingleWorkspaceState,
   getWorkspaceAdminOverview,
-  getWorkspaceModelPluginReadiness,
-  installPlugin,
-  listPluginInstallations,
   updateWorkspaceSettings,
 } from "@doco/host";
 import { type Translator, msg } from "@doco/shared/i18n";
 import { type ReactTranslator, useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
+import { modelTitle } from "~/components/model-setup";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
-import {
-  OLLAMA_CHAT_PLUGIN_ID,
-  OLLAMA_EMBEDDING_PLUGIN_ID,
-  bundledOllamaModelPlugin,
-} from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { loadModelSetup } from "~/lib/model-setup.server";
 import {
   MAX_FORM_BODY_BYTES,
   RequestBodyError,
@@ -32,7 +24,6 @@ import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
 interface ActionData {
   saved?: boolean;
-  message?: string;
   error?: string;
 }
 
@@ -117,29 +108,24 @@ export async function loader({ request }: { request: Request }) {
   if (!state.initialized) throw redirect("/");
   const t = await requestTranslator(request);
   try {
-    const loaded = await withClient(async (client) => ({
-      overview: await getWorkspaceAdminOverview(client, {
+    const overview = await withClient((client) =>
+      getWorkspaceAdminOverview(client, {
         workspaceId: state.workspace.id,
         userId: user.id,
         period: metricPeriod(request),
       }),
-      plugins: await listPluginInstallations(client, {
-        workspaceId: state.workspace.id,
-        userId: user.id,
-      }),
-      readiness: await getWorkspaceModelPluginReadiness(client, state.workspace.id),
-    }));
+    );
+    const models = await loadModelSetup(request);
     return {
-      overview: loaded.overview,
-      chatPlugin: loaded.plugins.find((plugin) => plugin.manifest.id === OLLAMA_CHAT_PLUGIN_ID),
-      embeddingPlugin: loaded.plugins.find(
-        (plugin) => plugin.manifest.id === OLLAMA_EMBEDDING_PLUGIN_ID,
-      ),
+      overview,
+      modelSteps: models.steps,
       deployment: deploymentStatus(
         request,
         {
-          ready: loaded.readiness.ready,
-          embedding: loaded.readiness.embedding === "ready",
+          ready: models.ready,
+          embedding: models.steps.some(
+            (step) => step.kind === "embedding" && step.status === "ready",
+          ),
         },
         t,
       ),
@@ -152,14 +138,6 @@ export async function loader({ request }: { request: Request }) {
 function text(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
-}
-
-function encryptionKey(): string {
-  const value = process.env.DOCO_ENCRYPTION_KEY?.trim();
-  if (!value || value.length < 32) {
-    throw new Error("DOCO_ENCRYPTION_KEY must contain at least 32 characters.");
-  }
-  return value;
 }
 
 export async function action({ request }: { request: Request }): Promise<ActionData | Response> {
@@ -180,64 +158,6 @@ export async function action({ request }: { request: Request }): Promise<ActionD
   }
   const intent = text(form, "intent");
   try {
-    if (intent === "install_ollama_chat") {
-      const bundled = await bundledOllamaModelPlugin("chat");
-      await withClient((client) =>
-        installPlugin(client, {
-          workspaceId: state.workspace.id,
-          userId: user.id,
-          manifest: bundled.manifest,
-          component: bundled.component,
-          configuration: { model: text(form, "chat_model") },
-        }),
-      );
-      return { message: t("Ollama chat plugin installed.") };
-    }
-    if (intent === "configure_ollama_chat") {
-      await withClient((client) =>
-        configurePluginInstallation(client, {
-          workspaceId: state.workspace.id,
-          userId: user.id,
-          installationId: text(form, "installation_id"),
-          configuration: { model: text(form, "chat_model") },
-          secrets: {},
-          encryptionKey: encryptionKey(),
-        }),
-      );
-      return { message: t("Chat model configuration saved.") };
-    }
-    if (intent === "install_ollama_embedding") {
-      const bundled = await bundledOllamaModelPlugin("embedding");
-      await withClient((client) =>
-        installPlugin(client, {
-          workspaceId: state.workspace.id,
-          userId: user.id,
-          manifest: bundled.manifest,
-          component: bundled.component,
-          configuration: {
-            model: text(form, "embedding_model"),
-            dimensions: text(form, "embedding_dimensions"),
-          },
-        }),
-      );
-      return { message: t("Ollama embedding plugin installed.") };
-    }
-    if (intent === "configure_ollama_embedding") {
-      await withClient((client) =>
-        configurePluginInstallation(client, {
-          workspaceId: state.workspace.id,
-          userId: user.id,
-          installationId: text(form, "installation_id"),
-          configuration: {
-            model: text(form, "embedding_model"),
-            dimensions: text(form, "embedding_dimensions"),
-          },
-          secrets: {},
-          encryptionKey: encryptionKey(),
-        }),
-      );
-      return { message: t("Embedding model configuration saved.") };
-    }
     if (intent !== "update_workspace") {
       return Response.json({ error: t("Unknown admin action.") }, { status: 400 });
     }
@@ -256,7 +176,6 @@ export async function action({ request }: { request: Request }): Promise<ActionD
     if (error instanceof WorkspaceAdminError) {
       return Response.json({ error: t(error.message) }, { status: error.status });
     }
-    if (error instanceof PluginInstallationError) return { error: t(error.message) };
     throw error;
   }
 }
@@ -347,7 +266,7 @@ export default function AdminPage() {
   const t = useT();
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as ActionData | undefined;
-  const { overview, chatPlugin, embeddingPlugin, deployment } = data;
+  const { overview, modelSteps, deployment } = data;
   const period =
     METRIC_PERIODS.find((option) => option.value === overview.activity.period) ?? METRIC_PERIODS[0];
   return (
@@ -618,95 +537,29 @@ export default function AdminPage() {
             )}
           </p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Chat model plugin")}</CardTitle>
-              <CardDescription>
-                {t("Run chat completions inside this deployment with Ollama.")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form method="post" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                <input
-                  type="hidden"
-                  name="intent"
-                  value={chatPlugin ? "configure_ollama_chat" : "install_ollama_chat"}
-                />
-                {chatPlugin ? (
-                  <input type="hidden" name="installation_id" value={chatPlugin.id} />
-                ) : null}
-                <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
-                  <input
-                    name="chat_model"
-                    defaultValue={chatPlugin?.configuration.model ?? "qwen3.5:2b"}
-                    required
-                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                >
-                  {chatPlugin ? t("Save model") : t("Install plugin")}
-                </button>
-              </Form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Embedding model plugin")}</CardTitle>
-              <CardDescription>
-                {t("Keep search content and vectors inside this Braino deployment.")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form method="post" className="grid gap-3 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
-                <input
-                  type="hidden"
-                  name="intent"
+        <Card>
+          <CardContent className="space-y-3 pt-4">
+            <dl>
+              {modelSteps.map((step) => (
+                <StatusRow
+                  key={step.kind}
+                  label={modelTitle(t, step.kind)}
                   value={
-                    embeddingPlugin ? "configure_ollama_embedding" : "install_ollama_embedding"
+                    step.pluginName && step.status !== "preselected"
+                      ? `${step.pluginName} · ${step.model ?? ""}`
+                      : t("Setup required")
                   }
                 />
-                {embeddingPlugin ? (
-                  <input type="hidden" name="installation_id" value={embeddingPlugin.id} />
-                ) : null}
-                <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">{t("Ollama model")}</span>
-                  <input
-                    name="embedding_model"
-                    defaultValue={embeddingPlugin?.configuration.model ?? "embeddinggemma-2:270m"}
-                    required
-                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-                <label className="block text-xs">
-                  <span className="mb-1 block text-muted-foreground">{t("Dimensions")}</span>
-                  <input
-                    name="embedding_dimensions"
-                    type="number"
-                    min="1"
-                    defaultValue={embeddingPlugin?.configuration.dimensions ?? "768"}
-                    required
-                    className="w-full rounded-md px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                >
-                  {embeddingPlugin ? t("Save model") : t("Install plugin")}
-                </button>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
-        {actionData?.message ? (
-          <output className="block text-xs text-muted-foreground">{actionData.message}</output>
-        ) : null}
+              ))}
+            </dl>
+            <Link
+              to="/admin/models"
+              className="neu-button inline-block rounded-md px-4 py-2 text-sm font-semibold"
+            >
+              {t("Change models")}
+            </Link>
+          </CardContent>
+        </Card>
       </section>
 
       <Card>

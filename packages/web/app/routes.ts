@@ -3,6 +3,9 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 export default [
   index("routes/_index.tsx"),
   route("admin", "routes/admin.tsx"),
+  route("admin/models", "routes/admin.models._index.tsx"),
+  route("admin/models/:model", "routes/admin.models.$model.tsx"),
+  route("admin/models/:model/:pluginId", "routes/admin.models.$model.$pluginId.tsx"),
   route("times", "routes/times._index.tsx"),
   route("times/:day", "routes/times.$day.tsx"),
   route("collaborators", "routes/collaborators.tsx"),

@@ -1,15 +1,15 @@
-export const PLUGIN_PROTOCOL_VERSION = 1 as const;
+import {
+  PLUGIN_CAPABILITIES,
+  PLUGIN_CAPABILITY_CONTRACT_VERSIONS,
+  type PluginCapabilityContracts,
+  type PluginCapabilityName,
+} from "./capabilities.js";
+import type { ChatCompleteCapability, EmbeddingCapability } from "./model-capability-contracts.js";
 
-export const PLUGIN_CAPABILITIES = [
-  "source.pull",
-  "event.receive",
-  "email.send",
-  "team_chat.send",
-  "embedding.embed",
-  "chat.complete",
-] as const;
+export * from "./capabilities.js";
+export * from "./model-capability-contracts.js";
 
-export type PluginCapabilityName = (typeof PLUGIN_CAPABILITIES)[number];
+export const PLUGIN_PROTOCOL_VERSION = 2 as const;
 
 export type ConnectorFetcher = typeof fetch;
 
@@ -92,35 +92,6 @@ export interface TeamChatSendCapability {
   send(input: TeamChatMessage): Promise<{ externalId: string }>;
 }
 
-export interface EmbeddingRequest {
-  model: string;
-  inputs: readonly string[];
-  inputType?: "document" | "query";
-}
-
-export interface EmbeddingResponse {
-  model: string;
-  dimensions: number;
-  vectors: readonly (readonly number[])[];
-}
-
-export interface EmbeddingCapability {
-  embed(input: EmbeddingRequest): Promise<EmbeddingResponse>;
-}
-
-export interface ChatMessage {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string;
-}
-
-export interface ChatCompleteCapability {
-  complete(input: {
-    model: string;
-    messages: readonly ChatMessage[];
-    responseSchema?: Record<string, unknown>;
-  }): Promise<{ content: string; model: string }>;
-}
-
 export interface PluginCapabilityImplementations {
   "source.pull": SourcePullCapability;
   "event.receive": EventReceiveCapability;
@@ -137,7 +108,7 @@ export interface PluginManifest {
   id: string;
   name: string;
   version: string;
-  capabilities: readonly PluginCapabilityName[];
+  capabilities: PluginCapabilityContracts;
   permissions: {
     network: readonly string[];
   };
@@ -166,30 +137,81 @@ function validateManifest(manifest: PluginManifest): void {
   if (!SEMANTIC_VERSION.test(manifest.version)) {
     throw new Error("Plugin version must be a semantic version.");
   }
-  if (manifest.capabilities.length === 0) {
+  const capabilities = Object.entries(manifest.capabilities);
+  if (capabilities.length === 0) {
     throw new Error("A plugin must declare at least one capability.");
   }
-  const seen = new Set<string>();
-  for (const capability of manifest.capabilities) {
+  for (const [capability, version] of capabilities) {
     if (!KNOWN_CAPABILITIES.has(capability)) {
       throw new Error(`Unknown plugin capability: ${capability}.`);
     }
-    if (seen.has(capability)) {
-      throw new Error(`Plugin manifest contains duplicate capability: ${capability}.`);
+    const supported = PLUGIN_CAPABILITY_CONTRACT_VERSIONS[capability as PluginCapabilityName];
+    if (version !== supported) {
+      throw new Error(
+        `Unsupported ${capability} contract version: ${String(version)}; expected ${supported}.`,
+      );
     }
-    seen.add(capability);
   }
   for (const host of manifest.permissions.network) {
     if (!NETWORK_HOST.test(host) || host === "*") {
       throw new Error(`Invalid plugin network host: ${host}.`);
     }
   }
+  for (const [key, property] of Object.entries(schemaProperties(manifest.configurationSchema))) {
+    // Configuration values are strings, so what a manifest offers for one must be too.
+    if (property.default !== undefined && !usableText(property.default)) {
+      throw new Error(`Plugin configuration property ${key} has invalid default.`);
+    }
+    const examples = property.examples;
+    if (
+      examples !== undefined &&
+      (!Array.isArray(examples) ||
+        !examples.every(usableText) ||
+        new Set(examples).size !== examples.length)
+    ) {
+      throw new Error(`Plugin configuration property ${key} has invalid examples.`);
+    }
+  }
+}
+
+function usableText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function schemaProperties(
+  schema: Readonly<Record<string, unknown>> | undefined,
+): Record<string, Record<string, unknown>> {
+  const properties = schema?.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return {};
+  return Object.fromEntries(
+    Object.entries(properties).filter(
+      (entry): entry is [string, Record<string, unknown>] =>
+        Boolean(entry[1]) && typeof entry[1] === "object" && !Array.isArray(entry[1]),
+    ),
+  );
+}
+
+/**
+ * What a manifest offers for one configuration key: the JSON Schema `default`
+ * of that property, and its `examples` as suggested values, default first.
+ */
+export function pluginConfigurationChoices(
+  manifest: Readonly<PluginManifest>,
+  key: string,
+): { default: string | null; suggested: readonly string[] } {
+  const property = schemaProperties(manifest.configurationSchema)[key];
+  const fallback = usableText(property?.default) ? property.default : null;
+  const examples = Array.isArray(property?.examples) ? property.examples.filter(usableText) : [];
+  return {
+    default: fallback,
+    suggested: [...new Set(fallback ? [fallback, ...examples] : examples)],
+  };
 }
 
 function immutableManifest(manifest: PluginManifest): Readonly<PluginManifest> {
   return Object.freeze({
     ...manifest,
-    capabilities: Object.freeze([...manifest.capabilities]),
+    capabilities: Object.freeze({ ...manifest.capabilities }),
     permissions: Object.freeze({
       network: Object.freeze([...manifest.permissions.network]),
     }),
@@ -222,12 +244,7 @@ export function parsePluginManifest(value: unknown): Readonly<PluginManifest> {
   if (typeof input.id !== "string") throw new Error("Plugin identifier must be a string.");
   if (typeof input.name !== "string") throw new Error("Plugin name must be a string.");
   if (typeof input.version !== "string") throw new Error("Plugin version must be a string.");
-  if (
-    !Array.isArray(input.capabilities) ||
-    input.capabilities.some((item) => typeof item !== "string")
-  ) {
-    throw new Error("Plugin capabilities must be an array of strings.");
-  }
+  const capabilities = objectValue(input.capabilities, "Plugin capabilities");
   const permissions = objectValue(input.permissions, "Plugin permissions");
   if (
     !Array.isArray(permissions.network) ||
@@ -245,7 +262,7 @@ export function parsePluginManifest(value: unknown): Readonly<PluginManifest> {
     id: input.id,
     name: input.name,
     version: input.version,
-    capabilities: input.capabilities,
+    capabilities,
     permissions: { network: permissions.network },
     ...(configurationSchema ? { configurationSchema } : {}),
     ...(secretSchema ? { secretSchema } : {}),
@@ -259,7 +276,7 @@ export function definePlugin(input: {
   capabilities: PluginImplementations;
 }): BrainoPlugin {
   const manifest = parsePluginManifest(input.manifest);
-  const declared = new Set<string>(manifest.capabilities);
+  const declared = new Set<string>(Object.keys(manifest.capabilities));
   const implemented = Object.keys(input.capabilities);
   for (const capability of declared) {
     if (!input.capabilities[capability as PluginCapabilityName]) {
@@ -286,4 +303,11 @@ export function pluginCapability<K extends PluginCapabilityName>(
     throw new Error(`Plugin ${plugin.manifest.id} does not provide ${capability}.`);
   }
   return implementation as PluginCapabilityImplementations[K];
+}
+
+export function pluginProvidesCapability(
+  manifest: Readonly<PluginManifest>,
+  capability: PluginCapabilityName,
+): boolean {
+  return manifest.capabilities[capability] === PLUGIN_CAPABILITY_CONTRACT_VERSIONS[capability];
 }
