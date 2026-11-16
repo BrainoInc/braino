@@ -129,6 +129,8 @@ describe("the supported self-hosted stack", () => {
     expect(compose.services["plugin-host"]?.ports).toBeUndefined();
     expect(compose.services["plugin-host"]?.environment).toMatchObject({
       BRAINO_PLUGIN_LOCAL_NETWORK_HOSTS: "${BRAINO_PLUGIN_LOCAL_NETWORK_HOSTS:-ollama:11434}",
+      BRAINO_PLUGIN_MAX_EXECUTION_MS: "${BRAINO_PLUGIN_MAX_EXECUTION_MS:-60000}",
+      BRAINO_PLUGIN_HTTP_TIMEOUT_MS: "${BRAINO_PLUGIN_HTTP_TIMEOUT_MS:-50000}",
     });
     expect(compose.services.ollama?.profiles).toEqual(["models"]);
     expect(compose.services.ollama?.ports).toBeUndefined();
@@ -202,6 +204,9 @@ describe("the supported self-hosted stack", () => {
     expect(chatManifest.configurationSchema.properties.model.default).toBe("qwen3.5:2b");
     expect(embeddingManifest.configurationSchema.properties.model.default).toBe(
       "embeddinggemma-2:270m",
+    );
+    expect(readFileSync(resolve(root, "plugins/ollama-chat/src/lib.rs"), "utf8")).toContain(
+      "think: false",
     );
     // Setup reads its defaults from those manifests; the web code names no model.
     for (const file of readdirSync(resolve(root, "packages/web/app"), { recursive: true })) {

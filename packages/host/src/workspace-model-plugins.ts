@@ -187,30 +187,31 @@ export async function verifyWorkspaceModelPlugins(
       throw new ModelPluginVerificationError(kind, error);
     }
   };
-  const [chatOutput, embeddingOutput] = await Promise.all([
-    verify(
-      "chat",
-      () =>
-        invokePlugin(client, {
-          workspaceId: input.workspaceId,
-          installationId: chat.installationId,
-          capability: "chat.complete",
-          input: { messages: [{ role: "user", content: "Reply with OK." }] },
-          ...connection,
-        }) as Promise<ChatCompleteResponse>,
-    ),
-    verify(
-      "embedding",
-      () =>
-        invokePlugin(client, {
-          workspaceId: input.workspaceId,
-          installationId: embedding.installationId,
-          capability: "embedding.embed",
-          input: { inputs: ["Braino model setup verification"], inputType: "query" },
-          ...connection,
-        }) as Promise<EmbeddingResponse>,
-    ),
-  ]);
+  // A self-hosted workspace commonly serves both plugins from one local model
+  // runtime. Verify them one at a time so loading one model cannot evict or
+  // starve the other during first-run setup.
+  const chatOutput = await verify(
+    "chat",
+    () =>
+      invokePlugin(client, {
+        workspaceId: input.workspaceId,
+        installationId: chat.installationId,
+        capability: "chat.complete",
+        input: { messages: [{ role: "user", content: "Reply with OK." }] },
+        ...connection,
+      }) as Promise<ChatCompleteResponse>,
+  );
+  const embeddingOutput = await verify(
+    "embedding",
+    () =>
+      invokePlugin(client, {
+        workspaceId: input.workspaceId,
+        installationId: embedding.installationId,
+        capability: "embedding.embed",
+        input: { inputs: ["Braino model setup verification"], inputType: "query" },
+        ...connection,
+      }) as Promise<EmbeddingResponse>,
+  );
 
   await client.query("BEGIN");
   try {
