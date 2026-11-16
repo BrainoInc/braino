@@ -8,6 +8,7 @@ import {
   resolveWorkspaceTeamChatPlugin,
   setPluginInstallationEnabled,
 } from "@doco/host";
+import { useT } from "@doco/shared/i18n/react";
 import { useState } from "react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
@@ -145,6 +146,7 @@ export async function action({ request }: { request: Request }) {
 }
 
 export default function SlackAppPage() {
+  const t = useT();
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as { error?: string } | undefined;
   const [copied, setCopied] = useState(false);
@@ -153,20 +155,21 @@ export default function SlackAppPage() {
       <PageHeader
         breadcrumb={
           <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-            <Link to="/">Braino</Link>
+            <Link to="/">{"Braino"}</Link>
             <span aria-hidden>›</span>
-            <Link to="/admin">Admin</Link>
+            <Link to="/admin">{t("Admin")}</Link>
             <span aria-hidden>›</span>
-            <Link to="/integrations">Integrations</Link>
+            <Link to="/integrations">{t("Integrations")}</Link>
             <span aria-hidden>›</span>
-            <span>Slack app</span>
+            <span>{t("Slack app")}</span>
           </nav>
         }
-        title="Connect Señor Braino to Slack"
+        title={t("Connect Señor Braino to Slack")}
       >
         <p className="text-xs text-muted-foreground">
-          One private Slack app connects directly to this Braino instance. Messages and credentials
-          never pass through another Braino deployment.
+          {t(
+            "One private Slack app connects directly to this Braino instance. Messages and credentials never pass through another Braino deployment.",
+          )}
         </p>
       </PageHeader>
 
@@ -175,7 +178,9 @@ export default function SlackAppPage() {
           role="alert"
           className="rounded-md border border-destructive p-3 text-sm text-destructive"
         >
-          Slack requires a public HTTPS address. Set DOCO_PUBLIC_HOST before connecting this app.
+          {t(
+            "Slack requires a public HTTPS address. Set DOCO_PUBLIC_HOST before connecting this app.",
+          )}
         </p>
       ) : null}
       {actionData?.error ? (
@@ -187,12 +192,18 @@ export default function SlackAppPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {data.connected ? "3. Activate Slack events" : "1. Create your Slack app"}
+            {data.connected
+              ? t("3. Activate Slack events")
+              : t("1. Create your Slack app")}
           </CardTitle>
           <CardDescription>
             {data.connected
-              ? "Replace the app manifest in Slack with this final version. Slack will verify the direct Braino endpoint."
-              : "In Slack, choose Create New App → From an app manifest, then paste this bootstrap manifest."}
+              ? t(
+                  "Replace the app manifest in Slack with this final version. Slack will verify the direct Braino endpoint.",
+                )
+              : t(
+                  "In Slack, choose Create New App → From an app manifest, then paste this bootstrap manifest.",
+                )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -200,7 +211,7 @@ export default function SlackAppPage() {
             readOnly
             rows={18}
             value={data.manifest}
-            aria-label="Slack app manifest"
+            aria-label={t("Slack app manifest")}
             className="w-full rounded-md px-3 py-2 font-mono text-xs"
           />
           <div className="flex flex-wrap gap-3">
@@ -212,7 +223,7 @@ export default function SlackAppPage() {
                 setCopied(true);
               }}
             >
-              {copied ? "Copied" : "Copy manifest"}
+              {copied ? t("Copied") : t("Copy manifest")}
             </button>
             {!data.connected ? (
               <a
@@ -221,12 +232,14 @@ export default function SlackAppPage() {
                 rel="noreferrer"
                 className="neu-button rounded-md px-4 py-2 text-sm font-semibold"
               >
-                Open Slack app builder
+                {t("Open Slack app builder")}
               </a>
             ) : null}
           </div>
           {data.connected ? (
-            <p className="break-all font-mono text-xs">Event URL: {data.eventUrl}</p>
+            <p className="break-all font-mono text-xs">
+              {t("Event URL:")} {data.eventUrl}
+            </p>
           ) : null}
         </CardContent>
       </Card>
@@ -234,10 +247,11 @@ export default function SlackAppPage() {
       {data.connected ? (
         <Card>
           <CardHeader>
-            <CardTitle>Señor Braino is connected</CardTitle>
+            <CardTitle>{t("Señor Braino is connected")}</CardTitle>
             <CardDescription>
-              Finish step 3 above once, then mention Señor Braino in a channel or send it a direct
-              message.
+              {t(
+                "Finish step 3 above once, then mention Señor Braino in a channel or send it a direct message.",
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -248,7 +262,7 @@ export default function SlackAppPage() {
                 type="submit"
                 className="neu-button rounded-md px-4 py-2 text-sm text-destructive"
               >
-                Disconnect Slack
+                {t("Disconnect Slack")}
               </button>
             </Form>
           </CardContent>
@@ -256,28 +270,31 @@ export default function SlackAppPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>2. Install and connect</CardTitle>
+            <CardTitle>{t("2. Install and connect")}</CardTitle>
             <CardDescription>
-              Install the app to your Slack workspace. Paste its Bot User OAuth Token and Basic
-              Information → Signing Secret here.
+              {t(
+                "Install the app to your Slack workspace. Paste its Bot User OAuth Token and Basic Information → Signing Secret here.",
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form method="post" className="space-y-4">
               <input type="hidden" name="intent" value="connect" />
               <label className="block text-sm">
-                <span className="mb-1 block text-muted-foreground">Bot User OAuth Token</span>
+                <span className="mb-1 block text-muted-foreground">
+                  {t("Bot User OAuth Token")}
+                </span>
                 <input
                   required
                   type="password"
                   name="bot_token"
                   autoComplete="off"
                   className="w-full rounded-md px-3 py-2 font-mono"
-                  placeholder="xoxb-…"
+                  placeholder={"xoxb-…"}
                 />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block text-muted-foreground">Signing Secret</span>
+                <span className="mb-1 block text-muted-foreground">{t("Signing Secret")}</span>
                 <input
                   required
                   type="password"
@@ -287,7 +304,9 @@ export default function SlackAppPage() {
                 />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block text-muted-foreground">Introduction channel</span>
+                <span className="mb-1 block text-muted-foreground">
+                  {t("Introduction channel")}
+                </span>
                 <input
                   name="introduction_channel"
                   defaultValue="general"
@@ -298,7 +317,7 @@ export default function SlackAppPage() {
                 type="submit"
                 className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
               >
-                Connect Señor Braino
+                {t("Connect Señor Braino")}
               </button>
             </Form>
           </CardContent>

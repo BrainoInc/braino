@@ -774,10 +774,11 @@ export default function IntegrationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Señor Braino for Slack</CardTitle>
+          <CardTitle>{t("Señor Braino for Slack")}</CardTitle>
           <CardDescription>
-            Install Señor Braino in Slack for mentions, direct messages, and grounded answers from
-            this workspace.
+            {t(
+              "Install Señor Braino in Slack for mentions, direct messages, and grounded answers from this workspace.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -785,7 +786,7 @@ export default function IntegrationsPage() {
             to="/integrations/slack-app"
             className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           >
-            {data.slackAppConnected ? "Manage Slack app" : "Connect Slack app"}
+            {data.slackAppConnected ? t("Manage Slack app") : t("Connect Slack app")}
           </Link>
         </CardContent>
       </Card>
