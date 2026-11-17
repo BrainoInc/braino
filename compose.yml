@@ -113,7 +113,6 @@ services:
 
   ollama:
     image: ${BRAINO_OLLAMA_IMAGE:-ollama/ollama:0.40.16}
-    profiles: ["models"]
     restart: unless-stopped
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
@@ -129,7 +128,6 @@ services:
 
   ollama-model:
     image: ${BRAINO_OLLAMA_IMAGE:-ollama/ollama:0.40.16}
-    profiles: ["models"]
     restart: "no"
     environment:
       OLLAMA_HOST: http://ollama:11434
@@ -142,7 +140,6 @@ services:
 
   ollama-chat-model:
     image: ${BRAINO_OLLAMA_IMAGE:-ollama/ollama:0.40.16}
-    profiles: ["models"]
     restart: "no"
     environment:
       OLLAMA_HOST: http://ollama:11434

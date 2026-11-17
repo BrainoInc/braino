@@ -132,9 +132,9 @@ describe("the supported self-hosted stack", () => {
       BRAINO_PLUGIN_MAX_EXECUTION_MS: "${BRAINO_PLUGIN_MAX_EXECUTION_MS:-60000}",
       BRAINO_PLUGIN_HTTP_TIMEOUT_MS: "${BRAINO_PLUGIN_HTTP_TIMEOUT_MS:-50000}",
     });
-    expect(compose.services.ollama?.profiles).toEqual(["models"]);
+    expect(compose.services.ollama?.profiles).toBeUndefined();
     expect(compose.services.ollama?.ports).toBeUndefined();
-    expect(compose.services["ollama-model"]?.profiles).toEqual(["models"]);
+    expect(compose.services["ollama-model"]?.profiles).toBeUndefined();
     expect(compose.services["ollama-model"]?.depends_on).toEqual({
       ollama: { condition: "service_healthy" },
     });
@@ -142,7 +142,7 @@ describe("the supported self-hosted stack", () => {
       "pull",
       "${BRAINO_OLLAMA_EMBEDDING_MODEL:-embeddinggemma-2:270m}",
     ]);
-    expect(compose.services["ollama-chat-model"]?.profiles).toEqual(["models"]);
+    expect(compose.services["ollama-chat-model"]?.profiles).toBeUndefined();
     expect(compose.services["ollama-chat-model"]?.depends_on).toEqual({
       ollama: { condition: "service_healthy" },
     });
@@ -542,7 +542,7 @@ describe("the supported self-hosted stack", () => {
     const conformanceCompose = parse(
       readFileSync(resolve(root, "compose.conformance.yml"), "utf8"),
     ) as {
-      services: {
+      services: Record<string, { profiles?: string[] }> & {
         "model-fixture": {
           image: string;
           profiles: string[];
@@ -582,6 +582,9 @@ describe("the supported self-hosted stack", () => {
     expect(modelFixture.entrypoint).toEqual(["node", "--input-type=module"]);
     expect(modelFixture.healthcheck.test.join(" ")).toContain("/api/tags");
     expect(modelFixture.networks.private.aliases).toContain("ollama");
+    expect(conformanceCompose.services.ollama?.profiles).toEqual(["local-models"]);
+    expect(conformanceCompose.services["ollama-model"]?.profiles).toEqual(["local-models"]);
+    expect(conformanceCompose.services["ollama-chat-model"]?.profiles).toEqual(["local-models"]);
     expect(script).toContain("http://codelinker:8080/healthz");
     expect(script).toContain("http://plugin-host:8080/healthz");
     expect(script).toContain("doco_records");

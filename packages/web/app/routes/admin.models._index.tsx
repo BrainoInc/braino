@@ -105,10 +105,10 @@ export async function action({ request }: { request: Request }) {
         error:
           error.kind === "chat"
             ? t(
-                "The chat model could not answer. Check its model and key. For Ollama, run docker compose --profile models up -d.",
+                "The chat model could not answer. Check its model and key. For Ollama, check that the model has finished downloading.",
               )
             : t(
-                "The embedding model could not answer. Check its model and key. For Ollama, run docker compose --profile models up -d.",
+                "The embedding model could not answer. Check its model and key. For Ollama, check that the model has finished downloading.",
               ),
       };
     }
