@@ -73,7 +73,7 @@ installed, but exactly one is assigned to each model, and the two are chosen
 independently: chat can run on OpenAI while embeddings stay on Ollama.
 **Admin → Required model plugins** leads to the same Model setup screens to
 change a model, a plugin, or a key later. The default stack pulls the
-`qwen3.5:2b` chat model and the 270M text-only
+`qwen3.5:4b` chat model and the 270M text-only
 `embeddinggemma-2:270m` model into its own local volume. Each plugin runs as a digest-pinned WebAssembly
 Component and can reach only the operator-approved `ollama:11434` service on
 the private Compose network. The retrieval scheduler embeds pending source
