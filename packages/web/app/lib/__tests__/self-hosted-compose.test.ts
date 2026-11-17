@@ -291,7 +291,7 @@ describe("the supported self-hosted stack", () => {
     };
     const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
 
-    expect(packageJson.scripts.audit).toBe("pnpm audit --audit-level high");
+    expect(packageJson.scripts.audit).toBe("pnpm audit --prod --audit-level high");
     expect(workflow).toContain("pnpm run audit");
   });
 
