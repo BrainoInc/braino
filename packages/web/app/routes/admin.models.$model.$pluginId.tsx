@@ -286,11 +286,8 @@ export default function ModelPluginPage() {
 
             {plugin.local ? (
               <p className="neu-well rounded-md bg-input px-3 py-2 text-xs">
-                {t.rich(
-                  "Start the models service with <command>docker compose --profile models up -d</command>. It downloads the default models; any other model must already be on this server.",
-                  {
-                    command: (children) => <code className="font-mono">{children}</code>,
-                  },
+                {t(
+                  "Ollama starts with Braino and downloads the default models automatically. Any other model must already be on this server.",
                 )}
               </p>
             ) : null}

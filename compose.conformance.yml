@@ -1,4 +1,13 @@
 services:
+  # A normal deployment starts Ollama and pulls both models. The conformance
+  # proof substitutes its tiny deterministic fixture instead.
+  ollama:
+    profiles: ["local-models"]
+  ollama-model:
+    profiles: ["local-models"]
+  ollama-chat-model:
+    profiles: ["local-models"]
+
   # The release proof exercises both bundled Ollama plugins without downloading
   # multi-gigabyte models or depending on a third-party provider. This service
   # speaks only the three Ollama endpoints the proof needs.

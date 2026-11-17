@@ -43,9 +43,10 @@ is closed and the token cannot initialize another workspace.
 Open `http://localhost:3000`, enter `BRAINO_SETUP_TOKEN`, and create the owner and
 sole workspace. Braino then opens **Model setup**, which lists the two models it
 needs: a chat model and an embedding model. Each comes from one plugin. The
-bundled Ollama plugins are pre-selected with their default models, so **Check
-and finish** completes setup without choosing anything once the model profile
-below is running. It makes one real request through each plugin, learns the
+bundled Ollama plugins are pre-selected with their default models, and the
+normal Compose boot downloads both models automatically, so **Check and finish**
+completes setup without choosing anything. It makes one real request through
+each plugin, learns the
 embedding width from the model's response, and keeps the dashboard closed if
 either check fails. **Configure** on either
 model lists the plugins available for it; a plugin's own page shows the one
@@ -71,14 +72,8 @@ the dashboard stays closed until both are ready. Several plugins may be
 installed, but exactly one is assigned to each model, and the two are chosen
 independently: chat can run on OpenAI while embeddings stay on Ollama.
 **Admin → Required model plugins** leads to the same Model setup screens to
-change a model, a plugin, or a key later. To keep both models on the same
-machine, start the model profile:
-
-```sh
-docker compose --profile models up -d
-```
-
-The profile pulls the `qwen3.5:2b` chat model and the 270M text-only
+change a model, a plugin, or a key later. The default stack pulls the
+`qwen3.5:2b` chat model and the 270M text-only
 `embeddinggemma-2:270m` model into its own local volume. Each plugin runs as a digest-pinned WebAssembly
 Component and can reach only the operator-approved `ollama:11434` service on
 the private Compose network. The retrieval scheduler embeds pending source

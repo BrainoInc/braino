@@ -254,7 +254,7 @@ describe("model setup: check and finish", () => {
 
     await expect(finish({ request: post("/admin/models") })).resolves.toEqual({
       error:
-        "The embedding model could not answer. Check its model and key. For Ollama, run docker compose --profile models up -d.",
+        "The embedding model could not answer. Check its model and key. For Ollama, check that the model has finished downloading.",
     });
   });
 
