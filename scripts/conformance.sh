@@ -76,6 +76,8 @@ export BRAINO_CODELINKER_API_TOKEN="conformance-codelinker-token-$project-000000
 export BRAINO_PLUGIN_HOST_API_TOKEN="conformance-plugin-host-token-$project-000000000000"
 export DOCO_HTTP_PORT="$port"
 export DOCO_PUBLIC_HOST="http://localhost:$port"
+export COMPOSE_FILE=compose.yml:compose.conformance.yml
+export COMPOSE_PROFILES=conformance
 
 docker compose build app codelinker plugin-host
 if [[ "${DOCO_CONFORMANCE_PRUNE_BUILD_CACHE:-}" == "1" ]]; then

@@ -1,0 +1,62 @@
+services:
+  # The release proof exercises both bundled Ollama plugins without downloading
+  # multi-gigabyte models or depending on a third-party provider. This service
+  # speaks only the three Ollama endpoints the proof needs.
+  model-fixture:
+    image: ${DOCO_IMAGE}
+    profiles: ["conformance"]
+    restart: "no"
+    entrypoint: ["node", "--input-type=module"]
+    command:
+      - -e
+      - |
+        import { createServer } from "node:http";
+
+        const reply = (response, status, body) => {
+          const encoded = JSON.stringify(body);
+          response.writeHead(status, {
+            "content-length": Buffer.byteLength(encoded),
+            "content-type": "application/json",
+          });
+          response.end(encoded);
+        };
+        const readJson = async (request) => {
+          const chunks = [];
+          for await (const chunk of request) chunks.push(chunk);
+          return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        };
+
+        createServer(async (request, response) => {
+          if (request.method === "GET" && request.url === "/api/tags") {
+            return reply(response, 200, { models: [] });
+          }
+          if (request.method === "POST" && request.url === "/api/chat") {
+            const body = await readJson(request);
+            return reply(response, 200, {
+              model: body.model,
+              message: { role: "assistant", content: "OK" },
+            });
+          }
+          if (request.method === "POST" && request.url === "/api/embed") {
+            const body = await readJson(request);
+            const inputs = Array.isArray(body.input) ? body.input : [body.input];
+            return reply(response, 200, {
+              model: body.model,
+              embeddings: inputs.map(() => [0.25, 0.5, 0.75, 1]),
+            });
+          }
+          return reply(response, 404, { error: "not found" });
+        }).listen(11434, "0.0.0.0");
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:11434/api/tags').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    networks:
+      private:
+        aliases: ["ollama"]
+
