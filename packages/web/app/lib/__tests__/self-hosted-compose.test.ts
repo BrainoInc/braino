@@ -148,7 +148,7 @@ describe("the supported self-hosted stack", () => {
     });
     expect(compose.services["ollama-chat-model"]?.command).toEqual([
       "pull",
-      "${BRAINO_OLLAMA_CHAT_MODEL:-qwen3.5:2b}",
+      "${BRAINO_OLLAMA_CHAT_MODEL:-qwen3.5:4b}",
     ]);
     expect(compose.services.app?.ports).toEqual(["127.0.0.1:${DOCO_HTTP_PORT:-3000}:3000"]);
     expect(compose.services.postgres?.ports).toBeUndefined();
@@ -201,12 +201,15 @@ describe("the supported self-hosted stack", () => {
       readFileSync(resolve(root, "plugins/ollama-embedding/manifest.json"), "utf8"),
     ) as { configurationSchema: { properties: { model: { default: string } } } };
 
-    expect(chatManifest.configurationSchema.properties.model.default).toBe("qwen3.5:2b");
+    expect(chatManifest.configurationSchema.properties.model.default).toBe("qwen3.5:4b");
     expect(embeddingManifest.configurationSchema.properties.model.default).toBe(
       "embeddinggemma-2:270m",
     );
     expect(readFileSync(resolve(root, "plugins/ollama-chat/src/lib.rs"), "utf8")).toContain(
       "think: false",
+    );
+    expect(readFileSync(resolve(root, "plugins/ollama-chat/src/lib.rs"), "utf8")).toContain(
+      '"qwen3.5:4b"',
     );
     // Setup reads its defaults from those manifests; the web code names no model.
     for (const file of readdirSync(resolve(root, "packages/web/app"), { recursive: true })) {

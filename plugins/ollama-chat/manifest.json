@@ -2,7 +2,7 @@
   "protocolVersion": 2,
   "id": "braino.ollama-chat",
   "name": "Ollama chat",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "capabilities": { "chat.complete": 1 },
   "permissions": { "network": ["ollama:11434"] },
   "configurationSchema": {
@@ -10,8 +10,8 @@
     "properties": {
       "model": {
         "type": "string",
-        "default": "qwen3.5:2b",
-        "examples": ["qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b"]
+        "default": "qwen3.5:4b",
+        "examples": ["qwen3.5:4b", "qwen3.5:2b", "qwen3.5:9b"]
       }
     },
     "additionalProperties": false

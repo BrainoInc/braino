@@ -45,8 +45,8 @@ describe("the model plugin catalogue", () => {
       networkHosts: ["ollama:11434"],
       local: true,
       requiredSecrets: [],
-      defaultModel: "qwen3.5:2b",
-      suggestedModels: ["qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b"],
+      defaultModel: "qwen3.5:4b",
+      suggestedModels: ["qwen3.5:4b", "qwen3.5:2b", "qwen3.5:9b"],
     });
     expect(modelPluginEntry(manifest("ollama-embedding"))).toMatchObject({
       id: "braino.ollama-embedding",
@@ -180,7 +180,7 @@ describe("the two model setup steps", () => {
         status: "preselected",
         pluginId: "braino.ollama-chat",
         pluginName: "Ollama chat",
-        model: "qwen3.5:2b",
+        model: "qwen3.5:4b",
         usesDefault: true,
         usesOwnKey: false,
       },
