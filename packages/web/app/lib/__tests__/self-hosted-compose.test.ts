@@ -539,6 +539,19 @@ describe("the supported self-hosted stack", () => {
       scripts: Record<string, string>;
     };
     const script = readFileSync(resolve(root, "scripts/conformance.sh"), "utf8");
+    const conformanceCompose = parse(
+      readFileSync(resolve(root, "compose.conformance.yml"), "utf8"),
+    ) as {
+      services: {
+        "model-fixture": {
+          image: string;
+          profiles: string[];
+          entrypoint: string[];
+          healthcheck: { test: string[] };
+          networks: { private: { aliases: string[] } };
+        };
+      };
+    };
     const workflow = readFileSync(resolve(root, ".github/workflows/release.yml"), "utf8");
     const contract = readFileSync(resolve(root, "docs/v0.1-conformance.md"), "utf8");
 
@@ -562,6 +575,13 @@ describe("the supported self-hosted stack", () => {
       expect(contract).toContain(proof);
     }
     expect(script).toContain("docker compose");
+    expect(script).toContain("COMPOSE_FILE=compose.yml:compose.conformance.yml");
+    const modelFixture = conformanceCompose.services["model-fixture"];
+    expect(modelFixture.image).toBe("${DOCO_IMAGE}");
+    expect(modelFixture.profiles).toEqual(["conformance"]);
+    expect(modelFixture.entrypoint).toEqual(["node", "--input-type=module"]);
+    expect(modelFixture.healthcheck.test.join(" ")).toContain("/api/tags");
+    expect(modelFixture.networks.private.aliases).toContain("ollama");
     expect(script).toContain("http://codelinker:8080/healthz");
     expect(script).toContain("http://plugin-host:8080/healthz");
     expect(script).toContain("doco_records");
