@@ -617,10 +617,7 @@ describe("the supported self-hosted stack", () => {
     for (const bootstrap of ["ollama-model", "ollama-chat-model"] as const) {
       expect(conformanceCompose.services[bootstrap].image).toBe("${DOCO_IMAGE}");
       expect(conformanceCompose.services[bootstrap].profiles).toEqual(["conformance"]);
-      expect(conformanceCompose.services[bootstrap].command).toEqual([
-        "-e",
-        "process.exit(0)",
-      ]);
+      expect(conformanceCompose.services[bootstrap].command).toEqual(["-e", "process.exit(0)"]);
     }
     expect(script).toContain("http://codelinker:8080/healthz");
     expect(script).toContain("http://plugin-host:8080/healthz");
