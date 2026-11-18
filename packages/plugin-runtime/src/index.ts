@@ -4,6 +4,7 @@ import {
   type PluginCapabilityContracts,
   type PluginCapabilityName,
 } from "./capabilities.js";
+import type { EmailSendCapability } from "./email-capability-contracts.js";
 import type { ChatCompleteCapability, EmbeddingCapability } from "./model-capability-contracts.js";
 import type {
   EventReceiveCapability,
@@ -12,6 +13,7 @@ import type {
 } from "./team-chat-capability-contracts.js";
 
 export * from "./capabilities.js";
+export * from "./email-capability-contracts.js";
 export * from "./model-capability-contracts.js";
 export * from "./team-chat-capability-contracts.js";
 
@@ -58,19 +60,6 @@ export interface SourcePullCapability {
 
 /** Existing connector consumers use this name; it is the source.pull capability. */
 export type ConnectorAdapter = SourcePullCapability;
-
-export interface EmailMessage {
-  from: string;
-  to: readonly string[];
-  subject: string;
-  text?: string;
-  html?: string;
-  replyTo?: readonly string[];
-}
-
-export interface EmailSendCapability {
-  send(input: EmailMessage): Promise<{ externalId: string }>;
-}
 
 export interface ScmRequestInput {
   method: "GET" | "POST";

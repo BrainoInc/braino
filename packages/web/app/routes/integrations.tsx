@@ -66,6 +66,9 @@ export async function loader({ request }: { request: Request }) {
       slackAppConnected: pluginInstallations.some(
         (plugin) => plugin.enabled && plugin.manifest.id === "braino.slack",
       ),
+      emailConnected: pluginInstallations.some(
+        (plugin) => plugin.enabled && plugin.manifest.capabilities["email.send"] === 1,
+      ),
     };
   });
   const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
@@ -513,6 +516,25 @@ export default function IntegrationsPage() {
       ) : null}
       {actionData?.message ? <p className="text-sm text-foreground">{actionData.message}</p> : null}
       {actionData?.error ? <p className="text-sm text-destructive">{actionData.error}</p> : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("Email provider")}</CardTitle>
+          <CardDescription>
+            {t(
+              "Install a workspace-scoped provider such as Resend. Braino sends through one stable email contract without owning your provider account.",
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            to="/integrations/email"
+            className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            {data.emailConnected ? t("Manage email provider") : t("Connect email provider")}
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

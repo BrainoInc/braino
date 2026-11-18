@@ -21,6 +21,7 @@ const client = () => db as unknown as PoolClient;
 const encryptionKey = "plugin-invocation-key-with-more-than-thirty-two-characters";
 const apiToken = "plugin-host-token-with-more-than-thirty-two-characters";
 const component = new TextEncoder().encode("postmark component bytes");
+const emailInput = { to: ["person@example.com"], subject: "Hello", text: "Body" };
 const manifest: PluginManifest = {
   protocolVersion: 2,
   id: "acme.postmark",
@@ -82,7 +83,7 @@ describe("workspace-authorized plugin invocation", () => {
         workspaceId: setup.workspace.id,
         installationId: setup.installation.id,
         capability: "email.send",
-        input: { to: ["person@example.com"], subject: "Hello" },
+        input: emailInput,
         encryptionKey,
         host: { url: "http://plugin-host:8080", apiToken },
         fetcher,
@@ -104,7 +105,7 @@ describe("workspace-authorized plugin invocation", () => {
       artifactDigest: setup.installation.artifactDigest,
       componentBase64: Buffer.from(component).toString("base64"),
       capability: "email.send",
-      inputJson: JSON.stringify({ to: ["person@example.com"], subject: "Hello" }),
+      inputJson: JSON.stringify(emailInput),
       configuration: { from: "braino@example.com" },
       secrets: { server_token: "workspace-secret" },
       networkHosts: ["api.postmarkapp.com"],
@@ -122,7 +123,7 @@ describe("workspace-authorized plugin invocation", () => {
         workspaceId: "workspace_second",
         installationId: setup.installation.id,
         capability: "email.send",
-        input: {},
+        input: emailInput,
         encryptionKey,
         host: { url: "http://plugin-host:8080", apiToken },
         fetcher,
@@ -142,7 +143,7 @@ describe("workspace-authorized plugin invocation", () => {
         workspaceId: setup.workspace.id,
         installationId: setup.installation.id,
         capability: "source.pull",
-        input: {},
+        input: emailInput,
         encryptionKey,
         host: { url: "http://plugin-host:8080", apiToken },
         fetcher,
@@ -159,7 +160,7 @@ describe("workspace-authorized plugin invocation", () => {
         workspaceId: setup.workspace.id,
         installationId: setup.installation.id,
         capability: "email.send",
-        input: {},
+        input: emailInput,
         encryptionKey,
         host: { url: "http://plugin-host:8080", apiToken },
         fetcher,
@@ -186,7 +187,7 @@ describe("workspace-authorized plugin invocation", () => {
       workspaceId: setup.workspace.id,
       installationId: setup.installation.id,
       capability: "email.send",
-      input: {},
+      input: emailInput,
       encryptionKey,
       host: { url: "http://plugin-host:8080", apiToken },
       fetcher,

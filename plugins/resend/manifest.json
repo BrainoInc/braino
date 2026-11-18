@@ -1,0 +1,28 @@
+{
+  "protocolVersion": 2,
+  "id": "braino.resend",
+  "name": "Resend email",
+  "version": "0.1.0",
+  "capabilities": { "email.send": 1 },
+  "permissions": { "network": ["api.resend.com"] },
+  "configurationSchema": {
+    "type": "object",
+    "properties": {
+      "sender": {
+        "type": "string",
+        "title": "From",
+        "examples": ["Braino <hello@example.com>"]
+      }
+    },
+    "required": ["sender"],
+    "additionalProperties": false
+  },
+  "secretSchema": {
+    "type": "object",
+    "properties": {
+      "api_key": { "type": "string", "title": "Resend API key" }
+    },
+    "required": ["api_key"],
+    "additionalProperties": false
+  }
+}
