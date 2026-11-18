@@ -1,11 +1,15 @@
 import type { CollectionRole } from "@doco/db";
 import { withClient } from "@doco/db";
 import {
+  AccountLinkError,
   WorkspaceAccessError,
-  addWorkspaceCollaborator,
+  createWorkspaceInvitation,
   getSingleWorkspaceState,
   listWorkspaceCollaborators,
+  listWorkspaceInvitations,
   removeWorkspaceCollaborator,
+  resolveWorkspaceEmailPlugin,
+  revokeWorkspaceInvitation,
   updateWorkspaceCollaborator,
 } from "@doco/host";
 import { WRITABLE_TYPES } from "@doco/shared";
@@ -16,7 +20,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
-import { hashPassword, passwordError } from "~/lib/password.server";
+import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
+import { publicOrigin } from "~/lib/public-origin.server";
+import {
+  MAX_FORM_BODY_BYTES,
+  RequestBodyError,
+  readBoundedUrlEncodedForm,
+} from "~/lib/request-body.server";
 import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
 interface LoaderData {
@@ -24,6 +34,7 @@ interface LoaderData {
   currentUserId: string;
   canManage: boolean;
   collaborators: Awaited<ReturnType<typeof listWorkspaceCollaborators>>;
+  invitations: Awaited<ReturnType<typeof listWorkspaceInvitations>>;
 }
 
 interface ActionData {
@@ -57,6 +68,10 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
       currentUserId: user.id,
       canManage: membership.rows[0].role === "owner",
       collaborators: await listWorkspaceCollaborators(client, state.workspace.id),
+      invitations:
+        membership.rows[0].role === "owner"
+          ? await listWorkspaceInvitations(client, state.workspace.id)
+          : [],
     };
   });
 }
@@ -82,24 +97,71 @@ export async function action({ request }: { request: Request }): Promise<Respons
   const state = await withClient(getSingleWorkspaceState);
   if (!state.initialized)
     return Response.json({ error: t("Finish setup first.") }, { status: 409 });
-  const form = await request.formData();
+  let form: FormData;
+  try {
+    form = await readBoundedUrlEncodedForm(request, MAX_FORM_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyError) return { error: t(error.message) };
+    throw error;
+  }
   const intent = text(form, "intent");
   try {
-    if (intent === "add") {
-      const password = text(form, "password");
-      const invalidPassword = passwordError(password, t);
-      if (invalidPassword) return { error: invalidPassword };
-      const passwordHash = await hashPassword(password);
-      await withClient((client) =>
-        addWorkspaceCollaborator(client, {
+    if (intent === "invite") {
+      const encryptionKey = pluginSecretsKey();
+      const host = pluginHostConnection();
+      if (!encryptionKey || !host) {
+        return { error: t("Configure the plugin service before inviting collaborators.") };
+      }
+      await withClient(async (client) => {
+        const provider = await resolveWorkspaceEmailPlugin(client, {
+          workspaceId: state.workspace.id,
+          encryptionKey,
+          host,
+        });
+        if (!provider) {
+          throw new AccountLinkError(
+            "Connect an email provider before inviting collaborators.",
+            "email_provider_required",
+            409,
+          );
+        }
+        const invitation = await createWorkspaceInvitation(client, {
           workspaceId: state.workspace.id,
           actorId: user.id,
           email: text(form, "email"),
-          username: text(form, "username"),
-          name: text(form, "name"),
-          passwordHash,
           role: role(form),
           writeTypes: writeTypes(form),
+        });
+        const joinUrl = `${publicOrigin(request)}/join/${encodeURIComponent(invitation.token)}`;
+        try {
+          await provider.send({
+            to: [invitation.email],
+            subject: `You're invited to ${state.workspace.name} on Braino`,
+            text: [
+              `${user.name} invited you to collaborate in ${state.workspace.name} on Braino.`,
+              "",
+              `Accept invitation: ${joinUrl}`,
+              "",
+              "This link works once and expires in 48 hours.",
+            ].join("\n"),
+          });
+        } catch (error) {
+          await revokeWorkspaceInvitation(client, {
+            workspaceId: state.workspace.id,
+            actorId: user.id,
+            invitationId: invitation.id,
+          });
+          throw error;
+        }
+      });
+      return redirect("/collaborators?invited=1");
+    }
+    if (intent === "revoke_invitation") {
+      await withClient((client) =>
+        revokeWorkspaceInvitation(client, {
+          workspaceId: state.workspace.id,
+          actorId: user.id,
+          invitationId: text(form, "invitation_id"),
         }),
       );
     } else if (intent === "update") {
@@ -125,7 +187,7 @@ export async function action({ request }: { request: Request }): Promise<Respons
     }
     return redirect("/collaborators");
   } catch (error) {
-    if (error instanceof WorkspaceAccessError) {
+    if (error instanceof WorkspaceAccessError || error instanceof AccountLinkError) {
       return Response.json({ error: t(error.message) }, { status: error.status });
     }
     const pgError = error as { code?: string; constraint?: string };
@@ -135,7 +197,7 @@ export async function action({ request }: { request: Request }): Promise<Respons
         { status: 409 },
       );
     }
-    throw error;
+    return { error: t(error instanceof Error ? error.message : "Could not invite collaborator.") };
   }
 }
 
@@ -281,28 +343,53 @@ export default function Collaborators() {
         })}
       </section>
 
+      {data.canManage && data.invitations.length ? (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold">{t("Pending invitations")}</h2>
+            <p className="text-xs text-muted-foreground">
+              {t("Invitation links expire after 48 hours and can be used once.")}
+            </p>
+          </div>
+          {data.invitations.map((invitation) => (
+            <Card key={invitation.id}>
+              <CardContent className="flex flex-wrap items-center gap-3 pt-4">
+                <div>
+                  <p className="text-sm font-semibold">{invitation.email}</p>
+                  <p className="text-xs capitalize text-muted-foreground">
+                    {t(ROLE_LABELS[invitation.role])}
+                  </p>
+                </div>
+                <Form method="post" className="ms-auto">
+                  <input type="hidden" name="intent" value="revoke_invitation" />
+                  <input type="hidden" name="invitation_id" value={invitation.id} />
+                  <button
+                    type="submit"
+                    className="neu-button rounded-md px-3 py-2 text-xs font-semibold text-destructive"
+                  >
+                    {t("Revoke invitation")}
+                  </button>
+                </Form>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+      ) : null}
+
       {data.canManage ? (
         <Card>
           <CardHeader>
-            <CardTitle>{t("Add collaborator")}</CardTitle>
+            <CardTitle>{t("Invite collaborator")}</CardTitle>
             <CardDescription>
-              {t("Create their sign-in account and grant access to this deployment's workspace.")}
+              {t("Email a secure link so they can create their own Braino account.")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form method="post" className="grid gap-3 sm:grid-cols-2">
-              <input type="hidden" name="intent" value="add" />
-              <Field label={t("Name")} name="name" required />
-              <Field label={t("Username")} name="username" pattern="[a-z0-9][a-z0-9_-]*" required />
-              <Field label={t("Email")} name="email" type="email" required />
-              <Field
-                label={t("Password")}
-                name="password"
-                type="password"
-                minLength={12}
-                autoComplete="new-password"
-                required
-              />
+              <input type="hidden" name="intent" value="invite" />
+              <div className="sm:col-span-2">
+                <Field label={t("Email")} name="email" type="email" required />
+              </div>
               <RoleSelect />
               <WriteTypeSelect />
               <div className="sm:col-span-2 sm:text-end">
@@ -310,7 +397,7 @@ export default function Collaborators() {
                   type="submit"
                   className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
                 >
-                  {t("Add collaborator")}
+                  {t("Send invitation")}
                 </button>
               </div>
             </Form>

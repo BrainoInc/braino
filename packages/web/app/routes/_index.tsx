@@ -357,6 +357,11 @@ function SignIn({
             </button>
             <ErrorMessage error={error} />
           </Form>
+          <p className="mt-3 text-xs">
+            <Link to="/forgot-password" className="text-primary hover:underline">
+              {t("Forgot your password?")}
+            </Link>
+          </p>
           <p className="mt-4 font-mono text-[11px] text-muted-foreground">{workspaceName}</p>
         </CardContent>
       </Card>
