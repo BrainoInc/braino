@@ -2,8 +2,8 @@ import type { PoolClient } from "@doco/db";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
+import { acceptWorkspaceInvitation, createWorkspaceInvitation } from "../account-links.js";
 import {
-  addWorkspaceCollaborator,
   listWorkspaceCollaborators,
   removeWorkspaceCollaborator,
   updateWorkspaceCollaborator,
@@ -29,19 +29,39 @@ async function initialized() {
   });
 }
 
+async function addCollaborator(
+  setup: Awaited<ReturnType<typeof initialized>>,
+  input: { email: string; username: string; name: string; role: "writer" | "reader" },
+) {
+  const invitation = await createWorkspaceInvitation(client(), {
+    workspaceId: setup.workspace.id,
+    actorId: setup.owner.id,
+    email: input.email,
+    role: input.role,
+    writeTypes: [],
+  });
+  const accepted = await acceptWorkspaceInvitation(client(), {
+    token: invitation.token,
+    username: input.username,
+    name: input.name,
+    passwordHash: `scrypt$${input.username}$key`,
+  });
+  const added = (await listWorkspaceCollaborators(client(), setup.workspace.id)).find(
+    (person) => person.id === accepted.user.id,
+  );
+  if (!added) throw new Error("Accepted collaborator was not listed.");
+  return added;
+}
+
 describe("single-workspace collaborators", () => {
-  it("adds a sign-in account with an explicit workspace grant", async () => {
+  it("lists an accepted invitation with its explicit workspace grant", async () => {
     const setup = await initialized();
 
-    const added = await addWorkspaceCollaborator(client(), {
-      workspaceId: setup.workspace.id,
-      actorId: setup.owner.id,
+    const added = await addCollaborator(setup, {
       email: "writer@example.com",
       username: "writer",
       name: "Workspace Writer",
-      passwordHash: "scrypt$writer$key",
       role: "writer",
-      writeTypes: [],
     });
 
     expect(added).toMatchObject({
@@ -60,15 +80,11 @@ describe("single-workspace collaborators", () => {
 
   it("updates per-type access without accepting unknown grant tokens", async () => {
     const setup = await initialized();
-    const added = await addWorkspaceCollaborator(client(), {
-      workspaceId: setup.workspace.id,
-      actorId: setup.owner.id,
+    const added = await addCollaborator(setup, {
       email: "reader@example.com",
       username: "reader",
       name: "Workspace Reader",
-      passwordHash: "scrypt$reader$key",
       role: "reader",
-      writeTypes: [],
     });
 
     const updated = await updateWorkspaceCollaborator(client(), {
@@ -90,13 +106,10 @@ describe("single-workspace collaborators", () => {
     const setup = await initialized();
 
     await expect(
-      addWorkspaceCollaborator(client(), {
+      createWorkspaceInvitation(client(), {
         workspaceId: setup.workspace.id,
         actorId: "user_01J00000000000000000000000",
         email: "blocked@example.com",
-        username: "blocked",
-        name: "Blocked",
-        passwordHash: "scrypt$blocked$key",
         role: "reader",
         writeTypes: [],
       }),
@@ -123,15 +136,11 @@ describe("single-workspace collaborators", () => {
 
   it("removes workspace access without deleting the person's account", async () => {
     const setup = await initialized();
-    const added = await addWorkspaceCollaborator(client(), {
-      workspaceId: setup.workspace.id,
-      actorId: setup.owner.id,
+    const added = await addCollaborator(setup, {
       email: "former@example.com",
       username: "former",
       name: "Former Collaborator",
-      passwordHash: "scrypt$former$key",
       role: "reader",
-      writeTypes: [],
     });
 
     const before = await db.query<{ stamp: string }>("SELECT stamp FROM users WHERE id = $1", [

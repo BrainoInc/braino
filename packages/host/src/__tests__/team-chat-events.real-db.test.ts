@@ -3,7 +3,7 @@ import type { PluginEvent, PluginManifest } from "@doco/plugin-runtime";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
-import { addWorkspaceCollaborator } from "../collaborators.js";
+import { acceptWorkspaceInvitation, createWorkspaceInvitation } from "../account-links.js";
 import { installPlugin } from "../plugin-installations.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
 import { enqueueTeamChatEvents, processNextTeamChatEvent } from "../team-chat-events.js";
@@ -39,17 +39,20 @@ async function fixture() {
     manifest,
     component: new TextEncoder().encode("slack component"),
   });
-  const collaborator = await addWorkspaceCollaborator(client(), {
+  const invitation = await createWorkspaceInvitation(client(), {
     workspaceId: setup.workspace.id,
     actorId: setup.owner.id,
     email: "reader@example.com",
-    username: "reader",
-    name: "Slack Reader",
-    passwordHash: "scrypt$salt$key",
     role: "reader",
     writeTypes: [],
   });
-  return { ...setup, installation, collaborator };
+  const accepted = await acceptWorkspaceInvitation(client(), {
+    token: invitation.token,
+    username: "reader",
+    name: "Slack Reader",
+    passwordHash: "scrypt$salt$key",
+  });
+  return { ...setup, installation, collaborator: accepted.user };
 }
 
 const messageEvent: PluginEvent = {

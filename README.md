@@ -144,7 +144,12 @@ then enables the plugin. Braino calls the versioned `email.send` contract;
 recipients, subject, and text or HTML content cross that boundary, while the
 sender, Resend request format, and credential remain owned by the plugin. Only
 one email provider is enabled per workspace, so a future Postmark or SMTP plugin
-can replace Resend without changing application code.
+can replace Resend without changing application code. The enabled provider also
+powers collaborator invitations and password recovery. Owners invite by email;
+the recipient follows a one-use, 48-hour link and chooses their own name,
+username, and password. Recovery uses the same hashed one-use-link lifecycle,
+expires after one hour, rate-limits repeated requests, and ends every earlier
+session when the password changes.
 
 Each external source is bound to this Braino workspace, its credential is encrypted with
 `DOCO_ENCRYPTION_KEY`, and its read-only records land in a private collection
