@@ -575,13 +575,14 @@ describe("the supported self-hosted stack", () => {
       readFileSync(resolve(root, "compose.conformance.yml"), "utf8"),
     ) as {
       services: Record<string, { profiles?: string[] }> & {
-        "model-fixture": {
+        ollama: {
           image: string;
           profiles: string[];
           entrypoint: string[];
           healthcheck: { test: string[] };
-          networks: { private: { aliases: string[] } };
         };
+        "ollama-model": { image: string; profiles: string[]; command: string[] };
+        "ollama-chat-model": { image: string; profiles: string[]; command: string[] };
       };
     };
     const workflow = readFileSync(resolve(root, ".github/workflows/release.yml"), "utf8");
@@ -608,15 +609,16 @@ describe("the supported self-hosted stack", () => {
     }
     expect(script).toContain("docker compose");
     expect(script).toContain("COMPOSE_FILE=compose.yml:compose.conformance.yml");
-    const modelFixture = conformanceCompose.services["model-fixture"];
+    const modelFixture = conformanceCompose.services.ollama;
     expect(modelFixture.image).toBe("${DOCO_IMAGE}");
     expect(modelFixture.profiles).toEqual(["conformance"]);
     expect(modelFixture.entrypoint).toEqual(["node", "--input-type=module"]);
     expect(modelFixture.healthcheck.test.join(" ")).toContain("/api/tags");
-    expect(modelFixture.networks.private.aliases).toContain("ollama");
-    expect(conformanceCompose.services.ollama?.profiles).toEqual(["local-models"]);
-    expect(conformanceCompose.services["ollama-model"]?.profiles).toEqual(["local-models"]);
-    expect(conformanceCompose.services["ollama-chat-model"]?.profiles).toEqual(["local-models"]);
+    for (const bootstrap of ["ollama-model", "ollama-chat-model"] as const) {
+      expect(conformanceCompose.services[bootstrap].image).toBe("${DOCO_IMAGE}");
+      expect(conformanceCompose.services[bootstrap].profiles).toEqual(["conformance"]);
+      expect(conformanceCompose.services[bootstrap].command).toEqual(["-e", "process.exit(0)"]);
+    }
     expect(script).toContain("http://codelinker:8080/healthz");
     expect(script).toContain("http://plugin-host:8080/healthz");
     expect(script).toContain("doco_records");
