@@ -29,6 +29,10 @@ services:
     depends_on:
       codelinker:
         condition: service_healthy
+      ollama-chat-model:
+        condition: service_completed_successfully
+      ollama-model:
+        condition: service_completed_successfully
       plugin-host:
         condition: service_healthy
       postgres:

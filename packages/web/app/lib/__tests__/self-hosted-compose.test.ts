@@ -110,6 +110,8 @@ describe("the supported self-hosted stack", () => {
     expect(compose.services.app?.depends_on).toEqual(
       expect.objectContaining({
         codelinker: expect.any(Object),
+        "ollama-chat-model": { condition: "service_completed_successfully" },
+        "ollama-model": { condition: "service_completed_successfully" },
         "plugin-host": expect.any(Object),
         postgres: expect.any(Object),
         qdrant: expect.any(Object),
