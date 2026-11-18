@@ -1,20 +1,10 @@
 services:
   # A normal deployment starts Ollama and pulls both models. The conformance
-  # proof substitutes its tiny deterministic fixture instead.
+  # proof keeps those same three service names and dependency edges, while
+  # substituting a tiny deterministic server and instant bootstrap jobs.
   ollama:
-    profiles: ["local-models"]
-  ollama-model:
-    profiles: ["local-models"]
-  ollama-chat-model:
-    profiles: ["local-models"]
-
-  # The release proof exercises both bundled Ollama plugins without downloading
-  # multi-gigabyte models or depending on a third-party provider. This service
-  # speaks only the three Ollama endpoints the proof needs.
-  model-fixture:
     image: ${DOCO_IMAGE}
     profiles: ["conformance"]
-    restart: "no"
     entrypoint: ["node", "--input-type=module"]
     command:
       - -e
@@ -65,7 +55,14 @@ services:
       interval: 2s
       timeout: 2s
       retries: 10
-    networks:
-      private:
-        aliases: ["ollama"]
+  ollama-model:
+    image: ${DOCO_IMAGE}
+    profiles: ["conformance"]
+    entrypoint: ["node", "--input-type=module"]
+    command: ["-e", "process.exit(0)"]
+  ollama-chat-model:
+    image: ${DOCO_IMAGE}
+    profiles: ["conformance"]
+    entrypoint: ["node", "--input-type=module"]
+    command: ["-e", "process.exit(0)"]
 
