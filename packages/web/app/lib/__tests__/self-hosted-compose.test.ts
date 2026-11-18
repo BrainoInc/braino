@@ -103,10 +103,13 @@ describe("the supported self-hosted stack", () => {
     expect(compose.services.scheduler?.depends_on).toEqual({
       app: { condition: "service_healthy" },
     });
-    // The image's healthcheck asks the web server, which the scheduler doesn't
-    // run: inherited, it marks the scheduler unhealthy and fails
-    // `docker compose up --wait`, as it failed every release since #53.
-    expect(compose.services.scheduler?.healthcheck).toEqual({ disable: true });
+    expect(compose.services.scheduler?.healthcheck).toEqual({
+      test: ["CMD", "node", "-e", "process.kill(1, 0)"],
+      interval: "15s",
+      timeout: "5s",
+      start_period: "5s",
+      retries: 4,
+    });
     expect(compose.services.app?.depends_on).toEqual(
       expect.objectContaining({
         codelinker: expect.any(Object),
