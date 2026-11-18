@@ -184,11 +184,13 @@ describe("the supported self-hosted stack", () => {
     expect(dockerfile).toContain("plugins/ollama-chat");
     expect(dockerfile).toContain("plugins/openai-embedding");
     expect(dockerfile).toContain("plugins/openai-chat");
+    expect(dockerfile).toContain("plugins/resend");
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_embedding.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_ollama_chat.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_openai_embedding.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_openai_chat.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_slack.wasm");
+    expect(runtimeStage).toContain("/app/plugins/braino_resend.wasm");
     expect(runtimeStage).toContain("ARG DOCO_VERSION");
     expect(runtimeStage).toContain("ENV DOCO_VERSION=$DOCO_VERSION");
     expect(dockerfile).toContain("USER node");
@@ -273,6 +275,27 @@ describe("the supported self-hosted stack", () => {
     expect(workflow).toContain("plugins/slack/Cargo.toml");
   });
 
+  it("bundles the Resend email plugin with only its scoped API permission", () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/resend/manifest.json"), "utf8"),
+    ) as {
+      capabilities: Record<string, number>;
+      permissions: { network: string[] };
+      configurationSchema: { required: string[] };
+      secretSchema: { required: string[] };
+    };
+    const source = readFileSync(resolve(root, "plugins/resend/src/lib.rs"), "utf8");
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+
+    expect(manifest.capabilities).toEqual({ "email.send": 1 });
+    expect(manifest.permissions.network).toEqual(["api.resend.com"]);
+    expect(manifest.configurationSchema.required).toEqual(["sender"]);
+    expect(manifest.secretSchema.required).toEqual(["api_key"]);
+    expect(source).toContain("https://api.resend.com/emails");
+    expect(source).toContain('"authorization"');
+    expect(workflow).toContain("plugins/resend/Cargo.toml");
+  });
+
   it("runs installed embedding plugins through the durable retrieval scheduler", () => {
     const scheduler = readFileSync(resolve(root, "runtime/scheduler.mjs"), "utf8");
 
@@ -330,6 +353,7 @@ describe("the supported self-hosted stack", () => {
       "/plugins/ollama-chat",
       "/plugins/openai-embedding",
       "/plugins/openai-chat",
+      "/plugins/resend",
     ]) {
       expect(dependabot.updates).toContainEqual(
         expect.objectContaining({ "package-ecosystem": "cargo", directory }),

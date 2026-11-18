@@ -10,6 +10,7 @@ export default [
   route("times/:day", "routes/times.$day.tsx"),
   route("collaborators", "routes/collaborators.tsx"),
   route("integrations", "routes/integrations.tsx"),
+  route("integrations/email", "routes/integrations.email.tsx"),
   route("integrations/slack-app", "routes/integrations.slack-app.tsx"),
   route("integrations/slack-app/callback", "routes/integrations.slack-app.callback.ts"),
   route("integrations/github-app", "routes/integrations.github-app.tsx"),

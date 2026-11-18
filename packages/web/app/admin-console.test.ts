@@ -44,6 +44,7 @@ describe("open Braino administration", () => {
   it("changes models through the setup screens, with no model form of its own", () => {
     expect(routes).toContain('route("admin/models", "routes/admin.models._index.tsx")');
     expect(routes).toContain('route("admin/models/:model", "routes/admin.models.$model.tsx")');
+    expect(routes).toContain('route("integrations/email", "routes/integrations.email.tsx")');
     expect(routes).toContain(
       'route("admin/models/:model/:pluginId", "routes/admin.models.$model.$pluginId.tsx")',
     );

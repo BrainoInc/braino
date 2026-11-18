@@ -137,6 +137,15 @@ both sides of every invocation, and resolves exactly one enabled provider for
 each capability. Adding another provider therefore requires a conforming plugin,
 not a provider branch in Braino.
 
+Email providers follow the same rule. Open **Admin → Integrations → Email
+provider** to install the bundled Resend plugin with a verified sender and a
+workspace-owned API key. Connecting explicitly sends one test message and only
+then enables the plugin. Braino calls the versioned `email.send` contract;
+recipients, subject, and text or HTML content cross that boundary, while the
+sender, Resend request format, and credential remain owned by the plugin. Only
+one email provider is enabled per workspace, so a future Postmark or SMTP plugin
+can replace Resend without changing application code.
+
 Each external source is bound to this Braino workspace, its credential is encrypted with
 `DOCO_ENCRYPTION_KEY`, and its read-only records land in a private collection
 with ordinary search, history, and audit behavior. For Slack, create a bot

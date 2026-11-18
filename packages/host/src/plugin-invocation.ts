@@ -1,5 +1,8 @@
 import type { PoolClient } from "@doco/db";
 import {
+  EMAIL_CAPABILITY_CONTRACT_VERSIONS,
+  type EmailCapabilityInput,
+  type EmailCapabilityName,
   MODEL_CAPABILITY_CONTRACT_VERSIONS,
   type ModelCapabilityInput,
   type ModelCapabilityName,
@@ -9,6 +12,8 @@ import {
   TEAM_CHAT_CAPABILITY_CONTRACT_VERSIONS,
   type TeamChatCapabilityInput,
   type TeamChatCapabilityName,
+  parseEmailCapabilityInput,
+  parseEmailCapabilityOutput,
   parseModelCapabilityInput,
   parseModelCapabilityOutput,
   parsePluginManifest,
@@ -91,12 +96,17 @@ function modelCapability(value: PluginCapabilityName): value is ModelCapabilityN
   return Object.hasOwn(MODEL_CAPABILITY_CONTRACT_VERSIONS, value);
 }
 
+function emailCapability(value: PluginCapabilityName): value is EmailCapabilityName {
+  return Object.hasOwn(EMAIL_CAPABILITY_CONTRACT_VERSIONS, value);
+}
+
 function teamChatCapability(value: PluginCapabilityName): value is TeamChatCapabilityName {
   return Object.hasOwn(TEAM_CHAT_CAPABILITY_CONTRACT_VERSIONS, value);
 }
 
 function contractInput(capability: PluginCapabilityName, input: unknown): unknown {
   try {
+    if (emailCapability(capability)) return parseEmailCapabilityInput(capability, input);
     if (modelCapability(capability)) return parseModelCapabilityInput(capability, input);
     if (teamChatCapability(capability)) return parseTeamChatCapabilityInput(capability, input);
     return input;
@@ -114,6 +124,13 @@ function contractOutput(
   input: unknown,
 ): unknown {
   try {
+    if (emailCapability(capability)) {
+      return parseEmailCapabilityOutput(
+        capability,
+        output,
+        input as EmailCapabilityInput<typeof capability>,
+      );
+    }
     if (modelCapability(capability)) {
       return parseModelCapabilityOutput(
         capability,

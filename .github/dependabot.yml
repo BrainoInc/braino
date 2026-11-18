@@ -66,3 +66,11 @@ updates:
     groups:
       slack-plugin-rust:
         patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /plugins/resend
+    schedule:
+      interval: weekly
+    groups:
+      resend-plugin-rust:
+        patterns: ["*"]
