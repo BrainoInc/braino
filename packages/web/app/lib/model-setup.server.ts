@@ -5,6 +5,7 @@ import {
   getWorkspaceRole,
   listPluginInstallations,
   listPluginSecretNames,
+  pluginHostConnectionFromEnv,
 } from "@doco/host";
 import type { PluginHostConnection } from "@doco/host";
 import { pluginProvidesCapability } from "@doco/plugin-runtime";
@@ -88,17 +89,5 @@ export function pluginSecretsKey(): string | null {
 
 /** The private WASI runner used for every workspace-scoped plugin invocation. */
 export function pluginHostConnection(): PluginHostConnection | null {
-  const url = process.env.BRAINO_PLUGIN_HOST_URL?.trim();
-  const apiToken = process.env.BRAINO_PLUGIN_HOST_API_TOKEN?.trim();
-  const executionTimeoutMs = Number(process.env.BRAINO_PLUGIN_MAX_EXECUTION_MS ?? "60000");
-  if (
-    !url ||
-    !apiToken ||
-    apiToken.length < 32 ||
-    !Number.isSafeInteger(executionTimeoutMs) ||
-    executionTimeoutMs <= 0
-  ) {
-    return null;
-  }
-  return { url, apiToken, timeoutMs: executionTimeoutMs + 5_000 };
+  return pluginHostConnectionFromEnv(process.env);
 }

@@ -43,6 +43,24 @@ export interface PluginHostConnection {
   timeoutMs: number;
 }
 
+export function pluginHostConnectionFromEnv(
+  env: Readonly<Record<string, string | undefined>>,
+): PluginHostConnection | null {
+  const url = env.BRAINO_PLUGIN_HOST_URL?.trim();
+  const apiToken = env.BRAINO_PLUGIN_HOST_API_TOKEN?.trim();
+  const executionTimeoutMs = Number(env.BRAINO_PLUGIN_MAX_EXECUTION_MS ?? "60000");
+  if (
+    !url ||
+    !apiToken ||
+    apiToken.length < 32 ||
+    !Number.isSafeInteger(executionTimeoutMs) ||
+    executionTimeoutMs <= 0
+  ) {
+    return null;
+  }
+  return { url, apiToken, timeoutMs: executionTimeoutMs + 5_000 };
+}
+
 export class PluginInvocationError extends Error {
   constructor(
     message: string,

@@ -2,6 +2,7 @@ import { withClient } from "@doco/db";
 import {
   answerWorkspaceQuestion,
   getSingleWorkspaceState,
+  pluginHostConnectionFromEnv,
   processNextTeamChatEvent,
   publishDueTimesEdition,
   resolveWorkspaceChatProvider,
@@ -53,6 +54,12 @@ function required(name) {
   return value;
 }
 
+function pluginHostConnection() {
+  const connection = pluginHostConnectionFromEnv(process.env);
+  if (!connection) throw new Error("The plugin host is not configured.");
+  return connection;
+}
+
 function qdrantStore() {
   const url = process.env.QDRANT_URL?.trim();
   if (!url) return null;
@@ -78,10 +85,7 @@ async function indexRetrieval() {
       const provider = await resolveWorkspaceEmbeddingProvider(client, {
         workspaceId: state.workspace.id,
         encryptionKey: required("DOCO_ENCRYPTION_KEY"),
-        host: {
-          url: required("BRAINO_PLUGIN_HOST_URL"),
-          apiToken: required("BRAINO_PLUGIN_HOST_API_TOKEN"),
-        },
+        host: pluginHostConnection(),
       });
       if (!provider) return null;
 
@@ -125,10 +129,7 @@ async function drainTeamChat() {
       const connection = {
         workspaceId: state.workspace.id,
         encryptionKey: required("DOCO_ENCRYPTION_KEY"),
-        host: {
-          url: required("BRAINO_PLUGIN_HOST_URL"),
-          apiToken: required("BRAINO_PLUGIN_HOST_API_TOKEN"),
-        },
+        host: pluginHostConnection(),
       };
       const [chat, teamChat] = await Promise.all([
         resolveWorkspaceChatProvider(client, connection),

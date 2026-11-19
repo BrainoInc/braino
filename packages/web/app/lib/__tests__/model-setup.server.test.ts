@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getWorkspaceRole: vi.fn(),
   listPluginInstallations: vi.fn(),
   listPluginSecretNames: vi.fn(),
+  pluginHostConnectionFromEnv: vi.fn(),
 }));
 
 vi.mock("@doco/db", () => ({
@@ -19,6 +20,7 @@ vi.mock("@doco/host", () => ({
   getWorkspaceRole: mocks.getWorkspaceRole,
   listPluginInstallations: mocks.listPluginInstallations,
   listPluginSecretNames: mocks.listPluginSecretNames,
+  pluginHostConnectionFromEnv: mocks.pluginHostConnectionFromEnv,
 }));
 vi.mock("~/lib/bundled-model-plugins.server", () => ({
   bundledModelPluginCatalog: mocks.bundledModelPluginCatalog,
@@ -126,18 +128,15 @@ describe("the state every model setup screen starts from", () => {
   });
 
   it("uses the deployment's private plugin host only with a usable token", () => {
-    vi.stubEnv("BRAINO_PLUGIN_HOST_URL", "http://plugin-host:8080");
-    vi.stubEnv("BRAINO_PLUGIN_MAX_EXECUTION_MS", "60000");
-    vi.stubEnv("BRAINO_PLUGIN_HOST_API_TOKEN", "short");
+    mocks.pluginHostConnectionFromEnv.mockReturnValue(null);
     expect(pluginHostConnection()).toBeNull();
-    vi.stubEnv(
-      "BRAINO_PLUGIN_HOST_API_TOKEN",
-      "test-plugin-host-token-with-more-than-thirty-two-characters",
-    );
-    expect(pluginHostConnection()).toEqual({
+    const connection = {
       url: "http://plugin-host:8080",
       apiToken: "test-plugin-host-token-with-more-than-thirty-two-characters",
       timeoutMs: 65_000,
-    });
+    };
+    mocks.pluginHostConnectionFromEnv.mockReturnValue(connection);
+    expect(pluginHostConnection()).toEqual(connection);
+    expect(mocks.pluginHostConnectionFromEnv).toHaveBeenLastCalledWith(process.env);
   });
 });
