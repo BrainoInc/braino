@@ -8,6 +8,7 @@ export default [
   route("admin/models/:model/:pluginId", "routes/admin.models.$model.$pluginId.tsx"),
   route("times", "routes/times._index.tsx"),
   route("times/:day", "routes/times.$day.tsx"),
+  route("senor-braino", "routes/senor-braino.tsx"),
   route("collaborators", "routes/collaborators.tsx"),
   route("forgot-password", "routes/forgot-password.tsx"),
   route("join/:token", "routes/join.$token.tsx"),
