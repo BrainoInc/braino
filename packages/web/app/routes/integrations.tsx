@@ -1,4 +1,4 @@
-import { connectorPlugin, slackGatewayCredential } from "@doco/connector-plugins";
+import { connectorPlugin } from "@doco/connector-plugins";
 import { withClient } from "@doco/db";
 import {
   type ConnectorConnectionSummary,
@@ -10,13 +10,11 @@ import {
   listGithubConnections,
   listIncomingWebhooks,
   listPluginInstallations,
-  resolveWorkspaceSlackGatewayCredential,
   revokeIncomingWebhook,
   syncConnectorConnection,
 } from "@doco/host";
 import { msg } from "@doco/shared/i18n";
 import { useT } from "@doco/shared/i18n/react";
-import type { ReactNode } from "react";
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
@@ -106,19 +104,10 @@ export async function action({ request }: { request: Request }): Promise<ActionD
   if (intent === "connect_slack") {
     try {
       const plugin = connectorPlugin("slack");
-      const gateway = await withClient((client) =>
-        resolveWorkspaceSlackGatewayCredential(client, {
-          workspaceId: state.workspace.id,
-          encryptionKey: encryptionKey(),
-        }),
-      );
-      if (!gateway) {
-        throw new Error(t("Connect the Slack app before enabling channel import."));
-      }
       const connected = await connectConnector(withClient, {
         workspaceId: state.workspace.id,
         userId: user.id,
-        credential: slackGatewayCredential(gateway),
+        credential: text(form, "bot_token"),
         encryptionKey: encryptionKey(),
         adapter: plugin.adapter,
       });
@@ -355,23 +344,28 @@ function GoogleDriveConnectionForm({ reconnect = false }: { reconnect?: boolean 
   );
 }
 
-function SlackConnectionForm({
-  appConnected,
-  reconnect = false,
-}: {
-  appConnected: boolean;
-  reconnect?: boolean;
-}) {
+function SlackConnectionForm({ reconnect = false }: { reconnect?: boolean }) {
   const t = useT();
   const navigation = useNavigation();
   const connecting =
     navigation.state !== "idle" && navigation.formData?.get("intent") === "connect_slack";
-  return appConnected ? (
+  return (
     <Form method="post" className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="intent" value="connect_slack" />
+      <label className="text-xs sm:col-span-2">
+        <span className="mb-1 block text-muted-foreground">{t("Slack bot token")}</span>
+        <input
+          name="bot_token"
+          type="password"
+          required
+          autoComplete="new-password"
+          placeholder={"xoxb-…"}
+          className="w-full rounded-md px-3 py-2 font-mono text-sm"
+        />
+      </label>
       <p className="text-xs text-muted-foreground sm:col-span-2">
         {t(
-          "Use the connected Slack app to copy public, non-shared channels. Slack credentials remain in the Braino plugin gateway; this deployment stores only its revocable scoped credential.",
+          "Use a bot token with channels:read, channels:history, and users:read. Braino copies public, non-shared channels only and encrypts the token with this deployment's encryption key.",
         )}
       </p>
       <div className="sm:col-span-2 sm:text-end">
@@ -384,29 +378,17 @@ function SlackConnectionForm({
         </button>
       </div>
     </Form>
-  ) : (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
-        {t("Connect the Slack app once, then enable channel import without copying a bot token.")}
-      </p>
-      <Link
-        to="/integrations/slack-app"
-        className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-      >
-        {t("Connect Slack app")}
-      </Link>
-    </div>
   );
 }
 
 function ConnectorConnection({
   connection,
   collectionLabel,
-  reconnectForm,
+  reconnect,
 }: {
   connection: ConnectorConnectionSummary;
   collectionLabel: string;
-  reconnectForm: ReactNode;
+  reconnect: "slack" | "notion" | "google_drive";
 }) {
   const t = useT();
   return (
@@ -460,7 +442,15 @@ function ConnectorConnection({
       >
         {collectionLabel}
       </Link>
-      {!connection.active ? reconnectForm : null}
+      {!connection.active ? (
+        reconnect === "slack" ? (
+          <SlackConnectionForm reconnect />
+        ) : reconnect === "notion" ? (
+          <NotionConnectionForm reconnect />
+        ) : (
+          <GoogleDriveConnectionForm reconnect />
+        )
+      ) : null}
     </div>
   );
 }
@@ -579,12 +569,10 @@ export default function IntegrationsPage() {
             <ConnectorConnection
               connection={slackConnection}
               collectionLabel={t("Slack messages")}
-              reconnectForm={
-                <SlackConnectionForm appConnected={data.slackAppConnected} reconnect />
-              }
+              reconnect="slack"
             />
           ) : (
-            <SlackConnectionForm appConnected={data.slackAppConnected} />
+            <SlackConnectionForm />
           )}
         </CardContent>
       </Card>
@@ -603,7 +591,7 @@ export default function IntegrationsPage() {
             <ConnectorConnection
               connection={notionConnection}
               collectionLabel={t("Notion pages")}
-              reconnectForm={<NotionConnectionForm reconnect />}
+              reconnect="notion"
             />
           ) : (
             <NotionConnectionForm />
@@ -625,7 +613,7 @@ export default function IntegrationsPage() {
             <ConnectorConnection
               connection={googleDriveConnection}
               collectionLabel={t("Google Drive files")}
-              reconnectForm={<GoogleDriveConnectionForm reconnect />}
+              reconnect="google_drive"
             />
           ) : (
             <GoogleDriveConnectionForm />

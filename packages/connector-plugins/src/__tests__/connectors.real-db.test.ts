@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import {
   type ConnectorAdapter,
   connectConnector,
@@ -9,9 +8,9 @@ import {
 } from "@doco/host";
 import type { PGlite } from "@electric-sql/pglite";
 import type { PoolClient } from "pg";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
-import { slackConnector, slackGatewayCredential } from "../slack.js";
+import { slackConnector } from "../slack.js";
 
 let db: PGlite;
 
@@ -148,42 +147,6 @@ function fakeSlack(state: SlackState): typeof fetch {
 }
 
 describe("self-hosted connectors", () => {
-  it("reads Slack through a scoped gateway credential without receiving the bot token", async () => {
-    const body = JSON.stringify({ action: "request", method: "auth.test", body: {} });
-    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      expect(String(input)).toBe(
-        "https://plugins.braino.dev/v1/installations/installation_meta/slack",
-      );
-      expect(init?.method).toBe("POST");
-      expect(init?.body).toBe(body);
-      expect(new Headers(init?.headers).get("authorization")).toBeNull();
-      expect(new Headers(init?.headers).get("x-braino-gateway-signature")).toBe(
-        `v0=${createHmac("sha256", "scoped-meta-secret").update(body).digest("hex")}`,
-      );
-      return Response.json({
-        ok: true,
-        team_id: "T_META",
-        team: "Meta",
-        url: "https://meta.slack.com/",
-      });
-    }) as typeof fetch;
-
-    await expect(
-      slackConnector.verify({
-        credential: slackGatewayCredential({
-          gatewayUrl: "https://plugins.braino.dev",
-          installationId: "installation_meta",
-          gatewaySecret: "scoped-meta-secret",
-        }),
-        fetcher,
-      }),
-    ).resolves.toEqual({
-      id: "T_META",
-      name: "Meta",
-      config: { team_url: "https://meta.slack.com/" },
-    });
-  });
-
   it("binds one Slack workspace, seals its token, and syncs public messages idempotently", async () => {
     const setup = await fixture();
     const state: SlackState = { edited: false, includeAnnouncement: true };

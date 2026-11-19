@@ -46,7 +46,7 @@ export const CONNECTOR_PLUGINS = {
   slack: defineConnectorPlugin({
     id: "braino.slack",
     name: "Slack",
-    network: ["slack.com", "plugins.braino.dev"],
+    network: ["slack.com"],
     adapter: slackConnector,
   }),
   notion: defineConnectorPlugin({
@@ -70,4 +70,3 @@ export function connectorPlugin(provider: string): ConnectorPlugin {
 }
 
 export { googleDriveConnector, notionConnector, slackConnector };
-export { slackGatewayCredential, type SlackGatewayCredential } from "./slack.js";
