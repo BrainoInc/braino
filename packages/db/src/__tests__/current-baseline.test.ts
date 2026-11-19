@@ -48,6 +48,7 @@ describe("current database baseline", () => {
       "018_plugin_event_deliveries.sql",
       "019_github_gateway_plugin.sql",
       "020_account_links.sql",
+      "021_workspace_chat_conversations.sql",
     ]);
     expect(schemaSql).not.toMatch(/\bapplied_migrations\b/);
     expect(schemaSql).not.toMatch(/\bschema_applied\b/);
