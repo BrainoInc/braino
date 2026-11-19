@@ -75,7 +75,7 @@ describe("workspace chat plugin", () => {
     const provider = await resolveWorkspaceChatProvider(client(), {
       workspaceId: setup.workspace.id,
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher,
     });
 
@@ -111,7 +111,7 @@ describe("workspace chat plugin", () => {
       resolveWorkspaceChatProvider(client(), {
         workspaceId: setup.workspace.id,
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       }),
     ).resolves.toBeNull();
   });
@@ -121,7 +121,7 @@ describe("workspace chat plugin", () => {
     const provider = await resolveWorkspaceChatProvider(client(), {
       workspaceId: setup.workspace.id,
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher: vi.fn(async () =>
         Response.json({
           outputJson: JSON.stringify({

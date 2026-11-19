@@ -90,7 +90,7 @@ describe("workspace GitHub gateway plugin", () => {
       },
       secrets: { gateway_secret: "scoped-secret" },
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher,
     });
 
@@ -137,7 +137,7 @@ describe("workspace GitHub gateway plugin", () => {
       },
       secrets: { gateway_secret: "scoped-secret" },
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher: vi.fn(async () =>
         Response.json({
           outputJson: JSON.stringify({ data: { repositories: [] }, next: null }),
@@ -147,7 +147,7 @@ describe("workspace GitHub gateway plugin", () => {
     const provider = await resolveWorkspaceGithubPlugin(client(), {
       workspaceId: setup.workspace.id,
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher,
     });
 

@@ -63,7 +63,7 @@ describe("workspace email plugin", () => {
       configuration: { sender: "Braino <hello@example.com>" },
       secrets: { api_key: "re_workspace" },
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       verificationRecipient: "owner@example.com",
       fetcher,
     });
@@ -72,7 +72,7 @@ describe("workspace email plugin", () => {
     const plugin = await resolveWorkspaceEmailPlugin(client(), {
       workspaceId: setup.workspace.id,
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher,
     });
     await expect(
@@ -108,7 +108,7 @@ describe("workspace email plugin", () => {
       configuration: { sender: "Braino <hello@example.com>" },
       secrets: { api_key: "re_workspace" },
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       verificationRecipient: "owner@example.com",
       fetcher,
     });
@@ -139,7 +139,7 @@ describe("workspace email plugin", () => {
       resolveWorkspaceEmailPlugin(client(), {
         workspaceId: setup.workspace.id,
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       }),
     ).rejects.toMatchObject({ code: "email_plugin_ambiguous", status: 409 });
   });

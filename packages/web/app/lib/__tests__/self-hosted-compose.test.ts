@@ -120,6 +120,9 @@ describe("the supported self-hosted stack", () => {
         qdrant: expect.any(Object),
       }),
     );
+    expect(compose.services.app?.environment).toMatchObject({
+      BRAINO_PLUGIN_MAX_EXECUTION_MS: "${BRAINO_PLUGIN_MAX_EXECUTION_MS:-60000}",
+    });
     expect(compose.services.codelinker?.build).toEqual(
       expect.objectContaining({ dockerfile: "services/codelinker/Dockerfile" }),
     );

@@ -88,7 +88,7 @@ describe("workspace team-chat plugin", () => {
         configuration: {},
         secrets: { bot_token: "xoxb", signing_secret: "secret" },
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
         connectionInput: { installer: { email: "owner@example.com" } },
         fetcher,
       }),
@@ -109,7 +109,7 @@ describe("workspace team-chat plugin", () => {
         configuration: {},
         secrets: {},
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
         connectionInput: {},
         fetcher: invalidFetcher,
       }),
@@ -160,7 +160,7 @@ describe("workspace team-chat plugin", () => {
     const plugin = await resolveWorkspaceTeamChatPlugin(client(), {
       workspaceId: setup.workspace.id,
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher,
     });
 
@@ -198,7 +198,7 @@ describe("workspace team-chat plugin", () => {
     const plugin = await resolveWorkspaceTeamChatPlugin(client(), {
       workspaceId: setup.workspace.id,
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher: vi.fn(async () =>
         Response.json({ outputJson: JSON.stringify({ externalId: "" }) }),
       ) as typeof fetch,
@@ -216,7 +216,7 @@ describe("workspace team-chat plugin", () => {
       resolveWorkspaceTeamChatPlugin(client(), {
         workspaceId: setup.workspace.id,
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       }),
     ).resolves.toBeNull();
 
@@ -231,7 +231,7 @@ describe("workspace team-chat plugin", () => {
       resolveWorkspaceTeamChatPlugin(client(), {
         workspaceId: setup.workspace.id,
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       }),
     ).rejects.toMatchObject({ code: "team_chat_plugin_ambiguous", status: 409 });
   });

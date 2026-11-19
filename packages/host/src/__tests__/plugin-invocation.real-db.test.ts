@@ -85,7 +85,7 @@ describe("workspace-authorized plugin invocation", () => {
         capability: "email.send",
         input: emailInput,
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
         fetcher,
       }),
     ).resolves.toEqual({ externalId: "message-1" });
@@ -125,7 +125,7 @@ describe("workspace-authorized plugin invocation", () => {
         capability: "email.send",
         input: emailInput,
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
         fetcher,
       }),
     ).rejects.toMatchObject({ code: "installation_unavailable", status: 404 });
@@ -145,7 +145,7 @@ describe("workspace-authorized plugin invocation", () => {
         capability: "source.pull",
         input: emailInput,
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
         fetcher,
       }),
     ).rejects.toMatchObject({ code: "capability_not_approved", status: 403 });
@@ -162,7 +162,7 @@ describe("workspace-authorized plugin invocation", () => {
         capability: "email.send",
         input: emailInput,
         encryptionKey,
-        host: { url: "http://plugin-host:8080", apiToken },
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
         fetcher,
       }),
     ).rejects.toMatchObject({ code: "installation_unavailable", status: 404 });
@@ -189,7 +189,7 @@ describe("workspace-authorized plugin invocation", () => {
       capability: "email.send",
       input: emailInput,
       encryptionKey,
-      host: { url: "http://plugin-host:8080", apiToken },
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
       fetcher,
     });
     await expect(result).rejects.toMatchObject({
