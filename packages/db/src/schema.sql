@@ -1828,6 +1828,9 @@ CREATE INDEX IF NOT EXISTS idx_chat_conversations_user_active
 -- second. Partial (collection_id IS NOT NULL) so collection-less threads stay exempt.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_conversations_user_collection
   ON chat_conversations (user_id, collection_id) WHERE collection_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_conversations_user_workspace
+  ON chat_conversations (user_id, workspace_id)
+  WHERE workspace_id IS NOT NULL AND collection_id IS NULL;
 
 CREATE TABLE IF NOT EXISTS chat_messages (
   id               text PRIMARY KEY,

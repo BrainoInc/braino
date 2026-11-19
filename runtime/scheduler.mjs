@@ -1,6 +1,6 @@
 import { withClient } from "@doco/db";
 import {
-  answerTeamChatQuestion,
+  answerWorkspaceQuestion,
   getSingleWorkspaceState,
   processNextTeamChatEvent,
   publishDueTimesEdition,
@@ -139,7 +139,7 @@ async function drainTeamChat() {
       for (let count = 0; count < 10; count++) {
         const result = await processNextTeamChatEvent(client, {
           answer: ({ workspaceId, userId, question }) =>
-            answerTeamChatQuestion(client, {
+            answerWorkspaceQuestion(client, {
               workspaceId,
               userId,
               question,

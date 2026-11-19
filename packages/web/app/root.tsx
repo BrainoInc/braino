@@ -11,6 +11,7 @@ import {
   Link,
   Links,
   Meta,
+  NavLink,
   Outlet,
   Scripts,
   ScrollRestoration,
@@ -102,6 +103,8 @@ export default function App() {
 
 function SiteHeader({ data }: { data: RootData }) {
   const t = useT();
+  const navClass = ({ isActive }: { isActive: boolean }) =>
+    `neu-button ${isActive ? "neu-pressed " : ""}rounded-md px-2.5 py-1.5 font-semibold`;
   return (
     <header className="h-14 border-b border-border bg-card">
       <div className="flex h-full w-full items-center gap-6 px-6">
@@ -141,21 +144,21 @@ function SiteHeader({ data }: { data: RootData }) {
           {data.user ? (
             <>
               {data.isOwner ? (
-                <Link to="/admin" className="neu-button rounded-md px-2.5 py-1.5 font-semibold">
+                <NavLink to="/admin" className={navClass}>
                   {t("Admin")}
-                </Link>
+                </NavLink>
               ) : null}
               {data.modelsReady ? (
                 <>
-                  <Link to="/times" className="neu-button rounded-md px-2.5 py-1.5 font-semibold">
+                  <NavLink to="/senor-braino" className={navClass}>
+                    {t("Señor Braino")}
+                  </NavLink>
+                  <NavLink to="/times" className={navClass}>
                     {t("Times")}
-                  </Link>
-                  <Link
-                    to="/"
-                    className="neu-button neu-pressed rounded-md px-2.5 py-1.5 font-semibold"
-                  >
+                  </NavLink>
+                  <NavLink to="/" end className={navClass}>
                     {t("Workspace")}
-                  </Link>
+                  </NavLink>
                 </>
               ) : null}
               <span className="font-mono text-muted-foreground">@{data.user.username}</span>

@@ -4,7 +4,11 @@ import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
-import { answerTeamChatQuestion } from "../team-chat-agent.js";
+import {
+  answerWorkspaceQuestion,
+  listWorkspaceChatMessages,
+  sendWorkspaceChatMessage,
+} from "../workspace-agent.js";
 
 let db: PGlite;
 
@@ -36,7 +40,7 @@ async function fixture() {
   return setup;
 }
 
-describe("Señor Braino team-chat answer", () => {
+describe("Señor Braino workspace answer", () => {
   it("answers through the assigned chat contract using workspace-grounded links", async () => {
     const setup = await fixture();
     const complete = vi.fn(async () => ({
@@ -46,7 +50,7 @@ describe("Señor Braino team-chat answer", () => {
     const chat: ChatCompleteCapability = { complete };
 
     await expect(
-      answerTeamChatQuestion(client(), {
+      answerWorkspaceQuestion(client(), {
         workspaceId: setup.workspace.id,
         userId: setup.owner.id,
         question: "<@U-BOT> where did we move the model checks?",
@@ -74,7 +78,7 @@ describe("Señor Braino team-chat answer", () => {
     const complete = vi.fn();
 
     await expect(
-      answerTeamChatQuestion(client(), {
+      answerWorkspaceQuestion(client(), {
         workspaceId: setup.workspace.id,
         userId: setup.owner.id,
         question: "What is the launch code for Mars?",
@@ -83,5 +87,52 @@ describe("Señor Braino team-chat answer", () => {
       }),
     ).resolves.toBe("I couldn't find that in this Braino workspace.");
     expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("keeps one in-app conversation per person and replays its history", async () => {
+    const setup = await fixture();
+    const complete = vi
+      .fn()
+      .mockResolvedValueOnce({ content: "The checks moved into setup.", model: "test:model" })
+      .mockResolvedValueOnce({ content: "Before the dashboard opens.", model: "test:model" });
+    const chat: ChatCompleteCapability = { complete };
+
+    await sendWorkspaceChatMessage(client(), {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      question: "Where did model checks move?",
+      baseUrl: "https://braino.example",
+      chat,
+    });
+    await sendWorkspaceChatMessage(client(), {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      question: "When do they run?",
+      baseUrl: "https://braino.example",
+      chat,
+    });
+
+    const messages = await listWorkspaceChatMessages(client(), {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+    });
+    expect(messages.map(({ role, text }) => ({ role, text }))).toEqual([
+      { role: "user", text: "Where did model checks move?" },
+      { role: "assistant", text: "The checks moved into setup." },
+      { role: "user", text: "When do they run?" },
+      { role: "assistant", text: "Before the dashboard opens." },
+    ]);
+    expect(
+      await db.query(
+        "SELECT count(*)::int AS count FROM chat_conversations WHERE user_id = $1 AND workspace_id = $2",
+        [setup.owner.id, setup.workspace.id],
+      ),
+    ).toMatchObject({ rows: [{ count: 1 }] });
+    expect(complete.mock.calls[1]?.[0].messages).toEqual(
+      expect.arrayContaining([
+        { role: "user", content: "Where did model checks move?" },
+        { role: "assistant", content: "The checks moved into setup." },
+      ]),
+    );
   });
 });

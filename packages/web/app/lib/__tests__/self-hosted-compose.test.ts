@@ -310,7 +310,7 @@ describe("the supported self-hosted stack", () => {
     const scheduler = readFileSync(resolve(root, "runtime/scheduler.mjs"), "utf8");
 
     expect(scheduler).toContain("processNextTeamChatEvent");
-    expect(scheduler).toContain("answerTeamChatQuestion");
+    expect(scheduler).toContain("answerWorkspaceQuestion");
     expect(scheduler).toContain("resolveWorkspaceTeamChatPlugin");
     expect(scheduler).toContain("resolveWorkspaceChatProvider");
     expect(scheduler).toContain("BRAINO_TEAM_CHAT_POLL_MS");
