@@ -15,67 +15,12 @@ import {
   installPluginInTransaction,
 } from "./plugin-installations.js";
 import { type PluginHostConnection, invokePlugin } from "./plugin-invocation.js";
-import { openSecret } from "./secret-box.js";
 
 type Fetcher = typeof fetch;
 
 interface TeamChatInstallationRow {
   id: string;
   plugin_id: string;
-}
-
-export interface WorkspaceSlackGatewayCredential {
-  gatewayUrl: string;
-  installationId: string;
-  gatewaySecret: string;
-}
-
-/** Open the scoped gateway binding shared by Slack chat and the built-in importer. */
-export async function resolveWorkspaceSlackGatewayCredential(
-  client: PoolClient,
-  input: { workspaceId: string; encryptionKey: string },
-): Promise<WorkspaceSlackGatewayCredential | null> {
-  const found = await client.query<{
-    configuration: unknown;
-    gateway_secret_sealed: string | null;
-  }>(
-    `SELECT i.configuration,
-            (SELECT s.value_sealed
-               FROM plugin_installation_secrets s
-              WHERE s.installation_id = i.id AND s.name = 'gateway_secret')
-              AS gateway_secret_sealed
-       FROM plugin_installations i
-      WHERE i.workspace_id = $1 AND i.enabled
-        AND i.manifest->>'id' = 'braino.slack'`,
-    [input.workspaceId],
-  );
-  const row = found.rows[0];
-  if (!row) return null;
-  const configuration = row.configuration;
-  if (!configuration || typeof configuration !== "object" || Array.isArray(configuration)) {
-    throw new PluginInstallationError(
-      "The Slack gateway connection is incomplete.",
-      "slack_gateway_incomplete",
-      409,
-    );
-  }
-  const values = configuration as Record<string, unknown>;
-  if (
-    typeof values.gateway_url !== "string" ||
-    typeof values.installation_id !== "string" ||
-    !row.gateway_secret_sealed
-  ) {
-    throw new PluginInstallationError(
-      "The Slack gateway connection is incomplete.",
-      "slack_gateway_incomplete",
-      409,
-    );
-  }
-  return {
-    gatewayUrl: values.gateway_url,
-    installationId: values.installation_id,
-    gatewaySecret: openSecret(row.gateway_secret_sealed, input.encryptionKey),
-  };
 }
 
 /** The provider-neutral team-chat boundary used by Señor Braino. */

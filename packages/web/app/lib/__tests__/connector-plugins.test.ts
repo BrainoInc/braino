@@ -26,10 +26,7 @@ describe("connector plugin boundary", () => {
   });
 
   it("declares connector egress instead of granting unrestricted networking", () => {
-    expect(connectorPlugin("slack").manifest.permissions.network).toEqual([
-      "slack.com",
-      "plugins.braino.dev",
-    ]);
+    expect(connectorPlugin("slack").manifest.permissions.network).toEqual(["slack.com"]);
     expect(connectorPlugin("notion").manifest.permissions.network).toEqual(["api.notion.com"]);
     expect(connectorPlugin("google_drive").manifest.permissions.network).toEqual([
       "www.googleapis.com",

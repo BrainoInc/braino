@@ -4,14 +4,11 @@ const mocks = vi.hoisted(() => ({
   connectConnector: vi.fn(),
   getCurrentUser: vi.fn(),
   getSingleWorkspaceState: vi.fn(),
-  resolveWorkspaceSlackGatewayCredential: vi.fn(),
-  slackGatewayCredential: vi.fn(),
   syncConnectorConnection: vi.fn(),
 }));
 
 vi.mock("@doco/connector-plugins", () => ({
   connectorPlugin: () => ({ adapter: { provider: "slack" }, label: "Slack" }),
-  slackGatewayCredential: mocks.slackGatewayCredential,
 }));
 vi.mock("@doco/db", () => ({
   withClient: (operation: (client: object) => unknown) => operation({}),
@@ -25,7 +22,6 @@ vi.mock("@doco/host", () => ({
   listGithubConnections: vi.fn(),
   listIncomingWebhooks: vi.fn(),
   listPluginInstallations: vi.fn(),
-  resolveWorkspaceSlackGatewayCredential: mocks.resolveWorkspaceSlackGatewayCredential,
   revokeIncomingWebhook: vi.fn(),
   syncConnectorConnection: mocks.syncConnectorConnection,
 }));
@@ -45,12 +41,6 @@ beforeEach(() => {
     initialized: true,
     workspace: { id: "workspace_meta", handle: "meta", name: "Meta" },
   });
-  mocks.resolveWorkspaceSlackGatewayCredential.mockResolvedValue({
-    gatewayUrl: "https://plugins.braino.dev",
-    installationId: "installation_meta",
-    gatewaySecret: "scoped-meta-secret",
-  });
-  mocks.slackGatewayCredential.mockReturnValue("serialized-scoped-gateway-credential");
   mocks.connectConnector.mockResolvedValue({
     id: "connector_slack",
     sourceName: "Meta Slack",
@@ -59,27 +49,21 @@ beforeEach(() => {
 });
 
 describe("built-in connector setup", () => {
-  it("enables Slack import from the existing gateway binding without accepting a bot token", async () => {
+  it("encrypts the Slack import token in this Braino instance without using the chat gateway", async () => {
     await action({
       request: new Request("https://meta.braino.dev/integrations", {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ intent: "connect_slack", bot_token: "xoxb-must-be-ignored" }),
+        body: new URLSearchParams({ intent: "connect_slack", bot_token: "xoxb-meta-import" }),
       }),
     });
 
-    expect(mocks.slackGatewayCredential).toHaveBeenCalledWith({
-      gatewayUrl: "https://plugins.braino.dev",
-      installationId: "installation_meta",
-      gatewaySecret: "scoped-meta-secret",
-    });
     expect(mocks.connectConnector).toHaveBeenCalledWith(expect.any(Function), {
       workspaceId: "workspace_meta",
       userId: "user_owner",
-      credential: "serialized-scoped-gateway-credential",
+      credential: "xoxb-meta-import",
       encryptionKey: "integration-key-with-more-than-thirty-two-characters",
       adapter: { provider: "slack" },
     });
-    expect(JSON.stringify(mocks.connectConnector.mock.calls)).not.toContain("xoxb-must-be-ignored");
   });
 });

@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import {
   type ConnectorDocument,
   ConnectorError,
@@ -8,68 +7,6 @@ import {
 } from "@doco/plugin-runtime";
 
 const API = "https://slack.com/api";
-const GATEWAY_CREDENTIAL_PREFIX = "braino:slack-gateway:v1:";
-
-export interface SlackGatewayCredential {
-  gatewayUrl: string;
-  installationId: string;
-  gatewaySecret: string;
-}
-
-function validatedGatewayCredential(input: SlackGatewayCredential): SlackGatewayCredential {
-  const url = new URL(input.gatewayUrl);
-  if (
-    url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
-    url.pathname !== "/"
-  ) {
-    throw new ConnectorError(
-      "The Slack gateway URL must be an HTTPS origin.",
-      "credential_invalid",
-    );
-  }
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(input.installationId) || !input.gatewaySecret.trim()) {
-    throw new ConnectorError("The Slack gateway credential is invalid.", "credential_invalid");
-  }
-  return {
-    gatewayUrl: url.origin,
-    installationId: input.installationId,
-    gatewaySecret: input.gatewaySecret,
-  };
-}
-
-/** Serialize the installation-scoped credential that may safely live in Open Braino. */
-export function slackGatewayCredential(input: SlackGatewayCredential): string {
-  return `${GATEWAY_CREDENTIAL_PREFIX}${JSON.stringify(validatedGatewayCredential(input))}`;
-}
-
-function parseGatewayCredential(credential: string): SlackGatewayCredential | null {
-  if (!credential.startsWith(GATEWAY_CREDENTIAL_PREFIX)) return null;
-  try {
-    const value = JSON.parse(credential.slice(GATEWAY_CREDENTIAL_PREFIX.length)) as Record<
-      string,
-      unknown
-    >;
-    if (
-      typeof value.gatewayUrl !== "string" ||
-      typeof value.installationId !== "string" ||
-      typeof value.gatewaySecret !== "string"
-    ) {
-      throw new Error("incomplete");
-    }
-    return validatedGatewayCredential({
-      gatewayUrl: value.gatewayUrl,
-      installationId: value.installationId,
-      gatewaySecret: value.gatewaySecret,
-    });
-  } catch (error) {
-    if (error instanceof ConnectorError) throw error;
-    throw new ConnectorError("The Slack gateway credential is invalid.", "credential_invalid");
-  }
-}
 
 interface SlackResponse {
   ok?: boolean;
@@ -85,6 +22,7 @@ interface SlackChannel {
   is_archived?: boolean;
   is_shared?: boolean;
   is_ext_shared?: boolean;
+  is_member?: boolean;
 }
 
 interface SlackUser {
@@ -110,30 +48,11 @@ async function slackJson<T extends SlackResponse>(
   credential: string,
   params: Record<string, string> = {},
 ): Promise<T> {
-  const gateway = parseGatewayCredential(credential);
-  let response: Response;
-  if (gateway) {
-    const body = JSON.stringify({ action: "request", method, body: params });
-    response = await fetcher(
-      `${gateway.gatewayUrl}/v1/installations/${gateway.installationId}/slack`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-braino-gateway-signature": `v0=${createHmac("sha256", gateway.gatewaySecret)
-            .update(body)
-            .digest("hex")}`,
-        },
-        body,
-      },
-    );
-  } else {
-    const url = new URL(`${API}/${method}`);
-    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-    response = await fetcher(url, {
-      headers: { Authorization: `Bearer ${credential}`, "User-Agent": "doco-self-hosted" },
-    });
-  }
+  const url = new URL(`${API}/${method}`);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  const response = await fetcher(url, {
+    headers: { Authorization: `Bearer ${credential}`, "User-Agent": "doco-self-hosted" },
+  });
   if (!response.ok) {
     throw new ConnectorError(
       `Slack returned HTTP ${response.status}.`,
@@ -304,7 +223,8 @@ async function* documents(input: {
       channel.is_private ||
       channel.is_archived ||
       channel.is_shared ||
-      channel.is_ext_shared
+      channel.is_ext_shared ||
+      channel.is_member !== true
     ) {
       continue;
     }
