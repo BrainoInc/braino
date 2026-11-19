@@ -6,6 +6,7 @@ import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
 import { installPlugin } from "../plugin-installations.js";
 import {
   connectWorkspaceTeamChatPlugin,
+  resolveWorkspaceSlackGatewayCredential,
   resolveWorkspaceTeamChatPlugin,
 } from "../plugin-team-chat.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
@@ -59,6 +60,61 @@ async function fixture() {
 }
 
 describe("workspace team-chat plugin", () => {
+  it("opens only the scoped gateway credential for the built-in Slack importer", async () => {
+    const setup = await initializeSingleWorkspace(client(), {
+      workspaceHandle: "gateway",
+      workspaceName: "Gateway",
+      ownerEmail: "gateway@example.com",
+      ownerUsername: "gateway-owner",
+      ownerName: "Gateway Owner",
+      ownerPasswordHash: "scrypt$salt$key",
+    });
+    const gatewayManifest: PluginManifest = {
+      ...manifest,
+      configurationSchema: {
+        type: "object",
+        properties: {
+          gateway_url: { type: "string" },
+          installation_id: { type: "string" },
+        },
+        required: ["gateway_url", "installation_id"],
+        additionalProperties: false,
+      },
+      secretSchema: {
+        type: "object",
+        properties: { gateway_secret: { type: "string" } },
+        required: ["gateway_secret"],
+        additionalProperties: false,
+      },
+    };
+    await installPlugin(client(), {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      manifest: gatewayManifest,
+      component: new TextEncoder().encode("gateway slack component"),
+      configuration: {
+        gateway_url: "https://plugins.braino.dev",
+        installation_id: "installation_meta",
+      },
+      secrets: { gateway_secret: "scoped-meta-secret" },
+      encryptionKey,
+    });
+
+    await expect(
+      resolveWorkspaceSlackGatewayCredential(client(), {
+        workspaceId: setup.workspace.id,
+        encryptionKey,
+      }),
+    ).resolves.toEqual({
+      gatewayUrl: "https://plugins.braino.dev",
+      installationId: "installation_meta",
+      gatewaySecret: "scoped-meta-secret",
+    });
+    expect(
+      JSON.stringify(await db.query("SELECT configuration FROM plugin_installations")),
+    ).not.toContain("scoped-meta-secret");
+  });
+
   it("commits an installation only after live verification and keeps one provider enabled", async () => {
     const setup = await initializeSingleWorkspace(client(), {
       workspaceHandle: "verified",
