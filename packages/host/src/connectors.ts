@@ -324,17 +324,45 @@ export async function connectConnector(
       const workspaceHandle = workspace.rows[0]?.handle;
       if (!workspaceHandle)
         throw new ConnectorError("Workspace not found.", "workspace_not_found", 404);
-      const collection = await createCollectionInWorkspace(
-        {
-          workspaceId: input.workspaceId,
-          requestedHandle: `${workspaceHandle}-${provider}`,
-          createdByUserId: input.userId,
-          visibility: "private",
-          templateHandle: "documents",
-          goal: `Read-only knowledge synchronized from ${source.name} through the ${provider} connector.`,
-        },
-        client,
+      const collectionHandle = `${workspaceHandle}-${provider}`;
+      const canonical = await client.query<{
+        id: string;
+        workspace_id: string;
+        template_handle: string | null;
+      }>(
+        `SELECT id, workspace_id, data->>'template_handle' AS template_handle
+           FROM collections
+          WHERE handle = $1 AND deleted_at IS NULL`,
+        [collectionHandle],
       );
+      const existingCollection = canonical.rows[0];
+      let collectionId: string;
+      if (existingCollection) {
+        if (
+          existingCollection.workspace_id !== input.workspaceId ||
+          existingCollection.template_handle !== input.adapter.collectionTemplate
+        ) {
+          throw new ConnectorError(
+            `Collection handle "${collectionHandle}" is already taken.`,
+            "collection_conflict",
+            409,
+          );
+        }
+        collectionId = existingCollection.id;
+      } else {
+        const collection = await createCollectionInWorkspace(
+          {
+            workspaceId: input.workspaceId,
+            requestedHandle: collectionHandle,
+            createdByUserId: input.userId,
+            visibility: "private",
+            templateHandle: input.adapter.collectionTemplate,
+            goal: `Read-only knowledge synchronized from ${source.name} through the ${provider} connector.`,
+          },
+          client,
+        );
+        collectionId = collection.collectionId;
+      }
       const id = `connector_${generateUlid()}`;
       await client.query(
         `INSERT INTO connector_connections
@@ -348,7 +376,7 @@ export async function connectConnector(
           source.id,
           source.name,
           sealed,
-          collection.collectionId,
+          collectionId,
           input.userId,
           JSON.stringify(source.config ?? {}),
         ],
@@ -360,7 +388,7 @@ export async function connectConnector(
               'connector_provider', $3::text
             )
           WHERE id = $1`,
-        [collection.collectionId, id, input.adapter.provider],
+        [collectionId, id, input.adapter.provider],
       );
       await client.query("COMMIT");
       return connectionSummary(client, id);

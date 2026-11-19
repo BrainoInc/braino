@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import {
   type ConnectorAdapter,
   connectConnector,
+  createCollectionInWorkspace,
   initializeSingleWorkspace,
   listConnectorConnections,
   syncConnectorConnection,
@@ -273,6 +274,47 @@ describe("self-hosted connectors", () => {
     expect(retired.rows).toEqual([{ lifecycle: "retired" }]);
   });
 
+  it("reuses the workspace's canonical provider collection", async () => {
+    const setup = await fixture();
+    const collection = await createCollectionInWorkspace(
+      {
+        workspaceId: setup.workspace.id,
+        requestedHandle: "acme-slack",
+        createdByUserId: setup.owner.id,
+        visibility: "private",
+        templateHandle: "slack",
+      },
+      client(),
+    );
+
+    const connection = await connectConnector(scope, {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      credential: accessToken,
+      encryptionKey,
+      adapter: slackConnector,
+      fetcher: fakeSlack({ edited: false, includeAnnouncement: true }),
+    });
+
+    expect(connection.collectionHandle).toBe("acme-slack");
+    const collections = await db.query<{
+      id: string;
+      connector_id: string | null;
+      template_handle: string | null;
+    }>(
+      `SELECT id, data->>'connector_id' AS connector_id,
+              data->>'template_handle' AS template_handle
+         FROM collections WHERE handle = 'acme-slack'`,
+    );
+    expect(collections.rows).toEqual([
+      {
+        id: collection.collectionId,
+        connector_id: connection.id,
+        template_handle: "slack",
+      },
+    ]);
+  });
+
   it("rejects binding the same Slack source to a second workspace", async () => {
     const setup = await fixture();
     await connectConnector(scope, {
@@ -310,6 +352,7 @@ describe("self-hosted connectors", () => {
     let verified = false;
     const adapter = {
       provider: "../unsafe",
+      collectionTemplate: "documents",
       verify: async () => {
         verified = true;
         return { id: "unsafe", name: "Unsafe" };
@@ -370,6 +413,7 @@ describe("self-hosted connectors", () => {
     };
     const adapter = {
       provider: "slack",
+      collectionTemplate: "slack",
       verify: async () => {
         expect(activeScopes).toBe(0);
         return { id: "T_LARGE", name: "Large source" };

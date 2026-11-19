@@ -341,6 +341,7 @@ async function* documents(input: {
 
 export const slackConnector: SourcePullCapability = {
   provider: "slack",
+  collectionTemplate: "slack",
   verify,
   documents,
 };
