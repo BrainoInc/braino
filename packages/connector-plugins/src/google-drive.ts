@@ -353,6 +353,7 @@ async function* documents(input: {
 
 export const googleDriveConnector: SourcePullCapability = {
   provider: "google_drive",
+  collectionTemplate: "google-drive",
   verify,
   documents,
 };

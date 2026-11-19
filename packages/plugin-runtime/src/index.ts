@@ -50,6 +50,7 @@ export interface ConnectorDocument {
 
 export interface SourcePullCapability {
   provider: string;
+  collectionTemplate: string;
   verify(input: { credential: string; fetcher: ConnectorFetcher }): Promise<ConnectorSource>;
   documents(input: {
     credential: string;

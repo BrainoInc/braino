@@ -12,6 +12,7 @@ import {
 
 const sourcePull: SourcePullCapability = {
   provider: "slack",
+  collectionTemplate: "slack",
   async verify() {
     return { id: "T_ACME", name: "Acme" };
   },

@@ -381,6 +381,7 @@ async function* documents(input: {
 
 export const notionConnector: SourcePullCapability = {
   provider: "notion",
+  collectionTemplate: "notion",
   verify,
   documents,
 };
