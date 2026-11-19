@@ -84,6 +84,16 @@ function fakeSlack(state: SlackState): typeof fetch {
             is_private: false,
             is_archived: false,
             is_shared: false,
+            is_member: true,
+          },
+          {
+            id: "C_RANDOM",
+            name: "random",
+            is_channel: true,
+            is_private: false,
+            is_archived: false,
+            is_shared: false,
+            is_member: false,
           },
           {
             id: "C_PRIVATE",
@@ -98,6 +108,7 @@ function fakeSlack(state: SlackState): typeof fetch {
       });
     }
     if (url.pathname.endsWith("/conversations.history")) {
+      expect(url.searchParams.get("channel")).toBe("C_GENERAL");
       return Response.json({
         ok: true,
         messages: [

@@ -22,6 +22,7 @@ interface SlackChannel {
   is_archived?: boolean;
   is_shared?: boolean;
   is_ext_shared?: boolean;
+  is_member?: boolean;
 }
 
 interface SlackUser {
@@ -222,7 +223,8 @@ async function* documents(input: {
       channel.is_private ||
       channel.is_archived ||
       channel.is_shared ||
-      channel.is_ext_shared
+      channel.is_ext_shared ||
+      channel.is_member !== true
     ) {
       continue;
     }
