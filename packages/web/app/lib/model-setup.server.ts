@@ -90,5 +90,15 @@ export function pluginSecretsKey(): string | null {
 export function pluginHostConnection(): PluginHostConnection | null {
   const url = process.env.BRAINO_PLUGIN_HOST_URL?.trim();
   const apiToken = process.env.BRAINO_PLUGIN_HOST_API_TOKEN?.trim();
-  return url && apiToken && apiToken.length >= 32 ? { url, apiToken } : null;
+  const executionTimeoutMs = Number(process.env.BRAINO_PLUGIN_MAX_EXECUTION_MS ?? "60000");
+  if (
+    !url ||
+    !apiToken ||
+    apiToken.length < 32 ||
+    !Number.isSafeInteger(executionTimeoutMs) ||
+    executionTimeoutMs <= 0
+  ) {
+    return null;
+  }
+  return { url, apiToken, timeoutMs: executionTimeoutMs + 5_000 };
 }

@@ -25,8 +25,6 @@ import { PluginInstallationError } from "./plugin-installations.js";
 import { openSecret } from "./secret-box.js";
 
 const MAX_HOST_RESPONSE_BYTES = 9 * 1024 * 1024;
-const HOST_TIMEOUT_MS = 35_000;
-
 type Fetcher = typeof fetch;
 
 interface InvocationRow {
@@ -42,6 +40,7 @@ interface InvocationRow {
 export interface PluginHostConnection {
   url: string;
   apiToken: string;
+  timeoutMs: number;
 }
 
 export class PluginInvocationError extends Error {
@@ -264,7 +263,7 @@ export async function invokePlugin(
         secrets,
         networkHosts: manifest.permissions.network,
       }),
-      signal: AbortSignal.timeout(HOST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(input.host.timeoutMs),
     });
   } catch (error) {
     if (error instanceof PluginInvocationError) throw error;

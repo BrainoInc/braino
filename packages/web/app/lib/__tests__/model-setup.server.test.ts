@@ -127,6 +127,7 @@ describe("the state every model setup screen starts from", () => {
 
   it("uses the deployment's private plugin host only with a usable token", () => {
     vi.stubEnv("BRAINO_PLUGIN_HOST_URL", "http://plugin-host:8080");
+    vi.stubEnv("BRAINO_PLUGIN_MAX_EXECUTION_MS", "60000");
     vi.stubEnv("BRAINO_PLUGIN_HOST_API_TOKEN", "short");
     expect(pluginHostConnection()).toBeNull();
     vi.stubEnv(
@@ -136,6 +137,7 @@ describe("the state every model setup screen starts from", () => {
     expect(pluginHostConnection()).toEqual({
       url: "http://plugin-host:8080",
       apiToken: "test-plugin-host-token-with-more-than-thirty-two-characters",
+      timeoutMs: 65_000,
     });
   });
 });
