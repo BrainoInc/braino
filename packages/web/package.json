@@ -22,6 +22,7 @@
     "@doco/shared": "workspace:*",
     "@react-router/express": "7.18.5",
     "@react-router/node": "7.18.5",
+    "country-flag-icons": "1.6.20",
     "express": "4.22.3",
     "lucide-react": "0.469.0",
     "pg": "^8.13.1",

@@ -9,6 +9,7 @@ const home = readFileSync(resolve(app, "routes/_index.tsx"), "utf8");
 const card = readFileSync(resolve(app, "components/card.tsx"), "utf8");
 const mark = readFileSync(resolve(app, "components/braino-mark.tsx"), "utf8");
 const siteHeader = readFileSync(resolve(app, "components/site-header.tsx"), "utf8");
+const languageMenu = readFileSync(resolve(app, "components/language-menu.tsx"), "utf8");
 
 describe("Braino's design language", () => {
   it("uses the same typography and one-clay color tokens as Braino", () => {
@@ -34,7 +35,12 @@ describe("Braino's design language", () => {
     expect(siteHeader).toContain("h-14 border-b border-border bg-card");
     expect(mark).toContain("braino-mark-glyph-motion");
     expect(mark).toContain("braino-mark-spark-lg");
+    expect(mark).toContain('className="fill-primary"');
+    expect(mark).not.toContain('fill="#9945A1"');
     expect(mark).not.toContain("<img");
+    expect(languageMenu).toContain('from "country-flag-icons/react/3x2"');
+    expect(languageMenu).toContain("<Flag locale={t.locale}");
+    expect(languageMenu).not.toContain("<Languages");
     expect(home).toContain("<NarrowPageMain");
     expect(home).toContain("<PageMain");
     expect(home).toContain("<Card");

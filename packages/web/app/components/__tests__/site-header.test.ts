@@ -45,7 +45,9 @@ describe("SiteHeader", () => {
     expect(markup).toMatch(/<a[^>]*href="\/collaborators"[^>]*>Collaborators<\/a>/);
     expect(markup).toMatch(/<a[^>]*href="\/mcp-tokens"[^>]*>Tokens\/MCP<\/a>/);
     expect(markup).toMatch(/<a[^>]*href="\/admin"[^>]*>Admin<\/a>/);
-    expect(markup).toContain("Alice Rojas");
+    expect(markup).toMatch(
+      /<a[^>]*class="[^"]*neu-button[^"]*max-w-48 truncate[^"]*"[^>]*href="\/collaborators"[^>]*>Alice Rojas<\/a>/,
+    );
     expect(markup).not.toContain("@alice");
     expect(markup).toContain(">Sign out</button>");
     expect(markup).not.toContain("Sign out everywhere");
