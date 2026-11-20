@@ -6,6 +6,7 @@ const app = resolve(import.meta.dirname);
 const css = readFileSync(resolve(app, "app.css"), "utf8");
 const root = readFileSync(resolve(app, "root.tsx"), "utf8");
 const home = readFileSync(resolve(app, "routes/_index.tsx"), "utf8");
+const card = readFileSync(resolve(app, "components/card.tsx"), "utf8");
 const mark = readFileSync(resolve(app, "components/braino-mark.tsx"), "utf8");
 
 describe("Braino's design language", () => {
@@ -33,8 +34,9 @@ describe("Braino's design language", () => {
     expect(mark).not.toContain("<img");
     expect(home).toContain("<NarrowPageMain");
     expect(home).toContain("<PageMain");
+    expect(home).toContain("<Card");
     expect(home).toContain("neu-button");
-    expect(home).toContain("neu-surface");
+    expect(card).toContain("neu-surface");
     expect(home).not.toContain('className="panel"');
     expect(home).not.toContain('className="card"');
   });
