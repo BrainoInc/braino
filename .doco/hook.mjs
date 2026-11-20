@@ -782,6 +782,55 @@ function freshInCache(path) {
   }
 }
 
+const OPEN_BRAINO_INSTRUCTIONS =
+  "Use Braino for this project. Brief yourself before acting, obey the brief's Must obey section, cite the records that govern the work, and capture what the workspace constitution requires before stopping.";
+
+/**
+ * Open Braino deliberately exposes one authenticated contract over MCP instead
+ * of duplicating it as hook-only HTTP routes. Translate the old hook URLs into
+ * that contract so the same client script works against hosted and self-hosted
+ * Braino instances.
+ */
+async function fetchMcpBrief(url, config, token, signal) {
+  if (!token) return null;
+  const parsed = new URL(url);
+  const isBrief = parsed.pathname === "/api/v1/brief.json";
+  const isStandingOrders = parsed.pathname === "/api/v1/standing-orders.json";
+  if (!isBrief && !isStandingOrders) return null;
+  const touching = parsed.searchParams.getAll("touching").filter(Boolean);
+  const about =
+    parsed.searchParams.get("about") ||
+    (isStandingOrders
+      ? `Start this agent session in ${config.workspace ?? "Braino"}. Return the binding rules, current work, and relevant background.`
+      : touching.length > 0
+        ? "Review the named files before changing them."
+        : "Brief this agent before it acts.");
+  const res = await fetch(`${config.origin}/mcp`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "braino-hook",
+      method: "tools/call",
+      params: { name: "doco_brief", arguments: { about, ...(touching.length ? { touching } : {}) } },
+    }),
+    signal,
+  });
+  if (res.status === 401) return { refused: true };
+  if (!res.ok) return null;
+  const message = await res.json();
+  if (message?.result?.isError) return null;
+  const result = message?.result;
+  const text = result?.content?.find?.((item) => item?.type === "text")?.text?.trim?.() || "";
+  if (!text) return null;
+  const briefId = result?.structuredContent?.brief_id ?? result?.structuredContent?.id;
+  return { text: briefId && !STAMP_LINE.test(text) ? `${text}\n\nDoco-Brief: ${briefId}` : text };
+}
+
 /** GET a text, with the token when one is given. */
 async function fetchText(url, config, token) {
   const controller = new AbortController();
@@ -789,12 +838,17 @@ async function fetchText(url, config, token) {
   try {
     const res = await fetch(url, {
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), Accept: "text/plain" },
+      redirect: "manual",
       signal: controller.signal,
     });
     if (res.status === 401) return { refused: true };
-    if (!res.ok) return null;
-    const text = (await res.text()).trim();
-    return text ? { text } : null;
+    if (res.ok) {
+      const text = (await res.text()).trim();
+      if (text) return { text };
+    }
+    const parsed = new URL(url);
+    if (parsed.pathname === INSTRUCTIONS_PATH) return { text: OPEN_BRAINO_INSTRUCTIONS };
+    return await fetchMcpBrief(url, config, token, controller.signal);
   } finally {
     clearTimeout(timer);
   }
