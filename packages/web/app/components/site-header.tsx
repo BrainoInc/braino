@@ -86,9 +86,13 @@ function NavButtons({
           {t("Admin")}
         </NavLink>
       ) : null}
-      <span className="max-w-48 truncate whitespace-nowrap font-semibold text-muted-foreground">
+      <NavLink
+        to="/collaborators"
+        className={cn(navButtonClass, "max-w-48 truncate")}
+        onClick={onNavigate}
+      >
         {user.name}
-      </span>
+      </NavLink>
       <Form method="post" action="/" className="contents">
         <input type="hidden" name="intent" value="signout" />
         <button type="submit" className={navButtonClass}>
