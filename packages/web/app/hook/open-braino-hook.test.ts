@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 // The hook is a dependency-free script shared by every supported agent client.
 // @ts-expect-error JavaScript entrypoints intentionally ship without declarations.
@@ -7,6 +10,7 @@ describe("Open Braino hook transport", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("falls back to the instance MCP brief when hosted HTTP hook routes are absent", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "open-braino-hook-"));
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     vi.stubGlobal(
       "fetch",
@@ -31,7 +35,7 @@ describe("Open Braino hook transport", () => {
       JSON.stringify({
         hook_event_name: "UserPromptSubmit",
         session_id: "meta-hook-test",
-        cwd: process.cwd(),
+        cwd,
         prompt: "Reconfigure the project hook",
       }),
       {
@@ -40,7 +44,7 @@ describe("Open Braino hook transport", () => {
         DOCO_TOKEN: "doco_at_meta",
         DOCO_WORKSPACE: "meta-braino",
       },
-      process.cwd(),
+      cwd,
     );
 
     expect(JSON.parse(output ?? "null")).toMatchObject({
@@ -58,5 +62,6 @@ describe("Open Braino hook transport", () => {
         arguments: { about: "Reconfigure the project hook" },
       },
     });
+    rmSync(cwd, { recursive: true, force: true });
   });
 });
