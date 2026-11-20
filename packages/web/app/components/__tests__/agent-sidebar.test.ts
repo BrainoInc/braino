@@ -8,9 +8,7 @@ import { AgentSidebar } from "../agent-sidebar";
 const appCss = readFileSync(new URL("../../app.css", import.meta.url), "utf8");
 
 function render(): string {
-  return renderToStaticMarkup(
-    createElement(MemoryRouter, null, createElement(AgentSidebar)),
-  );
+  return renderToStaticMarkup(createElement(MemoryRouter, null, createElement(AgentSidebar)));
 }
 
 describe("AgentSidebar", () => {
