@@ -186,3 +186,14 @@ describe("model plugin readiness gate", () => {
     expect(source).not.toContain("assignWorkspaceModelPlugin");
   });
 });
+
+describe("workspace homepage", () => {
+  it("uses the hosted Braino Orbit experience instead of the legacy collection directory", () => {
+    const source = readFileSync(new URL("./_index.tsx", import.meta.url), "utf8");
+    const home = source.slice(source.indexOf("function WorkspaceHome"));
+
+    expect(home).toContain("<Orbit");
+    expect(home).toContain("range={data.range}");
+    expect(home).not.toContain("Collections in this workspace");
+  });
+});

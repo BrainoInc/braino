@@ -10,10 +10,12 @@ import {
 import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
-import { CollectionTypeIcon } from "~/components/collection-type-icon";
+import { Orbit } from "~/components/orbit";
 import { PageHeader } from "~/components/page-header";
 import { NarrowPageMain, PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { type OrbitActivity, type OrbitLinks, type OrbitRange, orbitRange } from "~/lib/orbit";
+import { loadOrbitActivity, loadOrbitLinks, sizeCollections } from "~/lib/orbit.server";
 import { hashPassword, passwordError, verifyPassword } from "~/lib/password.server";
 import {
   MAX_FORM_BODY_BYTES,
@@ -29,10 +31,9 @@ import { metaTranslator, requestTranslator } from "~/locales/catalog";
 interface DashboardCollection {
   id: string;
   handle: string;
-  goal: string;
-  template_handle: string;
+  template: string | null;
+  visibility: "public" | "private";
   items: number;
-  last_updated_at: string | null;
 }
 
 interface WorkspaceView {
@@ -50,6 +51,9 @@ type LoaderData =
       workspace: WorkspaceView;
       user: { id: string; email: string; username: string; name: string };
       collections: DashboardCollection[];
+      range: OrbitRange;
+      links: Promise<OrbitLinks>;
+      activity: Promise<OrbitActivity>;
     };
 
 export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
@@ -73,6 +77,7 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
   );
   // Nothing in the workspace works without its two models, so setup comes first.
   if (!modelPlugins.ready) throw redirect("/admin/models");
+  const range = orbitRange(new URL(request.url).searchParams.get("range"));
   return withClient(async (client) => {
     const workspaceResult = await client.query<WorkspaceView>(
       "SELECT id, handle, name, constitution FROM workspaces WHERE id = $1",
@@ -80,20 +85,27 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
     );
     const workspace = workspaceResult.rows[0];
     if (!workspace) throw new Error("The Braino workspace is missing.");
-    const result = await client.query<DashboardCollection>(
-      `SELECT c.id, c.handle, c.goal,
-              coalesce(c.data->>'template_handle', '') AS template_handle,
-              count(n.id)::int AS items,
-              max(n.updated_at)::text AS last_updated_at
-         FROM collections c
-         JOIN workspace_users wu ON wu.workspace_id = c.workspace_id
-         LEFT JOIN nodes n ON n.collection_id = c.id
-        WHERE c.workspace_id = $1 AND wu.user_id = $2 AND c.deleted_at IS NULL
-        GROUP BY c.id, c.handle, c.goal, c.data
-        ORDER BY c.handle`,
+    const member = await client.query<{ present: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM workspace_users WHERE workspace_id = $1 AND user_id = $2
+       ) AS present`,
       [workspace.id, user.id],
     );
-    return { screen: "dashboard", workspace, user, collections: result.rows };
+    if (!member.rows[0]?.present) throw new Response("Workspace access required.", { status: 403 });
+    const collections = await sizeCollections(client, workspace.id);
+    const [links, activity] = await Promise.all([
+      loadOrbitLinks(client, collections),
+      loadOrbitActivity(client, { collections, workspaceId: workspace.id, range }),
+    ]);
+    return {
+      screen: "dashboard",
+      workspace,
+      user,
+      collections,
+      range,
+      links: Promise.resolve(links),
+      activity: Promise.resolve(activity),
+    };
   });
 }
 
@@ -384,115 +396,101 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
           </Breadcrumb>
         }
         title={data.workspace.handle}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-mono text-xs text-muted-foreground">{data.workspace.id}</p>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/mcp-tokens"
-              className="neu-button rounded-md px-3 py-1.5 text-xs font-semibold"
-            >
-              {"MCP"}
+        actions={
+          <>
+            <Link to="/integrations" className={workspaceActionClass}>
+              {t("Connections")}
             </Link>
-            <Link
-              to="/collaborators"
-              className="neu-button rounded-md px-3 py-1.5 text-xs font-semibold"
-            >
+            <Link to="/admin" className={workspaceActionClass}>
+              {t("Settings")}
+            </Link>
+            <Link to="/integrations" className={workspaceActionClass}>
+              {t("App integrations")}
+            </Link>
+            <Link to="/collaborators" className={workspaceActionClass}>
               {t("Collaborators")}
             </Link>
-          </div>
-        </div>
+            <Link to="/mcp-tokens" className={workspaceActionClass}>
+              {t("Tokens/MCP")}
+            </Link>
+          </>
+        }
+      >
+        <p className="font-mono text-xs text-muted-foreground">{data.workspace.id}</p>
       </PageHeader>
 
-      <Card>
-        <CardContent className="space-y-3 pt-4">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {data.collections.map((collection) => (
-              <Link
-                to={`/${collection.handle}`}
-                title={collection.handle}
-                aria-label={collection.handle}
-                className="neu-button neu-small flex h-7 w-7 items-center justify-center rounded-md"
-                key={collection.id}
-              >
-                <CollectionTypeIcon template={collection.template_handle} />
-              </Link>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {t("{count, plural, one {# collection} other {# collections}}", {
-              count: data.collections.length,
-            })}{" "}
-            · {t("Signed in as {name}", { name: data.user.name })}
-          </p>
-        </CardContent>
-      </Card>
-
-      <section className="neu-surface rounded-lg bg-card px-4 py-3">
-        <h2 className="text-sm font-semibold">{t("Collections in this workspace")}</h2>
-        <ul className="mt-3 space-y-1.5">
-          {data.collections.map((collection) => (
-            <li className="flex min-w-0 items-baseline gap-2" key={collection.id}>
-              <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
-              <Link
-                to={`/${collection.handle}`}
-                className="min-w-0 truncate text-sm font-semibold text-primary hover:underline"
-              >
-                {collection.handle}
-              </Link>
-              <span className="text-[11px] text-muted-foreground">
-                {t("({count, plural, one {# record} other {# records}})", {
-                  count: collection.items,
-                })}
-              </span>
-              <span className="ms-auto hidden text-[11px] text-muted-foreground sm:block">
-                {collection.last_updated_at ? t("has activity") : t("no activity yet")}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <section>
+        <Orbit
+          workspace={data.workspace}
+          collections={data.collections.map(({ id: _id, ...collection }) => collection)}
+          links={data.links}
+          activity={data.activity}
+          range={data.range}
+        />
       </section>
 
-      <Card>
-        <CardContent className="px-6 py-7 sm:px-10 sm:py-9">
-          <article>
-            {t.rich("<title>Constitution</title><subtitle>of {workspace}</subtitle>", {
-              title: (children) => (
-                <h2 className="text-center text-lg font-semibold uppercase tracking-[0.2em] sm:text-2xl sm:tracking-[0.25em]">
-                  {children}
-                </h2>
-              ),
-              subtitle: (children) => (
-                <p className="mt-1 text-center font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-                  {children}
-                </p>
-              ),
-              workspace: data.workspace.handle,
-            })}
-            <div className="mx-auto mt-4 h-px w-24 bg-border" />
-            {paragraphs.length ? (
-              <div className="mt-6 space-y-4 hyphens-auto text-sm leading-7">
-                {paragraphs.map((paragraph, index) => (
-                  <p
-                    key={paragraph}
-                    className={
-                      index === 0
-                        ? "flow-root first-letter:float-start first-letter:me-2 first-letter:mt-1 first-letter:text-5xl first-letter:font-semibold first-letter:leading-none"
-                        : undefined
-                    }
-                  >
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-6 text-center text-sm italic text-muted-foreground">
-                {t("No constitution has been written yet.")}
+      <div className="grid grid-cols-1 gap-6 @4xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Card>
+          <CardContent className="px-6 py-7 @xl:px-10 @xl:py-9">
+            <article>
+              <h2 className="text-center font-serif text-lg font-semibold uppercase tracking-[0.2em] @sm:text-2xl @sm:tracking-[0.25em]">
+                {t("Constitution")}
+              </h2>
+              <p className="mt-1 text-center font-serif text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                {t("of {workspace}", { workspace: data.workspace.handle })}
               </p>
-            )}
-          </article>
-        </CardContent>
-      </Card>
+              <div className="mx-auto mt-4 h-px w-24 bg-border" />
+              {paragraphs.length ? (
+                <div className="mt-6 space-y-4 hyphens-auto font-serif text-sm leading-7 @xl:text-justify">
+                  {paragraphs.map((paragraph, index) => (
+                    <p
+                      key={paragraph}
+                      className={
+                        index === 0
+                          ? "flow-root first-letter:float-start first-letter:me-2 first-letter:mt-1 first-letter:text-5xl first-letter:font-semibold first-letter:leading-none"
+                          : undefined
+                      }
+                    >
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-6 text-center font-serif text-sm italic text-muted-foreground">
+                  {t("No constitution has been written yet.")}
+                </p>
+              )}
+            </article>
+          </CardContent>
+        </Card>
+
+        <aside className="min-w-0 space-y-4">
+          <Form method="get" action="/search" className="space-y-2">
+            <label htmlFor="workspace-brief" className="block text-sm font-semibold">
+              {t("What applies to…?")}
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="workspace-brief"
+                name="q"
+                type="search"
+                placeholder={t("Search this workspace")}
+                className="w-full rounded-md px-4 py-2.5 text-sm outline-none focus:border-primary"
+              />
+              <button type="submit" className={workspaceActionClass}>
+                {t("Ask")}
+              </button>
+            </div>
+          </Form>
+          <Card>
+            <CardContent className="p-5 text-xs text-muted-foreground">
+              {t("Signed in as {name}", { name: data.user.name })}
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
     </PageMain>
   );
 }
+
+const workspaceActionClass = "neu-button shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold";

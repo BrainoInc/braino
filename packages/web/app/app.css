@@ -276,3 +276,630 @@ a:focus-visible {
   filter: drop-shadow(1px 2px 1px color-mix(in oklch, var(--color-foreground) 24%, transparent))
     drop-shadow(7px 7px 16px var(--neu-shadow)) drop-shadow(-7px -7px 16px var(--neu-highlight));
 }
+
+.orbit {
+  --orbit-chip-line: color-mix(in srgb, var(--color-foreground) 30%, transparent);
+  container: orbit / inline-size;
+}
+
+/* The picture's box: most of the window's height, whatever the page around it. */
+.orbit-stage {
+  position: relative;
+  height: clamp(450px, 82dvh - 70px, 790px);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A sideways drag turns the picture; an up-and-down one still scrolls the page. */
+.orbit-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+/* The canvas and, under it, the names it is cut away over. */
+.orbit-picture {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.25s;
+}
+
+.orbit-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-muted-foreground);
+}
+
+/* Without a picture there is nothing for a label to ride. */
+.orbit-fallback ~ .orbit-labels {
+  display: none;
+}
+
+/* Labels ride the picture: each is a point the frame moves, and its words hang from it. */
+.orbit-labels,
+.orbit-names {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The badges are stacked nearest last among themselves, all still under the canvas. */
+.orbit-names {
+  isolation: isolate;
+}
+
+.orbit-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  will-change: transform;
+}
+
+/* The collections, largest first, in a column at the bottom of the reading side
+   (Alexander, 2026-11-16: "align this to the left instead, aligned to the bottom").
+   The page lays them out itself, so they stand before the picture does. Each is a key:
+   a click or tap opens the collection, hover or focus picks its neurons out. They sit
+   above names and are solid, so a name passing behind one cannot be read through it.
+   When there are more than fit, the smallest go without a title: the column holds only
+   whole titles (the second max-height, for browsers that can round a length). Its
+   padding leaves room for the keys' shadows. */
+.orbit-titles {
+  --orbit-title: 23px;
+  --orbit-title-gap: 8px;
+  position: absolute;
+  z-index: 3;
+  inset-inline-start: 26px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--orbit-title-gap);
+  box-sizing: content-box;
+  max-height: calc(100% - 46px);
+  max-height: calc(
+    round(down, 100% - 46px + var(--orbit-title-gap), var(--orbit-title) + var(--orbit-title-gap)) -
+    var(--orbit-title-gap)
+  );
+  padding: 8px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.orbit-title {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 8px;
+  box-sizing: border-box;
+  height: var(--orbit-title);
+  padding: 4px 9px 5px;
+  border-radius: 7px;
+  background: var(--color-background);
+  box-shadow: var(--neu-key-small);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  /* it opens its collection, so it is purple, as anything clickable is */
+  color: var(--color-primary);
+  text-decoration: none;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: opacity 0.25s, box-shadow 0.25s;
+}
+
+.orbit-title:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.orbit-stage[data-picked] .orbit-title:not([data-on]) {
+  opacity: 0.42;
+}
+
+.orbit-title[data-on],
+.orbit-title[data-rising] {
+  box-shadow: 0 0 0 1.5px var(--color-primary), var(--neu-key-small);
+}
+
+/* Whether the collection is public or private, left of its name: an icon, not a
+   baseline, so it sits in the key's middle. */
+.orbit-visibility {
+  align-self: center;
+}
+
+.orbit-name {
+  font-weight: 700;
+}
+
+.orbit-count {
+  font-family: var(--font-mono);
+  font-size: 1.08em;
+}
+
+.orbit-core > span {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-muted-foreground);
+}
+
+/* A person, an agent or an integration whose name is on show is its chip, centered
+   where its mark would be, so what it does sets off from the chip. The chip's shape
+   says what it is: round ends for a person, rounded corners for an agent, square
+   corners and muted words for an integration. Its line takes the activity's color while it acts. A chip lies
+   under the canvas and is seen only where a frame cuts the picture away over it,
+   so it is hidden until a frame places it. */
+.orbit-chip {
+  visibility: hidden;
+}
+
+/* Who acted, as a sphere (components/orbit.tsx Badge): a person's initials, an
+   agent's or an integration's logo on a silver ball, painted three times
+   round the ball as it turns, and the ball is lit from above and to the start, shading to
+   its rim (Alexander, 2026-11-16: "Maybe we can morph the logos and letters to
+   make it look as if they are the surface of the spheres"; then "let's make sure
+   that the planets and the moons are just very simple spheres"). No line rings it. */
+.orbit-badge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  width: var(--orbit-size);
+  height: var(--orbit-size);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.orbit-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  /* silver, as the neurons are, for a person or an integration (Alexander,
+     2026-11-16: "Let's keep the spheres silvery/gray, as we do with the nodes in the
+     galaxy"); an agent's moon in its brand's color, set on the badge as --orbit-tone
+     ("Go back to using the color of the brand of the agent"), black for one of a kind
+     unknown ("paint the moon black"); it keeps its color while its actor acts ("Do not
+     change the color of the planets as they get information or they send
+     information") */
+  background: var(--orbit-tone, oklch(0.66 0.008 265));
+}
+
+/* The ball's marks, painted round it as it turns (components/orbit.tsx
+   useTurningBall). */
+.orbit-ball {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.orbit-face svg {
+  width: calc(var(--orbit-size) * var(--orbit-mark));
+  height: calc(var(--orbit-size) * var(--orbit-mark));
+  fill: #fff;
+}
+
+.orbit-initials {
+  font-size: calc(var(--orbit-size) * 0.42);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.orbit-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0) 44%),
+    radial-gradient(circle at 50% 50%, rgb(0 0 0 / 0) 55%, rgb(0 0 0 / 0.34) 100%);
+}
+
+/* Who is under the pointer: their name and the agents they worked through
+   (Alexander, 2026-11-16: "On mouse over of person or agent, we should show who
+   the person is are and their list of agents"). It hangs over them, or under
+   them near the top of the picture so it never hides their name, and follows
+   them as they move. It is not raised: nothing in it is a button. */
+.orbit-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.orbit-card[hidden] {
+  display: none;
+}
+
+.orbit-card-box {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 240px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--color-background);
+  box-shadow: 0 0 0 1px var(--orbit-chip-line);
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--color-foreground);
+}
+
+.orbit-card[data-under] .orbit-card-box {
+  top: 0;
+  bottom: auto;
+}
+
+.orbit-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.orbit-card-head > b {
+  font-weight: 700;
+}
+
+.orbit-card-count {
+  margin: 4px 0 0;
+  color: var(--color-muted-foreground);
+}
+
+.orbit-card-agents {
+  display: grid;
+  gap: 3px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.orbit-card-agents > li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.orbit-card-agents > li[data-picked] {
+  font-weight: 700;
+}
+
+.orbit-badge[data-small] {
+  position: relative;
+  flex: none;
+  transform: none;
+}
+
+/* The words around the picture. */
+.orbit-hud {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.orbit-hud a {
+  pointer-events: auto;
+}
+
+.orbit-dot {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* The activity sits at the bottom right, across from the titles; while a
+   collection is picked out, its note takes the place (Alexander, 2026-11-16). */
+.orbit-ticker {
+  inset-inline-end: 34px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+/* The picture runs under these words: they keep a little of the page's ground. */
+.orbit-ticker li > span,
+.orbit-note {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-background) 78%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-background) 78%, transparent);
+}
+
+.orbit-ticker li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--color-muted-foreground);
+}
+
+.orbit-ticker b,
+.orbit-ticker em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+
+.orbit-ticker li[data-age="2"] {
+  opacity: 0.38;
+}
+
+.orbit-ticker li[data-age="1"] {
+  opacity: 0.64;
+}
+
+.orbit-stage[data-picked] .orbit-ticker {
+  display: none;
+}
+
+.orbit-times {
+  font-family: var(--font-mono);
+}
+
+/* What the page says about a collection, only while one is picked out. */
+.orbit-note {
+  inset-inline-end: 34px;
+  bottom: 18px;
+  max-width: 400px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: end;
+  color: var(--color-muted-foreground);
+}
+
+.orbit-note b {
+  color: var(--color-foreground);
+}
+
+.orbit-note a {
+  font-weight: 700;
+}
+
+/* The timeline bar: the track, then the periods to its right
+   (Alexander, 2026-11-15), across the whole width it has (Alexander, 2026-11-16:
+   "Increase the width of the timeline to fill the available width"), the same
+   however the page scrolls ("the width should be fixed and use the entire width
+   it has"). */
+.orbit-timeline {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 18px 14px;
+}
+
+.orbit-track {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 54px;
+}
+
+.orbit-bars {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 30px;
+}
+
+.orbit-bars i {
+  flex: 1;
+  min-width: 0;
+  border-radius: 1px 1px 0 0;
+}
+
+/* The part of the period the playhead has not reached is dimmed. */
+.orbit-after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 30px;
+  background: color-mix(in srgb, var(--color-background) 68%, transparent);
+}
+
+.orbit-groove {
+  position: absolute;
+  inset: 33px 0 auto;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-foreground) 7%, var(--color-background));
+  box-shadow: inset 1px 1px 2px var(--neu-shadow), inset -1px -1px 2px var(--neu-highlight);
+}
+
+.orbit-groove b {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--color-primary);
+}
+
+.orbit-playhead {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 1.5px;
+  height: 40px;
+  margin-left: -0.75px;
+  background: var(--color-primary);
+  pointer-events: none;
+}
+
+.orbit-playhead::after {
+  content: "";
+  position: absolute;
+  left: -6.75px;
+  top: 31px;
+  box-sizing: border-box;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  background: var(--color-background);
+  box-shadow: 2px 2px 5px var(--neu-shadow);
+}
+
+.orbit-ticks {
+  position: absolute;
+  inset: 44px 0 auto;
+  height: 10px;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.orbit-ticks span {
+  position: absolute;
+  top: 0;
+  /* a mark's words end where the next mark begins */
+  max-width: calc(100% / var(--orbit-ticks, 1));
+  overflow: hidden;
+  padding-left: 4px;
+  border-left: 1px solid color-mix(in srgb, var(--color-muted-foreground) 55%, transparent);
+  line-height: 10px;
+  white-space: nowrap;
+}
+
+/* The slider itself is the browser's, unseen, over the whole track: it brings the
+   drag, the click, the keys and the name a screen reader says. */
+.orbit-track input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.orbit-track:has(input:focus-visible) {
+  border-radius: 4px;
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+}
+
+.orbit-ranges {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+/* While another period loads, the picture and its bars step back; the picture keeps turning. */
+.orbit[data-loading] :is(.orbit-picture, .orbit-bars) {
+  opacity: 0.4;
+}
+
+.orbit[data-loading] .orbit-ticks,
+.orbit[data-loading] .orbit-after {
+  visibility: hidden;
+}
+
+/* On a small screen there is no picture: only the collections, as a list in the page's
+   flow (Alexander, 2026-11-16: "Don't show in mobile (small resolutions). Only show the
+   list of collections there."). Nothing is built or drawn there either: ORBIT_SMALL in
+   lib/orbit.ts is this width. */
+@container orbit (max-width: 700px) {
+  .orbit-picture,
+  .orbit-fallback,
+  .orbit-labels,
+  .orbit-ticker,
+  .orbit-note,
+  .orbit-timeline {
+    display: none;
+  }
+
+  .orbit-stage {
+    height: auto;
+    overflow: visible;
+  }
+
+  .orbit-titles {
+    position: static;
+    align-items: stretch;
+    gap: 10px;
+    max-height: none;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .orbit-title {
+    gap: 10px;
+    height: auto;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    white-space: normal;
+  }
+
+  .orbit-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* the icon and the name at the start, the count at the end */
+  .orbit-count {
+    margin-inline-start: auto;
+  }
+}
+
+/* The picture fades in once it stands. */
+.orbit-canvas {
+  transition: opacity 0.6s;
+}
+
+.orbit-labels,
+.orbit-ticker {
+  transition: opacity 0.6s;
+}
+
+/* The labels ride the picture, so until it stands they have nowhere to be. */
+.orbit:not([data-drawn]) :is(.orbit-canvas, .orbit-labels, .orbit-ticker) {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-canvas,
+  .orbit-labels,
+  .orbit-ticker {
+    transition: none;
+  }
+}
