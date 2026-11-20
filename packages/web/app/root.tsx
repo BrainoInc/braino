@@ -7,11 +7,9 @@ import {
 import { type Locale, SOURCE_LOCALE, localeDirection, localeFromRequest } from "@doco/shared/i18n";
 import { I18nProvider, useT } from "@doco/shared/i18n/react";
 import {
-  Form,
   Link,
   Links,
   Meta,
-  NavLink,
   Outlet,
   Scripts,
   ScrollRestoration,
@@ -21,11 +19,11 @@ import {
   useRouteLoaderData,
 } from "react-router";
 import { AgentSidebar } from "~/components/agent-sidebar";
-import { BrainoMark } from "~/components/braino-mark";
-import { LanguageMenu } from "~/components/language-menu";
 import { PageMain } from "~/components/page-main";
+import { SiteHeader } from "~/components/site-header";
 import { type CurrentUser, getCurrentUser } from "~/lib/current-user.server";
 import { securityHeaders } from "~/lib/security-headers.server";
+import { type Theme, themeFromRequest } from "~/lib/theme";
 import { catalogs } from "~/locales/catalog";
 import "./app.css";
 
@@ -35,14 +33,16 @@ interface RootData {
   user: CurrentUser | null;
   isOwner: boolean;
   modelsReady: boolean;
+  theme: Theme;
 }
 
 export async function loader({ request }: { request: Request }): Promise<RootData> {
   const locale = localeFromRequest(request);
+  const theme = themeFromRequest(request);
   await catalogs.load(locale);
   const state = await withClient(getSingleWorkspaceState);
   if (!state.initialized) {
-    return { locale, initialized: false, user: null, isOwner: false, modelsReady: false };
+    return { locale, theme, initialized: false, user: null, isOwner: false, modelsReady: false };
   }
   const user = await getCurrentUser(request);
   const modelsReady = (
@@ -50,6 +50,7 @@ export async function loader({ request }: { request: Request }): Promise<RootDat
   ).ready;
   return {
     locale,
+    theme,
     initialized: true,
     user,
     modelsReady,
@@ -70,9 +71,10 @@ export function headers() {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   // The root loader's data is missing only when the root itself failed to load.
-  const locale = (useRouteLoaderData("root") as RootData | undefined)?.locale ?? SOURCE_LOCALE;
+  const root = useRouteLoaderData("root") as RootData | undefined;
+  const locale = root?.locale ?? SOURCE_LOCALE;
   return (
-    <html lang={locale} dir={localeDirection(locale)}>
+    <html lang={locale} dir={localeDirection(locale)} data-theme={root?.theme ?? "auto"}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -94,7 +96,7 @@ export default function App() {
   const data = useLoaderData() as RootData;
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <SiteHeader data={data} />
+      <SiteHeader user={data.user} isOwner={data.isOwner} initialized={data.initialized} />
       <div className="doco-shell-body flex min-h-0 flex-1">
         {data.user && data.modelsReady ? <AgentSidebar /> : null}
         <main className="doco-shell-main min-w-0 flex-1 overflow-y-auto">
@@ -102,82 +104,6 @@ export default function App() {
         </main>
       </div>
     </div>
-  );
-}
-
-function SiteHeader({ data }: { data: RootData }) {
-  const t = useT();
-  const navClass = ({ isActive }: { isActive: boolean }) =>
-    `neu-button ${isActive ? "neu-pressed " : ""}rounded-md px-2.5 py-1.5 font-semibold`;
-  return (
-    <header className="h-14 border-b border-border bg-card">
-      <div className="flex h-full w-full items-center gap-6 px-6">
-        <Link
-          to="/"
-          className="inline-flex items-center hover:opacity-80"
-          aria-label={t("Braino home")}
-        >
-          <BrainoMark height={28} />
-        </Link>
-        {data.user && data.modelsReady ? (
-          <Form
-            method="get"
-            action="/search"
-            className="ms-auto hidden min-w-0 max-w-md flex-1 sm:flex"
-          >
-            <label className="sr-only" htmlFor="workspace-search">
-              {t("Search workspace records")}
-            </label>
-            <input
-              id="workspace-search"
-              name="q"
-              type="search"
-              placeholder={t("Search workspace")}
-              className="min-w-0 flex-1 rounded-s-md px-3 py-1.5 text-xs"
-            />
-            <button
-              type="submit"
-              className="neu-button rounded-e-md px-3 py-1.5 text-xs font-semibold"
-            >
-              {t("Search")}
-            </button>
-          </Form>
-        ) : null}
-        <div className={`${data.user ? "" : "ms-auto"} flex shrink-0 items-center gap-2 text-xs`}>
-          <LanguageMenu />
-          {data.user ? (
-            <>
-              {data.isOwner ? (
-                <NavLink to="/admin" className={navClass}>
-                  {t("Admin")}
-                </NavLink>
-              ) : null}
-              {data.modelsReady ? (
-                <>
-                  <NavLink to="/times" className={navClass}>
-                    {t("Times")}
-                  </NavLink>
-                  <NavLink to="/" end className={navClass}>
-                    {t("Workspace")}
-                  </NavLink>
-                </>
-              ) : null}
-              <span className="font-mono text-muted-foreground">@{data.user.username}</span>
-              <Form method="post" action="/">
-                <input type="hidden" name="intent" value="signout" />
-                <button type="submit" className="neu-button rounded-md px-2.5 py-1.5 font-semibold">
-                  {t("Sign out everywhere")}
-                </button>
-              </Form>
-            </>
-          ) : data.initialized ? (
-            <Link to="/" className="neu-button neu-pressed rounded-md px-3 py-1.5 font-semibold">
-              {t("Sign in")}
-            </Link>
-          ) : null}
-        </div>
-      </div>
-    </header>
   );
 }
 

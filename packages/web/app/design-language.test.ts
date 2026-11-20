@@ -8,14 +8,15 @@ const root = readFileSync(resolve(app, "root.tsx"), "utf8");
 const home = readFileSync(resolve(app, "routes/_index.tsx"), "utf8");
 const card = readFileSync(resolve(app, "components/card.tsx"), "utf8");
 const mark = readFileSync(resolve(app, "components/braino-mark.tsx"), "utf8");
+const siteHeader = readFileSync(resolve(app, "components/site-header.tsx"), "utf8");
 
 describe("Braino's design language", () => {
   it("uses the same typography and one-clay color tokens as Braino", () => {
     expect(css).toContain("Merriweather:ital,wght@0,300..900;1,300..900");
     expect(css).toContain('--font-serif: "Merriweather", Georgia');
     expect(css).toContain('--font-mono: "Ubuntu Mono"');
-    expect(css).toContain("--color-background: oklch(0.961 0.0054 95.1)");
-    expect(css).toContain("--color-primary: oklch(0.54 0.17 324)");
+    expect(css).toContain("--color-background: light-dark(oklch(0.961 0.0054 95.1)");
+    expect(css).toContain("--color-primary: light-dark(oklch(0.54 0.17 324)");
   });
 
   it("keeps surfaces grooved, fields inset, and only clickables raised", () => {
@@ -26,9 +27,11 @@ describe("Braino's design language", () => {
   });
 
   it("uses Braino's real mark, site header, and workspace page primitives", () => {
-    expect(root).toContain('from "~/components/braino-mark"');
-    expect(root).toContain("<BrainoMark height={28}");
-    expect(root).toContain("h-14 border-b border-border bg-card");
+    expect(root).toContain('from "~/components/site-header"');
+    expect(root).toContain("<SiteHeader");
+    expect(siteHeader).toContain('from "~/components/braino-mark"');
+    expect(siteHeader).toContain("<BrainoMark height={28}");
+    expect(siteHeader).toContain("h-14 border-b border-border bg-card");
     expect(mark).toContain("braino-mark-glyph-motion");
     expect(mark).toContain("braino-mark-spark-lg");
     expect(mark).not.toContain("<img");

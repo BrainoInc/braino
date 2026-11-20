@@ -35,24 +35,30 @@
   size-adjust: 120%;
 }
 
-/* Braino's one-clay theme. Keep these tokens identical to hosted Braino. */
+/* Braino's one clay by day and night, shared with Hosted Braino. */
 @theme {
   --font-serif: "Merriweather", Georgia, "Times New Roman", Times, serif;
   --font-mono: "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --color-background: oklch(0.961 0.0054 95.1);
-  --color-foreground: oklch(0.2 0.008 95);
-  --color-muted: oklch(0.921 0.006 95);
-  --color-muted-foreground: oklch(0.47 0.008 95);
-  --color-card: oklch(0.961 0.0054 95.1);
-  --color-card-foreground: oklch(0.2 0.008 95);
-  --color-border: oklch(0.2 0.008 95 / 12%);
-  --color-input: oklch(0.931 0.006 95);
-  --color-primary: oklch(0.54 0.17 324);
-  --color-primary-foreground: oklch(0.99 0.003 95);
-  --color-destructive: oklch(0.55 0.22 25);
-  --color-destructive-foreground: oklch(0.99 0.003 95);
-  --color-ring: oklch(0.62 0.12 324);
+  --color-background: light-dark(oklch(0.961 0.0054 95.1), oklch(0.24 0.006 95));
+  --color-foreground: light-dark(oklch(0.2 0.008 95), oklch(0.93 0.007 95));
+  --color-muted: light-dark(oklch(0.921 0.006 95), oklch(0.29 0.006 95));
+  --color-muted-foreground: light-dark(oklch(0.47 0.008 95), oklch(0.72 0.009 95));
+  --color-card: var(--color-background);
+  --color-card-foreground: var(--color-foreground);
+  --color-border: light-dark(oklch(0.2 0.008 95 / 12%), oklch(0.93 0.007 95 / 12%));
+  --color-input: light-dark(oklch(0.931 0.006 95), oklch(0.21 0.006 95));
+  --color-paper: light-dark(oklch(1 0 95), oklch(0.31 0.007 95));
+  --color-primary: light-dark(oklch(0.54 0.17 324), oklch(0.74 0.14 324));
+  --color-primary-foreground: light-dark(oklch(0.99 0.003 95), oklch(0.24 0.006 95));
+  --color-accent: light-dark(oklch(0.55 0.14 195), oklch(0.76 0.11 195));
+  --color-accent-foreground: var(--color-primary-foreground);
+  --color-writes: light-dark(oklch(0.68 0.15 55), oklch(0.76 0.14 55));
+  --color-queries: light-dark(oklch(0.63 0.101 183), oklch(0.74 0.1 183));
+  --color-imports: light-dark(oklch(0.56 0.14 250), oklch(0.72 0.12 250));
+  --color-destructive: light-dark(oklch(0.55 0.22 25), oklch(0.72 0.16 25));
+  --color-destructive-foreground: var(--color-primary-foreground);
+  --color-ring: light-dark(oklch(0.62 0.12 324), oklch(0.7 0.12 324));
 
   --radius-sm: 4px;
   --radius: 6px;
@@ -60,22 +66,36 @@
 }
 
 :root {
+  color-scheme: light dark;
+}
+
+:root[data-theme="light"] {
   color-scheme: light;
-  --neu-highlight: color-mix(in oklch, white 88%, var(--color-background));
-  --neu-shadow: color-mix(in oklch, var(--color-foreground) 11%, transparent);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root {
+  --neu-highlight: color-mix(in oklch, var(--color-paper) 88%, var(--color-background));
+  --neu-ink: light-dark(oklch(0.2 0.008 95 / 24%), oklch(0 0 0 / 90%));
+  --neu-shadow: color-mix(in oklch, var(--neu-ink) 46%, transparent);
   --neu-groove:
-    inset 1px 1px 0 color-mix(in oklch, var(--color-foreground) 20%, transparent),
+    inset 1px 1px 0 color-mix(in oklch, var(--neu-ink) 83%, transparent),
     inset 2px 2px 0 var(--neu-highlight), inset -1px -1px 0 var(--neu-highlight),
-    inset -2px -2px 0 color-mix(in oklch, var(--color-foreground) 13%, transparent);
+    inset -2px -2px 0 color-mix(in oklch, var(--neu-ink) 54%, transparent);
   --neu-key: 5px 5px 12px var(--neu-shadow), -5px -5px 12px var(--neu-highlight);
   --neu-key-hover: 7px 7px 16px var(--neu-shadow), -7px -7px 16px var(--neu-highlight);
   --neu-key-small: 3px 3px 7px var(--neu-shadow), -3px -3px 7px var(--neu-highlight);
   --neu-key-small-hover: 4px 4px 9px var(--neu-shadow), -4px -4px 9px var(--neu-highlight);
-  --neu-inset: inset 4px 4px 9px color-mix(in oklch, var(--color-foreground) 13%, transparent),
-    inset -4px -4px 9px color-mix(in oklch, white 86%, var(--color-background));
-  --neu-pressed: inset 2px 2px 5px color-mix(in oklch, var(--color-foreground) 18%, transparent),
-    inset -2px -2px 5px var(--neu-highlight);
+  --neu-inset: inset 4px 4px 9px color-mix(in oklch, var(--neu-ink) 54%, transparent), inset -4px
+    -4px 9px color-mix(in oklch, var(--color-paper) 86%, var(--color-background));
+  --neu-pressed: inset 2px 2px 5px color-mix(in oklch, var(--neu-ink) 75%, transparent), inset -2px
+    -2px 5px var(--neu-highlight);
   --neu-focus: 0 0 0 2px color-mix(in oklch, var(--color-primary) 18%, transparent), var(--neu-key);
+  --neu-drop: color-mix(in oklch, var(--neu-ink) 67%, transparent);
+  --neu-drop-near: color-mix(in oklch, var(--neu-ink) 42%, transparent);
 }
 
 html,
@@ -184,6 +204,11 @@ a:focus-visible {
   .neu-surface {
     border-color: transparent;
     box-shadow: var(--neu-groove);
+  }
+
+  .neu-floating {
+    border-color: transparent;
+    box-shadow: 0 18px 36px var(--neu-drop), 0 4px 10px var(--neu-drop-near);
   }
 
   .neu-well {
