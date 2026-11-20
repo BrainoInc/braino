@@ -6,7 +6,8 @@ const app = resolve(import.meta.dirname);
 const admin = readFileSync(resolve(app, "routes/admin.tsx"), "utf8");
 const routes = readFileSync(resolve(app, "routes.ts"), "utf8");
 const root = readFileSync(resolve(app, "root.tsx"), "utf8");
-const senorBraino = readFileSync(resolve(app, "routes/senor-braino.tsx"), "utf8");
+const agentSidebar = readFileSync(resolve(app, "components/agent-sidebar.tsx"), "utf8");
+const senorBraino = readFileSync(resolve(app, "routes/api.v1.senor-braino[.]json.ts"), "utf8");
 const collaborators = readFileSync(resolve(app, "routes/collaborators.tsx"), "utf8");
 const integrations = readFileSync(resolve(app, "routes/integrations.tsx"), "utf8");
 const mcpTokens = readFileSync(resolve(app, "routes/mcp-tokens.tsx"), "utf8");
@@ -16,7 +17,9 @@ describe("open Braino administration", () => {
   it("has one owner console for the single workspace", () => {
     expect(routes).toContain('route("admin", "routes/admin.tsx")');
     expect(routes).toContain('route("times", "routes/times._index.tsx")');
-    expect(routes).toContain('route("senor-braino", "routes/senor-braino.tsx")');
+    expect(routes).toContain(
+      'route("api/v1/senor-braino.json", "routes/api.v1.senor-braino[.]json.ts")',
+    );
     expect(routes).toContain('route("times/:day", "routes/times.$day.tsx")');
     expect(admin).toContain("Workspace administration");
     expect(admin).toContain('id="metrics-title"');
@@ -30,11 +33,15 @@ describe("open Braino administration", () => {
     expect(admin).toContain("People and access");
     expect(admin).toContain("Connections");
     expect(admin).toContain("Connect Señor Braino");
-    expect(root).toContain('to="/senor-braino"');
-    expect(root).toContain("Señor Braino");
+    expect(root).toContain("<AgentSidebar />");
+    expect(root).toContain("doco-shell-body");
+    expect(root).not.toContain('to="/senor-braino"');
+    expect(agentSidebar).toContain("senor-doco-rail");
+    expect(agentSidebar).toContain('const RAIL_COLLAPSED = "32px"');
+    expect(agentSidebar).toContain('const RAIL_DEFAULT = "320px"');
+    expect(agentSidebar).toContain("/api/v1/senor-braino.json");
     expect(senorBraino).toContain("sendWorkspaceChatMessage");
     expect(senorBraino).toContain("listWorkspaceChatMessages");
-    expect(senorBraino).toContain("Ask about anything in this workspace");
     expect(mcpTokens).toContain("Connect Señor Braino");
     expect(mcpTokens).toContain("OAuth");
     expect(mcpTokens).toContain("This instance connects directly");
