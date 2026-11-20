@@ -5,7 +5,6 @@ import {
   getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace,
   reservePasswordSignInAttempt,
-  revokeUserSessions,
 } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
@@ -135,8 +134,6 @@ export async function action({ request }: { request: Request }) {
   }
   const intent = text(form, "intent");
   if (intent === "signout") {
-    const user = await getCurrentUser(request);
-    if (user) await withClient((client) => revokeUserSessions(client, user.id));
     return redirect("/", { headers: { "Set-Cookie": clearSessionCookie() } });
   }
 
@@ -400,6 +397,9 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
           <>
             <Link to="/integrations" className={workspaceActionClass}>
               {t("Connections")}
+            </Link>
+            <Link to="/times" className={workspaceActionClass}>
+              {t("Times")}
             </Link>
             <Link to="/admin" className={workspaceActionClass}>
               {t("Settings")}

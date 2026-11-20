@@ -7,6 +7,7 @@ const admin = readFileSync(resolve(app, "routes/admin.tsx"), "utf8");
 const routes = readFileSync(resolve(app, "routes.ts"), "utf8");
 const root = readFileSync(resolve(app, "root.tsx"), "utf8");
 const agentSidebar = readFileSync(resolve(app, "components/agent-sidebar.tsx"), "utf8");
+const siteHeader = readFileSync(resolve(app, "components/site-header.tsx"), "utf8");
 const senorBraino = readFileSync(resolve(app, "routes/api.v1.senor-braino[.]json.ts"), "utf8");
 const collaborators = readFileSync(resolve(app, "routes/collaborators.tsx"), "utf8");
 const integrations = readFileSync(resolve(app, "routes/integrations.tsx"), "utf8");
@@ -97,10 +98,11 @@ describe("open Braino administration", () => {
   });
 
   it("shows Admin in the global header only to workspace owners", () => {
-    expect(root).toContain("isOwner");
-    expect(root).toContain('to="/admin"');
-    expect(root).toContain("Admin");
-    expect(root).toContain('to="/times"');
+    expect(root).toContain("<SiteHeader");
+    expect(root).toContain("isOwner={data.isOwner}");
+    expect(siteHeader).toContain("{isOwner ? (");
+    expect(siteHeader).toContain('to="/admin"');
+    expect(siteHeader).toContain('{t("Admin")}');
   });
 
   it("keeps each administration page connected to the console", () => {

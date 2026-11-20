@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  clearSessionCookie: vi.fn(),
   getCurrentUser: vi.fn(),
   getSingleWorkspaceState: vi.fn(),
   getWorkspaceModelPluginReadiness: vi.fn(),
@@ -19,7 +20,6 @@ vi.mock("@doco/host", () => ({
   getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace: mocks.initializeSingleWorkspace,
   reservePasswordSignInAttempt: vi.fn(),
-  revokeUserSessions: vi.fn(),
 }));
 vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("~/lib/password.server", () => ({
@@ -28,13 +28,31 @@ vi.mock("~/lib/password.server", () => ({
   verifyPassword: vi.fn(),
 }));
 vi.mock("~/lib/session.server", () => ({
-  clearSessionCookie: vi.fn(),
+  clearSessionCookie: mocks.clearSessionCookie,
   createSessionCookie: () => "doco_session=test; Path=/",
 }));
 vi.mock("~/lib/setup-token.server", () => ({ setupTokenError: () => null }));
 vi.mock("~/lib/sign-in.server", () => ({ passwordAttemptBuckets: vi.fn() }));
 
 import { action, loader } from "./_index";
+
+describe("sign out", () => {
+  it("ends only the current browser session", async () => {
+    mocks.clearSessionCookie.mockReturnValue("doco_session=; Max-Age=0; Path=/");
+    const response = await action({
+      request: new Request("https://meta.braino.dev/", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ intent: "signout" }),
+      }),
+    });
+
+    expect(response).toBeInstanceOf(Response);
+    if (!(response instanceof Response)) throw new Error("Expected sign out to redirect.");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(mocks.getSingleWorkspaceState).not.toHaveBeenCalled();
+  });
+});
 
 describe("first-run workspace setup", () => {
   it("creates the workspace before asking the owner to choose model plugins", async () => {
