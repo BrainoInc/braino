@@ -16,7 +16,7 @@ function render(props: Parameters<typeof BrainoMark>[0]): string {
 }
 
 describe("BrainoMark", () => {
-  it("keeps the purple solid when raised", () => {
+  it("keeps the themed primary fill solid when raised", () => {
     const html = render({ height: 72, raised: true });
     expect(html).toMatch(/<svg[^>]*class="[^"]*\bbraino-mark-raised\b/);
     // No bevel, gradient or filter on the orb or the wordmark: the relief is
@@ -24,7 +24,7 @@ describe("BrainoMark", () => {
     expect(html).not.toContain("<filter");
     expect(html).not.toMatch(/<g[^>]* filter=/);
     expect(html).not.toContain("Gradient");
-    expect(html.match(/fill="#9945A1"/g)).toHaveLength(2);
+    expect(html.match(/class="fill-primary"/g)).toHaveLength(2);
   });
 
   it("stays flat everywhere else", () => {
