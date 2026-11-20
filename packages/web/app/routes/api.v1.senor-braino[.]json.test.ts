@@ -25,7 +25,7 @@ vi.mock("~/lib/model-setup.server", () => ({
   pluginSecretsKey: mocks.pluginSecretsKey,
 }));
 
-import { action, loader } from "./senor-braino";
+import { action, loader } from "./api.v1.senor-braino[.]json";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -49,9 +49,13 @@ describe("in-app Señor Braino", () => {
     const messages = [{ id: "message_1", role: "assistant", text: "Hello", createdAt: "now" }];
     mocks.listWorkspaceChatMessages.mockResolvedValue(messages);
 
-    await expect(
-      loader({ request: new Request("https://meta.braino.dev/senor-braino") }),
-    ).resolves.toMatchObject({ messages, workspace: { id: "workspace_meta" } });
+    const response = await loader({
+      request: new Request("https://meta.braino.dev/api/v1/senor-braino.json"),
+    });
+    await expect(response.json()).resolves.toMatchObject({
+      messages,
+      workspace: { id: "workspace_meta" },
+    });
     expect(mocks.listWorkspaceChatMessages).toHaveBeenCalledWith(
       {},
       { workspaceId: "workspace_meta", userId: "user_owner" },
@@ -60,7 +64,7 @@ describe("in-app Señor Braino", () => {
 
   it("answers through the assigned workspace chat plugin", async () => {
     const response = await action({
-      request: new Request("https://meta.braino.dev/senor-braino", {
+      request: new Request("https://meta.braino.dev/api/v1/senor-braino.json", {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ question: "What changed today?" }),
@@ -77,6 +81,8 @@ describe("in-app Señor Braino", () => {
         chat: { modelId: "plugin:test:chat" },
       }),
     );
-    expect((response as Response).headers.get("location")).toBe("/senor-braino#latest");
+    expect(response).toBeInstanceOf(Response);
+    expect((response as Response).status).toBe(200);
+    await expect((response as Response).json()).resolves.toMatchObject({ messages: [] });
   });
 });

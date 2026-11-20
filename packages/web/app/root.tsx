@@ -20,6 +20,7 @@ import {
   useRouteError,
   useRouteLoaderData,
 } from "react-router";
+import { AgentSidebar } from "~/components/agent-sidebar";
 import { BrainoMark } from "~/components/braino-mark";
 import { LanguageMenu } from "~/components/language-menu";
 import { PageMain } from "~/components/page-main";
@@ -94,9 +95,12 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <SiteHeader data={data} />
-      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
+      <div className="doco-shell-body flex min-h-0 flex-1">
+        {data.user && data.modelsReady ? <AgentSidebar /> : null}
+        <main className="doco-shell-main min-w-0 flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
@@ -150,9 +154,6 @@ function SiteHeader({ data }: { data: RootData }) {
               ) : null}
               {data.modelsReady ? (
                 <>
-                  <NavLink to="/senor-braino" className={navClass}>
-                    {t("Señor Braino")}
-                  </NavLink>
                   <NavLink to="/times" className={navClass}>
                     {t("Times")}
                   </NavLink>

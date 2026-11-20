@@ -126,6 +126,51 @@ select {
   box-shadow: var(--neu-inset);
 }
 
+.doco-shell-body {
+  position: relative;
+  flex-direction: row;
+}
+
+.doco-shell-main {
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.senor-doco-rail {
+  width: var(--senor-doco-current-width);
+  height: 100%;
+}
+
+.senor-doco-rail:not([data-collapsed="true"]) {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 120;
+  box-shadow: 8px 0 32px rgb(0 0 0 / 28%);
+}
+
+.senor-doco-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  border: 0;
+  padding: 0;
+  background: rgb(0 0 0 / 45%);
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .senor-doco-rail:not([data-collapsed="true"]) {
+    position: static;
+    z-index: auto;
+    box-shadow: none;
+  }
+
+  .senor-doco-backdrop {
+    display: none;
+  }
+}
+
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
