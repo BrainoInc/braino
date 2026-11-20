@@ -8,7 +8,7 @@ import {
   installPlugin,
   setPluginInstallationEnabled,
 } from "../plugin-installations.js";
-import { invokePlugin } from "../plugin-invocation.js";
+import { invokePlugin, pluginHostConnectionFromEnv } from "../plugin-invocation.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
 
 let db: PGlite;
@@ -72,6 +72,20 @@ async function fixture() {
 }
 
 describe("workspace-authorized plugin invocation", () => {
+  it("keeps the caller's deadline beyond the sandbox execution limit", () => {
+    expect(
+      pluginHostConnectionFromEnv({
+        BRAINO_PLUGIN_HOST_URL: "http://plugin-host:8080",
+        BRAINO_PLUGIN_HOST_API_TOKEN: apiToken,
+        BRAINO_PLUGIN_MAX_EXECUTION_MS: "60000",
+      }),
+    ).toEqual({
+      url: "http://plugin-host:8080",
+      apiToken,
+      timeoutMs: 65_000,
+    });
+  });
+
   it("sends one complete workspace-bound envelope to the private host", async () => {
     const setup = await fixture();
     const fetcher = vi.fn(async () =>

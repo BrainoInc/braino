@@ -305,7 +305,7 @@ describe("the supported self-hosted stack", () => {
     expect(scheduler).toContain("resolveWorkspaceEmbeddingProvider");
     expect(scheduler).toContain("syncRetrievalSourceBatch");
     expect(scheduler).toContain("syncQueuedEmbeddings");
-    expect(scheduler).toContain("BRAINO_PLUGIN_HOST_URL");
+    expect(scheduler).toContain("pluginHostConnectionFromEnv(process.env)");
     expect(scheduler).toContain("DOCO_ENCRYPTION_KEY");
   });
 
