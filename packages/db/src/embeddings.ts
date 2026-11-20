@@ -18,9 +18,9 @@ export type EmbeddingSource =
 /** The column's dimensions; shorter vectors are zero-padded on the way in,
  *  which leaves cosine similarity unchanged. */
 export const EMBEDDING_DIMENSIONS = 1536;
-/** Chunks per provider call: well under OpenAI's 2,048 inputs, and short
- *  enough that a call finishes in a second or two. */
-export const EMBEDDING_BATCH = 100;
+/** Chunks per provider call. The bound keeps both hosted APIs and local WASI
+ * plugins inside one execution budget while preserving bulk throughput. */
+export const EMBEDDING_BATCH = 25;
 
 export interface QueryClient {
   query<T>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;

@@ -65,6 +65,15 @@ beforeEach(async () => {
 });
 
 describe("upsertEmbeddings", () => {
+  it("bounds each provider request so local plugins can process the response in their sandbox", async () => {
+    const provider = fakeProvider();
+    const chunks = Array.from({ length: 26 }, (_, index) => `apple ${index}`);
+
+    await upsertEmbeddings(client(), [input("decision_1", chunks)], provider);
+
+    expect(provider.calls.map((call) => call.length)).toEqual([25, 1]);
+  });
+
   it("writes one row per chunk and skips unchanged chunks next time", async () => {
     const provider = fakeProvider();
     const report = await upsertEmbeddings(

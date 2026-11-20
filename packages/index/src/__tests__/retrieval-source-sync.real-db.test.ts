@@ -303,7 +303,7 @@ describe("unified retrieval source sync", () => {
     ).toEqual([{ model_id: replacement.modelId }]);
   });
 
-  it("indexes one hundred source documents in one provider batch by default", async () => {
+  it("indexes one hundred source documents in bounded provider batches by default", async () => {
     await db.exec(`
       INSERT INTO nodes (id, collection_id, node_type, lifecycle, prose)
       SELECT 'decision_bulk_' || n, '${COLLECTION_ID}', 'decision', 'active',
@@ -320,8 +320,7 @@ describe("unified retrieval source sync", () => {
 
     expect(result.indexed).toBe(100);
     expect(result.exhausted).toBe(false);
-    expect(provider.calls).toHaveLength(1);
-    expect(provider.calls[0]).toHaveLength(100);
+    expect(provider.calls.map((call) => call.length)).toEqual([25, 25, 25, 25]);
   });
 
   it("partitions a backfill into disjoint workers that cover every source", async () => {
