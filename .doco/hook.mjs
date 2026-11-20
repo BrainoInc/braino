@@ -816,7 +816,10 @@ async function fetchMcpBrief(url, config, token, signal) {
       jsonrpc: "2.0",
       id: "braino-hook",
       method: "tools/call",
-      params: { name: "doco_brief", arguments: { about, ...(touching.length ? { touching } : {}) } },
+      params: {
+        name: "doco_brief",
+        arguments: { about, ...(touching.length ? { touching } : {}) },
+      },
     }),
     signal,
   });
@@ -847,7 +850,9 @@ async function fetchText(url, config, token) {
       if (text) return { text };
     }
     const parsed = new URL(url);
-    if (parsed.pathname === INSTRUCTIONS_PATH) return { text: OPEN_BRAINO_INSTRUCTIONS };
+    if (parsed.pathname === INSTRUCTIONS_PATH && config.token?.startsWith("doco_at_")) {
+      return { text: OPEN_BRAINO_INSTRUCTIONS };
+    }
     return await fetchMcpBrief(url, config, token, controller.signal);
   } finally {
     clearTimeout(timer);
