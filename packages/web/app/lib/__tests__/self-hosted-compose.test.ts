@@ -630,8 +630,11 @@ describe("the supported self-hosted stack", () => {
     expect(script).toContain('"$origin/plugins"');
     expect(script).toContain('"$origin/integrations"');
     expect(script).toContain('"$origin/mcp-tokens"');
-    expect(script).toContain("grep -q 'Sources' \"$runtime/sources\"");
-    expect(script).toContain("grep -q 'Connect an agent' \"$runtime/agent-access\"");
+    expect(script).toContain("grep -q 'Model plugins' \"$runtime/management-plugins.html\"");
+    expect(script).toContain("grep -q 'Sources' \"$runtime/management-sources.html\"");
+    expect(script).toContain(
+      "grep -q 'Connect an agent' \"$runtime/management-agent-access.html\"",
+    );
     expect(script).not.toContain("grep -q 'Connect Señor Braino'");
     expect(script).toContain('"$origin/times"');
     expect(script).toContain("./doco backup");
