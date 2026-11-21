@@ -12,6 +12,8 @@ const senorBraino = readFileSync(resolve(app, "routes/api.v1.senor-braino[.]json
 const collaborators = readFileSync(resolve(app, "routes/collaborators.tsx"), "utf8");
 const integrations = readFileSync(resolve(app, "routes/integrations.tsx"), "utf8");
 const mcpTokens = readFileSync(resolve(app, "routes/mcp-tokens.tsx"), "utf8");
+const plugins = readFileSync(resolve(app, "routes/plugins.tsx"), "utf8");
+const workspace = readFileSync(resolve(app, "routes/_index.tsx"), "utf8");
 const timesIndex = readFileSync(resolve(app, "routes/times._index.tsx"), "utf8");
 
 describe("open Braino administration", () => {
@@ -32,8 +34,9 @@ describe("open Braino administration", () => {
     expect(admin).toContain('name="times_public"');
     expect(admin).toContain('to="/times"');
     expect(admin).toContain("People and access");
-    expect(admin).toContain("Connections");
-    expect(admin).toContain("Connect Señor Braino");
+    expect(admin).toContain("Sources");
+    expect(admin).toContain("Plugins");
+    expect(admin).toContain("Agent access");
     expect(root).toContain("<AgentSidebar />");
     expect(root).toContain("doco-shell-body");
     expect(root).not.toContain('to="/senor-braino"');
@@ -43,9 +46,10 @@ describe("open Braino administration", () => {
     expect(agentSidebar).toContain("/api/v1/senor-braino.json");
     expect(senorBraino).toContain("sendWorkspaceChatMessage");
     expect(senorBraino).toContain("listWorkspaceChatMessages");
-    expect(mcpTokens).toContain("Connect Señor Braino");
+    expect(mcpTokens).toContain("Connect an agent");
     expect(mcpTokens).toContain("OAuth");
     expect(mcpTokens).toContain("This instance connects directly");
+    expect(mcpTokens).not.toContain("Open ChatGPT Plugins");
     expect(admin).toContain("Deployment");
     expect(admin).toContain("Operations");
     expect(admin).toContain("CodeLinker");
@@ -53,7 +57,30 @@ describe("open Braino administration", () => {
     expect(admin).toContain("BRAINO_CODELINKER_API_TOKEN");
     expect(admin).toContain('to="/collaborators"');
     expect(admin).toContain('to="/integrations"');
+    expect(admin).toContain('to="/plugins"');
     expect(admin).toContain('to="/mcp-tokens"');
+  });
+
+  it("gives plugins, sources, and agent access one management home each", () => {
+    expect(routes).toContain('route("plugins", "routes/plugins.tsx")');
+    expect(plugins).toContain("Model plugins");
+    expect(plugins).toContain("Email provider");
+    expect(plugins).toContain("Señor Braino for Slack");
+    expect(plugins).toContain('to="/admin/models"');
+    expect(plugins).toContain('to: "/integrations/email"');
+    expect(plugins).toContain('to: "/integrations/slack-app"');
+
+    expect(integrations).toContain('title={t("Sources")}');
+    expect(integrations).toContain("Slack channel import");
+    expect(integrations).toContain("Notion");
+    expect(integrations).toContain("Google Drive");
+    expect(integrations).toContain("Braino for GitHub");
+    expect(integrations).not.toContain('to="/integrations/email"');
+    expect(integrations).not.toContain('to="/integrations/slack-app"');
+
+    expect(workspace.match(/to="\/integrations"/g)).toHaveLength(1);
+    expect(workspace).toContain('to="/plugins"');
+    expect(workspace).toContain('{t("Agent access")}');
   });
 
   it("changes models through the setup screens, with no model form of its own", () => {

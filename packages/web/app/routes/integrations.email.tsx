@@ -131,7 +131,7 @@ export default function EmailPluginPage() {
             <span aria-hidden>›</span>
             <Link to="/admin">{t("Admin")}</Link>
             <span aria-hidden>›</span>
-            <Link to="/integrations">{t("Integrations")}</Link>
+            <Link to="/plugins">{t("Plugins")}</Link>
             <span aria-hidden>›</span>
             <span>{t("Email")}</span>
           </nav>

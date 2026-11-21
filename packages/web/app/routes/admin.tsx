@@ -487,13 +487,20 @@ export default function AdminPage() {
               />
               <AdminLink
                 to="/integrations"
-                title={t("Connections")}
+                title={t("Sources")}
                 description={t("Connect sources, GitHub, and webhooks.")}
               />
               <AdminLink
+                to="/plugins"
+                title={t("Plugins")}
+                description={t("Manage model, email, and communication plugins.")}
+              />
+              <AdminLink
                 to="/mcp-tokens"
-                title={t("Connect Señor Braino")}
-                description={t("Connect ChatGPT directly with instance-local OAuth.")}
+                title={t("Agent access")}
+                description={t(
+                  "Connect an agent to briefs, records, feedback, and atomic authoring in this workspace.",
+                )}
               />
               <AdminLink
                 to="/"

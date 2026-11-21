@@ -26,7 +26,7 @@ interface ActionData {
 
 export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
   const t = metaTranslator(matches);
-  return [{ title: t("MCP connections · Braino") }];
+  return [{ title: t("Agent access · Braino") }];
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -124,10 +124,10 @@ export default function McpTokensPage() {
               {t("Admin")}
             </Link>
             <span aria-hidden>›</span>
-            <span>{t("MCP connections")}</span>
+            <span>{t("Agent access")}</span>
           </nav>
         }
-        title={t("MCP connections")}
+        title={t("Agent access")}
       >
         <p className="text-xs text-muted-foreground">
           {t(
@@ -138,16 +138,14 @@ export default function McpTokensPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("Connect Señor Braino")}</CardTitle>
+          <CardTitle>{t("Connect an agent")}</CardTitle>
           <CardDescription>
-            {t(
-              "Add this deployment to ChatGPT as a custom MCP server and choose OAuth authentication.",
-            )}
+            {t("Use OAuth to connect any remote MCP client directly to this Braino instance.")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <ol className="list-decimal space-y-2 ps-5 text-sm">
-            <li>{t("Open ChatGPT Plugins and choose Add custom MCP server.")}</li>
+            <li>{t("Add a custom remote MCP server in your agent.")}</li>
             <li>{t("Paste this server URL and select OAuth.")}</li>
             <li>{t("Sign in here and approve access to this one workspace.")}</li>
           </ol>
@@ -156,7 +154,7 @@ export default function McpTokensPage() {
             <input
               readOnly
               value={data.endpoint}
-              aria-label={t("Señor Braino MCP server URL")}
+              aria-label={t("Server URL")}
               className="w-full rounded-md px-3 py-2 font-mono text-sm"
             />
           </label>
@@ -203,7 +201,7 @@ export default function McpTokensPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("New personal access token")}</CardTitle>
+          <CardTitle>{t("Service tokens")}</CardTitle>
           <CardDescription>
             {t(
               "For MCP clients without OAuth. Tokens inherit your live workspace access and stop working if your membership is removed.",

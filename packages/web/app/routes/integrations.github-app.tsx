@@ -293,7 +293,7 @@ export default function GithubAppPage() {
             <span aria-hidden>›</span>
             <Link to="/admin">{t("Admin")}</Link>
             <span aria-hidden>›</span>
-            <Link to="/integrations">{t("Integrations")}</Link>
+            <Link to="/integrations">{t("Sources")}</Link>
             <span aria-hidden>›</span>
             <span>{t("GitHub App")}</span>
           </nav>
