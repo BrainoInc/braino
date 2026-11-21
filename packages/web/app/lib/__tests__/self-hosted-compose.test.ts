@@ -627,6 +627,10 @@ describe("the supported self-hosted stack", () => {
     expect(script).toContain("doco_records");
     expect(script).toContain("/collections/doco_records");
     expect(script).toContain('"$origin/admin"');
+    expect(script).toContain('"$origin/plugins"');
+    expect(script).toContain('"$origin/integrations"');
+    expect(script).toContain('"$origin/mcp-tokens"');
+    expect(script).not.toContain("grep -q 'Connect Señor Braino' \"$runtime/admin\"");
     expect(script).toContain('"$origin/times"');
     expect(script).toContain("./doco backup");
     expect(script).toContain("./doco restore");
