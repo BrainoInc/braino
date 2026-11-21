@@ -396,7 +396,7 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
         actions={
           <>
             <Link to="/integrations" className={workspaceActionClass}>
-              {t("Connections")}
+              {t("Sources")}
             </Link>
             <Link to="/times" className={workspaceActionClass}>
               {t("Times")}
@@ -404,14 +404,14 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
             <Link to="/admin" className={workspaceActionClass}>
               {t("Settings")}
             </Link>
-            <Link to="/integrations" className={workspaceActionClass}>
-              {t("App integrations")}
+            <Link to="/plugins" className={workspaceActionClass}>
+              {t("Plugins")}
             </Link>
             <Link to="/collaborators" className={workspaceActionClass}>
               {t("Collaborators")}
             </Link>
             <Link to="/mcp-tokens" className={workspaceActionClass}>
-              {t("Tokens/MCP")}
+              {t("Agent access")}
             </Link>
           </>
         }

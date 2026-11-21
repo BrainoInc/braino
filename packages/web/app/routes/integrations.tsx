@@ -9,7 +9,6 @@ import {
   listConnectorConnections,
   listGithubConnections,
   listIncomingWebhooks,
-  listPluginInstallations,
   revokeIncomingWebhook,
   syncConnectorConnection,
 } from "@doco/host";
@@ -30,7 +29,7 @@ interface ActionData {
 
 export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
   const t = metaTranslator(matches);
-  return [{ title: t("Integrations · Braino") }];
+  return [{ title: t("Sources · Braino") }];
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -51,10 +50,6 @@ export async function loader({ request }: { request: Request }) {
         WHERE workspace_id = $1 AND deleted_at IS NULL ORDER BY handle`,
       [state.workspace.id],
     );
-    const pluginInstallations = await listPluginInstallations(client, {
-      workspaceId: state.workspace.id,
-      userId: user.id,
-    });
     return {
       collections: collections.rows,
       connectorConnections: await listConnectorConnections(client, state.workspace.id, user.id),
@@ -63,12 +58,6 @@ export async function loader({ request }: { request: Request }) {
         workspaceId: state.workspace.id,
         userId: user.id,
       }),
-      slackAppConnected: pluginInstallations.some(
-        (plugin) => plugin.enabled && plugin.manifest.id === "braino.slack",
-      ),
-      emailConnected: pluginInstallations.some(
-        (plugin) => plugin.enabled && plugin.manifest.capabilities["email.send"] === 1,
-      ),
     };
   });
   const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
@@ -483,13 +472,13 @@ export default function IntegrationsPage() {
               {t("Admin")}
             </Link>
             <span aria-hidden>›</span>
-            <span>{t("Integrations")}</span>
+            <span>{t("Sources")}</span>
           </nav>
         }
-        title={t("Integrations")}
+        title={t("Sources")}
       >
         <p className="text-xs text-muted-foreground">
-          {t("Bring external systems into Braino through retry-safe, policy-checked changesets.")}
+          {t("Connect sources, GitHub, and webhooks.")}
         </p>
       </PageHeader>
 
@@ -516,44 +505,6 @@ export default function IntegrationsPage() {
       ) : null}
       {actionData?.message ? <p className="text-sm text-foreground">{actionData.message}</p> : null}
       {actionData?.error ? <p className="text-sm text-destructive">{actionData.error}</p> : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("Email provider")}</CardTitle>
-          <CardDescription>
-            {t(
-              "Install a workspace-scoped provider such as Resend. Braino sends through one stable email contract without owning your provider account.",
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            to="/integrations/email"
-            className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-          >
-            {data.emailConnected ? t("Manage email provider") : t("Connect email provider")}
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("Señor Braino for Slack")}</CardTitle>
-          <CardDescription>
-            {t(
-              "Install Señor Braino in Slack for mentions, direct messages, and grounded answers from this workspace.",
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            to="/integrations/slack-app"
-            className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-          >
-            {data.slackAppConnected ? t("Manage Slack app") : t("Connect Slack app")}
-          </Link>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

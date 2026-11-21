@@ -6,6 +6,7 @@ export default [
   route("admin/models", "routes/admin.models._index.tsx"),
   route("admin/models/:model", "routes/admin.models.$model.tsx"),
   route("admin/models/:model/:pluginId", "routes/admin.models.$model.$pluginId.tsx"),
+  route("plugins", "routes/plugins.tsx"),
   route("times", "routes/times._index.tsx"),
   route("times/:day", "routes/times.$day.tsx"),
   route("api/v1/senor-braino.json", "routes/api.v1.senor-braino[.]json.ts"),

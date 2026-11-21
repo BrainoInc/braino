@@ -42,7 +42,7 @@ export function PluginSummary({ plugin }: { plugin: ModelPluginEntry }) {
   );
 }
 
-/** Braino › First run or Admin › Model setup › the screens below it. */
+/** Braino › First run or Admin › Plugins › Model setup › the screens below it. */
 export function ModelSetupBreadcrumb({
   firstRun,
   trail = [],
@@ -51,11 +51,14 @@ export function ModelSetupBreadcrumb({
   trail?: readonly { label: string; to?: string }[];
 }) {
   const t = useT();
-  const crumbs = [
-    firstRun ? { label: t("First run") } : { label: t("Admin"), to: "/admin" },
-    { label: t("Model setup"), to: "/admin/models" },
-    ...trail,
-  ];
+  const crumbs = firstRun
+    ? [{ label: t("First run") }, { label: t("Model setup"), to: "/admin/models" }, ...trail]
+    : [
+        { label: t("Admin"), to: "/admin" },
+        { label: t("Plugins"), to: "/plugins" },
+        { label: t("Model setup"), to: "/admin/models" },
+        ...trail,
+      ];
   return (
     <nav className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
       <Link to="/" className="hover:underline">

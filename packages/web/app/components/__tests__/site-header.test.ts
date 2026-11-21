@@ -43,7 +43,7 @@ describe("SiteHeader", () => {
     expect(markup).toContain("Private beta test");
     expect(markup).toMatch(/<a[^>]*href="\/"[^>]*>Workspace<\/a>/);
     expect(markup).toMatch(/<a[^>]*href="\/collaborators"[^>]*>Collaborators<\/a>/);
-    expect(markup).toMatch(/<a[^>]*href="\/mcp-tokens"[^>]*>Tokens\/MCP<\/a>/);
+    expect(markup).toMatch(/<a[^>]*href="\/mcp-tokens"[^>]*>Agent access<\/a>/);
     expect(markup).toMatch(/<a[^>]*href="\/admin"[^>]*>Admin<\/a>/);
     expect(markup).toMatch(
       /<a[^>]*class="[^"]*neu-button[^"]*max-w-48 truncate[^"]*"[^>]*href="\/collaborators"[^>]*>Alice Rojas<\/a>/,

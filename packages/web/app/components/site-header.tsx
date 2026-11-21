@@ -79,7 +79,7 @@ function NavButtons({
         {t("Collaborators")}
       </NavLink>
       <NavLink to="/mcp-tokens" className={navLinkClass} onClick={onNavigate}>
-        {t("Tokens/MCP")}
+        {t("Agent access")}
       </NavLink>
       {isOwner ? (
         <NavLink to="/admin" className={navLinkClass} onClick={onNavigate}>
