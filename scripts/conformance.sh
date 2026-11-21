@@ -131,12 +131,15 @@ grep -q 'Workspace administration' "$runtime/admin"
 grep -q 'Sources' "$runtime/admin"
 grep -q 'Plugins' "$runtime/admin"
 grep -q 'Agent access' "$runtime/admin"
-curl --fail --silent --show-error -b "$cookies" "$origin/plugins" >"$runtime/plugins"
-grep -q 'Model plugins' "$runtime/plugins"
-curl --fail --silent --show-error -b "$cookies" "$origin/integrations" >"$runtime/sources"
-grep -q 'Sources' "$runtime/sources"
-curl --fail --silent --show-error -b "$cookies" "$origin/mcp-tokens" >"$runtime/agent-access"
-grep -q 'Connect an agent' "$runtime/agent-access"
+curl --fail --silent --show-error -b "$cookies" \
+  "$origin/plugins" >"$runtime/management-plugins.html"
+grep -q 'Model plugins' "$runtime/management-plugins.html"
+curl --fail --silent --show-error -b "$cookies" \
+  "$origin/integrations" >"$runtime/management-sources.html"
+grep -q 'Sources' "$runtime/management-sources.html"
+curl --fail --silent --show-error -b "$cookies" \
+  "$origin/mcp-tokens" >"$runtime/management-agent-access.html"
+grep -q 'Connect an agent' "$runtime/management-agent-access.html"
 curl --fail --silent --show-error \
   "$origin/.well-known/oauth-protected-resource/mcp" >"$runtime/oauth-resource.json"
 grep -q '"resource":"http://localhost:' "$runtime/oauth-resource.json"
