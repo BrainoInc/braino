@@ -12,8 +12,8 @@ const senorBraino = readFileSync(resolve(app, "routes/api.v1.senor-braino[.]json
 const collaborators = readFileSync(resolve(app, "routes/collaborators.tsx"), "utf8");
 const integrations = readFileSync(resolve(app, "routes/integrations.tsx"), "utf8");
 const mcpTokens = readFileSync(resolve(app, "routes/mcp-tokens.tsx"), "utf8");
-const apps = readFileSync(resolve(app, "routes/apps.tsx"), "utf8");
-const appDetail = readFileSync(resolve(app, "routes/apps.$appId.tsx"), "utf8");
+const plugins = readFileSync(resolve(app, "routes/plugins.tsx"), "utf8");
+const pluginDetail = readFileSync(resolve(app, "routes/plugins.$pluginId.tsx"), "utf8");
 const workspace = readFileSync(resolve(app, "routes/_index.tsx"), "utf8");
 const timesIndex = readFileSync(resolve(app, "routes/times._index.tsx"), "utf8");
 
@@ -36,7 +36,7 @@ describe("open Braino administration", () => {
     expect(admin).toContain('to="/times"');
     expect(admin).toContain("People and access");
     expect(admin).toContain("Sources");
-    expect(admin).toContain("Apps");
+    expect(admin).toContain("Plugins");
     expect(admin).toContain("Agent access");
     expect(root).toContain("<AgentSidebar />");
     expect(root).toContain("doco-shell-body");
@@ -58,26 +58,35 @@ describe("open Braino administration", () => {
     expect(admin).toContain("BRAINO_CODELINKER_API_TOKEN");
     expect(admin).toContain('to="/collaborators"');
     expect(admin).toContain('to="/integrations"');
-    expect(admin).toContain('to="/apps"');
+    expect(admin).toContain('to="/plugins"');
     expect(admin).toContain('to="/mcp-tokens"');
   });
 
-  it("gives apps, sources, and agent access one management home each", () => {
-    expect(routes).toContain('route("apps", "routes/apps.tsx")');
-    expect(routes).toContain('route("apps/:appId", "routes/apps.$appId.tsx")');
-    expect(routes).not.toContain('route("plugins"');
+  it("gives plugins, sources, and agent access one management home each", () => {
+    expect(routes).toContain('route("plugins", "routes/plugins.tsx")');
+    expect(routes).toContain('route("plugins/:pluginId", "routes/plugins.$pluginId.tsx")');
+    expect(routes).not.toContain('route("apps"');
     expect(routes).not.toContain('route("admin/models"');
-    expect(apps).toContain("Browse");
-    expect(apps).toContain("Installed");
-    expect(apps).toContain("to={`/apps/${app.id}`}");
-    for (const app of ["OpenAI", "Ollama", "Slack", "Resend"]) {
-      expect(apps).toContain(app);
+    expect(plugins).toContain("Browse");
+    expect(plugins).toContain("Installed");
+    expect(plugins).toContain("to={`/plugins/${plugin.id}`}");
+    for (const plugin of [
+      "OpenAI Chat",
+      "OpenAI Embeddings",
+      "Ollama Chat",
+      "Ollama Embeddings",
+      "Slack",
+      "Resend",
+    ]) {
+      expect(plugins).toContain(plugin);
     }
-    expect(appDetail).toContain("Install app");
-    expect(appDetail).toContain("Save changes");
-    expect(appDetail).toContain("Remove app");
-    expect(appDetail).not.toContain("Manage models");
-    expect(appDetail).not.toContain("Change models");
+    expect(pluginDetail).toContain("Install plugin");
+    expect(pluginDetail).toContain("Save changes");
+    expect(pluginDetail).toContain("Remove plugin");
+    expect(pluginDetail).toContain('to={data.ready ? "/" : "/plugins"}');
+    expect(pluginDetail).toContain("Choose the next required plugin");
+    expect(pluginDetail).not.toContain("Manage models");
+    expect(pluginDetail).not.toContain("Change models");
 
     expect(integrations).toContain('title={t("Sources")}');
     expect(integrations).toContain("Slack channel import");
@@ -88,11 +97,11 @@ describe("open Braino administration", () => {
     expect(integrations).not.toContain('to="/integrations/slack-app"');
 
     expect(workspace.match(/to="\/integrations"/g)).toHaveLength(1);
-    expect(workspace).toContain('to="/apps"');
+    expect(workspace).toContain('to="/plugins"');
     expect(workspace).toContain('{t("Agent access")}');
   });
 
-  it("keeps app installation on each app page instead of the admin console", () => {
+  it("keeps plugin installation on each plugin page instead of the admin console", () => {
     expect(routes).not.toContain('route("integrations/email"');
     expect(routes).not.toContain('route("integrations/slack-app"');
     expect(admin).not.toContain('id="model-plugins"');
@@ -138,7 +147,7 @@ describe("open Braino administration", () => {
   });
 
   it("keeps each administration page connected to the console", () => {
-    for (const page of [collaborators, integrations, mcpTokens, apps]) {
+    for (const page of [collaborators, integrations, mcpTokens, plugins]) {
       expect(page).toContain('to="/admin"');
     }
   });

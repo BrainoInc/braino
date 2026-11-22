@@ -5,21 +5,26 @@ import { Link, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
-import { APP_IDS, APP_PLUGIN_IDS, type AppId } from "~/lib/app-catalog";
 import { loadModelSetup } from "~/lib/model-setup.server";
+import {
+  PLUGIN_MANIFEST_IDS,
+  PLUGIN_PAGE_IDS,
+  type PluginPageId,
+  isModelPluginPage,
+} from "~/lib/plugin-catalog";
 import { metaTranslator } from "~/locales/catalog";
 
 type View = "browse" | "installed";
 
-interface AppRow {
-  id: AppId;
+interface PluginRow {
+  id: PluginPageId;
   installed: boolean;
   active: boolean;
 }
 
 export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
   const t = metaTranslator(matches);
-  return [{ title: t("Apps · Braino") }];
+  return [{ title: t("Plugins · Braino") }];
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -33,63 +38,71 @@ export async function loader({ request }: { request: Request }) {
   );
   const view: View =
     new URL(request.url).searchParams.get("view") === "installed" ? "installed" : "browse";
-  const apps: AppRow[] = APP_IDS.map((id) => {
-    const pluginIds = APP_PLUGIN_IDS[id] as readonly string[];
-    const matches = installations.filter((item) => pluginIds.includes(item.manifest.id));
-    const enabled = matches.filter((item) => item.enabled);
+  const plugins: PluginRow[] = PLUGIN_PAGE_IDS.map((id) => {
+    const manifestId = PLUGIN_MANIFEST_IDS[id];
+    const installed = installations.some((item) => item.manifest.id === manifestId && item.enabled);
     return {
       id,
-      installed: enabled.length > 0,
-      active:
-        id === "ollama" || id === "openai"
-          ? pluginIds.every((pluginId) =>
-              setup.steps.some(
-                (step) => step.pluginId === pluginId && step.status !== "preselected",
-              ),
-            )
-          : enabled.length > 0,
+      installed,
+      active: isModelPluginPage(id)
+        ? installed &&
+          setup.steps.some((step) => step.pluginId === manifestId && step.status === "ready")
+        : installed,
     };
   });
   return {
     workspace: setup.workspace,
     ready: setup.ready,
     view,
-    apps: view === "installed" ? apps.filter((app) => app.installed) : apps,
+    requirements: Object.fromEntries(
+      setup.steps.map((step) => [step.kind, step.status === "ready"]),
+    ) as Record<"chat" | "embedding", boolean>,
+    plugins: view === "installed" ? plugins.filter((plugin) => plugin.installed) : plugins,
   };
 }
 
-function appCopy(t: ReturnType<typeof useT>, id: AppId) {
+function pluginCopy(t: ReturnType<typeof useT>, id: PluginPageId) {
   switch (id) {
-    case "ollama":
+    case "ollama-chat":
       return {
-        name: "Ollama",
-        description: t(
-          "Run private AI on this server without sending workspace data to a model provider.",
-        ),
-        capabilities: [t("Chat responses"), t("Semantic search")],
+        name: "Ollama Chat",
+        description: t("Answer questions and write summaries privately with Ollama."),
+        capability: t("Chat"),
       };
-    case "openai":
+    case "ollama-embedding":
       return {
-        name: "OpenAI",
-        description: t("Use your OpenAI account for Braino answers and semantic search."),
-        capabilities: [t("Chat responses"), t("Semantic search")],
+        name: "Ollama Embeddings",
+        description: t("Power semantic search privately with Ollama."),
+        capability: t("Embeddings"),
+      };
+    case "openai-chat":
+      return {
+        name: "OpenAI Chat",
+        description: t("Use an OpenAI model for answers and summaries."),
+        capability: t("Chat"),
+      };
+    case "openai-embedding":
+      return {
+        name: "OpenAI Embeddings",
+        description: t("Use an OpenAI embedding model for semantic search."),
+        capability: t("Embeddings"),
       };
     case "slack":
       return {
         name: "Slack",
         description: t("Let your team talk to Señor Braino from Slack."),
-        capabilities: [t("Team chat")],
+        capability: t("Team chat"),
       };
     case "resend":
       return {
         name: "Resend",
         description: t("Send workspace email through your Resend account."),
-        capabilities: [t("Email delivery")],
+        capability: t("Email delivery"),
       };
   }
 }
 
-export default function AppsPage() {
+export default function PluginsPage() {
   const t = useT();
   const data = useLoaderData<typeof loader>();
   return (
@@ -101,37 +114,47 @@ export default function AppsPage() {
             <span aria-hidden>›</span>
             <Link to="/admin">{t("Admin")}</Link>
             <span aria-hidden>›</span>
-            <span>{t("Apps")}</span>
+            <span>{t("Plugins")}</span>
           </nav>
         }
-        title={t("Apps")}
+        title={t("Plugins")}
       >
         <p className="text-xs text-muted-foreground">
-          {t("Install and manage the services this workspace uses.")}
+          {t("Install and manage each workspace plugin independently.")}
         </p>
       </PageHeader>
 
       {!data.ready ? (
         <Card className="border-primary">
           <CardHeader>
-            <CardTitle>{t("Choose how Braino thinks and searches")}</CardTitle>
+            <CardTitle>{t("Complete AI setup")}</CardTitle>
             <CardDescription>
-              {t("Install either Ollama or OpenAI to finish setting up this workspace.")}
+              {t(
+                "Install one Chat plugin and one Embedding plugin. They may use different providers and credentials.",
+              )}
             </CardDescription>
           </CardHeader>
+          <CardContent className="flex flex-wrap gap-2 text-xs">
+            <span className="neu-well rounded-md px-3 py-2">
+              {t("Chat plugin")}: {data.requirements.chat ? t("Ready") : t("Required")}
+            </span>
+            <span className="neu-well rounded-md px-3 py-2">
+              {t("Embedding plugin")}: {data.requirements.embedding ? t("Ready") : t("Required")}
+            </span>
+          </CardContent>
         </Card>
       ) : null}
 
-      <nav className="flex gap-2" aria-label={t("App views")}>
+      <nav className="flex gap-2" aria-label={t("Plugin views")}>
         <Link
-          to="/apps"
+          to="/plugins"
           aria-current={data.view === "browse" ? "page" : undefined}
           className="neu-button rounded-md px-4 py-2 text-sm font-semibold"
         >
           {t("Browse")}
         </Link>
         <Link
-          to="/apps?view=installed"
+          to="/plugins?view=installed"
           aria-current={data.view === "installed" ? "page" : undefined}
           className="neu-button rounded-md px-4 py-2 text-sm font-semibold"
         >
@@ -139,12 +162,12 @@ export default function AppsPage() {
         </Link>
       </nav>
 
-      {data.apps.length > 0 ? (
+      {data.plugins.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2">
-          {data.apps.map((app) => {
-            const copy = appCopy(t, app.id);
+          {data.plugins.map((plugin) => {
+            const copy = pluginCopy(t, plugin.id);
             return (
-              <Card key={app.id} className="flex h-full flex-col">
+              <Card key={plugin.id} className="flex h-full flex-col">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -152,23 +175,23 @@ export default function AppsPage() {
                       <CardDescription>{copy.description}</CardDescription>
                     </div>
                     <span className="rounded-full border border-border px-2 py-1 font-mono text-[10px] text-muted-foreground">
-                      {app.active ? t("Active") : app.installed ? t("Installed") : t("Available")}
+                      {plugin.active
+                        ? t("Active")
+                        : plugin.installed
+                          ? t("Installed")
+                          : t("Available")}
                     </span>
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-between gap-4">
-                  <ul className="flex flex-wrap gap-2">
-                    {copy.capabilities.map((capability) => (
-                      <li key={capability} className="neu-well rounded-md px-2.5 py-1 text-xs">
-                        {capability}
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="neu-well self-start rounded-md px-2.5 py-1 text-xs">
+                    {copy.capability}
+                  </p>
                   <Link
-                    to={`/apps/${app.id}`}
+                    to={`/plugins/${plugin.id}`}
                     className="neu-button self-start rounded-md px-4 py-2 text-sm font-semibold"
                   >
-                    {app.installed ? t("Manage") : t("View app")}
+                    {plugin.installed ? t("Manage") : t("View plugin")}
                   </Link>
                 </CardContent>
               </Card>
@@ -176,7 +199,7 @@ export default function AppsPage() {
           })}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">{t("No apps are installed yet.")}</p>
+        <p className="text-sm text-muted-foreground">{t("No plugins are installed yet.")}</p>
       )}
     </PageMain>
   );
