@@ -110,18 +110,20 @@ setup_status=$(curl --silent --show-error -o "$runtime/setup-response" -w '%{htt
   --data-urlencode 'password=conformance-owner-password')
 [[ "$setup_status" == "302" || "$setup_status" == "303" ]]
 
-# A fresh workspace is sent to model setup, where the bundled local plugins are
-# pre-selected; "Check and finish" installs them and lets the owner in.
+# A fresh workspace is sent to Apps, where installing Ollama provides both
+# capabilities Braino needs before opening the workspace.
 model_gate=$(curl --silent --show-error -o /dev/null -w '%{http_code} %{redirect_url}' \
   -b "$cookies" "$origin/")
-[[ "$model_gate" == "302 $origin/admin/models" ]]
-curl --fail --silent --show-error -b "$cookies" "$origin/admin/models" >"$runtime/model-setup"
-grep -q 'Set up your models' "$runtime/model-setup"
-grep -q 'Ollama chat' "$runtime/model-setup"
-grep -q 'Ollama embeddings' "$runtime/model-setup"
+[[ "$model_gate" == "302 $origin/apps" ]]
+curl --fail --silent --show-error -b "$cookies" "$origin/apps" >"$runtime/app-setup"
+grep -q 'Choose how Braino thinks and searches' "$runtime/app-setup"
+grep -q 'Ollama' "$runtime/app-setup"
 finish_status=$(curl --silent --show-error -o "$runtime/model-setup-response" \
-  -w '%{http_code}' -b "$cookies" -X POST "$origin/admin/models" \
-  -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'intent=finish')
+  -w '%{http_code}' -b "$cookies" -X POST "$origin/apps/ollama" \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'intent=save' \
+  --data-urlencode 'chat_model=qwen3.5:4b' \
+  --data-urlencode 'embedding_model=embeddinggemma-2:270m')
 [[ "$finish_status" == "302" || "$finish_status" == "303" ]]
 
 curl --fail --silent --show-error -b "$cookies" "$origin/" >"$runtime/dashboard"
@@ -129,11 +131,11 @@ grep -q 'Conformance Workspace' "$runtime/dashboard"
 curl --fail --silent --show-error -b "$cookies" "$origin/admin" >"$runtime/admin"
 grep -q 'Workspace administration' "$runtime/admin"
 grep -q 'Sources' "$runtime/admin"
-grep -q 'Plugins' "$runtime/admin"
+grep -q 'Apps' "$runtime/admin"
 grep -q 'Agent access' "$runtime/admin"
 curl --fail --silent --show-error -b "$cookies" \
-  "$origin/plugins" >"$runtime/management-plugins.html"
-grep -q 'Model plugins' "$runtime/management-plugins.html"
+  "$origin/apps" >"$runtime/management-apps.html"
+grep -q 'Installed' "$runtime/management-apps.html"
 curl --fail --silent --show-error -b "$cookies" \
   "$origin/integrations" >"$runtime/management-sources.html"
 grep -q 'Sources' "$runtime/management-sources.html"

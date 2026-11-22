@@ -10,7 +10,6 @@ import { type Translator, msg } from "@doco/shared/i18n";
 import { type ReactTranslator, useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
-import { modelTitle } from "~/components/model-setup";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
@@ -118,7 +117,6 @@ export async function loader({ request }: { request: Request }) {
     const models = await loadModelSetup(request);
     return {
       overview,
-      modelSteps: models.steps,
       deployment: deploymentStatus(
         request,
         {
@@ -266,7 +264,7 @@ export default function AdminPage() {
   const t = useT();
   const data = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const actionData = useActionData() as ActionData | undefined;
-  const { overview, modelSteps, deployment } = data;
+  const { overview, deployment } = data;
   const period =
     METRIC_PERIODS.find((option) => option.value === overview.activity.period) ?? METRIC_PERIODS[0];
   return (
@@ -491,9 +489,9 @@ export default function AdminPage() {
                 description={t("Connect sources, GitHub, and webhooks.")}
               />
               <AdminLink
-                to="/plugins"
-                title={t("Plugins")}
-                description={t("Manage model, email, and communication plugins.")}
+                to="/apps"
+                title={t("Apps")}
+                description={t("Install and manage workspace apps.")}
               />
               <AdminLink
                 to="/mcp-tokens"
@@ -524,7 +522,7 @@ export default function AdminPage() {
                 <StatusRow label={"PostgreSQL"} value={deployment.postgres} />
                 <StatusRow label={"Qdrant"} value={deployment.qdrant} />
                 <StatusRow label={"CodeLinker"} value={deployment.codeLinker} />
-                <StatusRow label={t("Model plugins")} value={deployment.models} />
+                <StatusRow label={t("AI apps")} value={deployment.models} />
                 <StatusRow label={t("Search")} value={deployment.search} />
                 <StatusRow label={t("Transport")} value={deployment.transport} />
               </dl>
@@ -532,42 +530,6 @@ export default function AdminPage() {
           </Card>
         </div>
       </div>
-
-      <section id="model-plugins" className="space-y-3" aria-labelledby="model-plugins-title">
-        <div>
-          <h2 id="model-plugins-title" className="text-lg font-semibold">
-            {t("Required model plugins")}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {t(
-              "The workspace opens only when one chat plugin and one embedding plugin are configured.",
-            )}
-          </p>
-        </div>
-        <Card>
-          <CardContent className="space-y-3 pt-4">
-            <dl>
-              {modelSteps.map((step) => (
-                <StatusRow
-                  key={step.kind}
-                  label={modelTitle(t, step.kind)}
-                  value={
-                    step.pluginName && step.status !== "preselected"
-                      ? `${step.pluginName} · ${step.model ?? ""}`
-                      : t("Setup required")
-                  }
-                />
-              ))}
-            </dl>
-            <Link
-              to="/admin/models"
-              className="neu-button inline-block rounded-md px-4 py-2 text-sm font-semibold"
-            >
-              {t("Change models")}
-            </Link>
-          </CardContent>
-        </Card>
-      </section>
 
       <Card>
         <CardHeader>

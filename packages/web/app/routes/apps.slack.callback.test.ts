@@ -30,7 +30,7 @@ vi.mock("~/lib/plugin-gateway-state.server", () => ({
   verifyPluginGatewayState: mocks.verifyPluginGatewayState,
 }));
 
-import { loader } from "./integrations.slack-app.callback";
+import { loader } from "./apps.slack.callback";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -79,7 +79,7 @@ describe("Slack gateway callback", () => {
   it("installs the gateway client with no Slack credential in the instance", async () => {
     const response = (await loader({
       request: new Request(
-        "https://meta.braino.dev/integrations/slack-app/callback?code=one-time&state=local-state",
+        "https://meta.braino.dev/apps/slack/callback?code=one-time&state=local-state",
       ),
     }).catch((error: Response) => error)) as Response;
 
@@ -106,6 +106,6 @@ describe("Slack gateway callback", () => {
     const installInput = mocks.connectWorkspaceTeamChatPlugin.mock.calls[0]?.[1];
     expect(JSON.stringify(installInput)).not.toContain("xoxb-");
     expect(JSON.stringify(installInput)).not.toContain("signing_secret");
-    expect(response.headers.get("location")).toBe("/integrations/slack-app?connected=1");
+    expect(response.headers.get("location")).toBe("/apps/slack?saved=1");
   });
 });

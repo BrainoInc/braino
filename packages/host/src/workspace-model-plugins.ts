@@ -264,6 +264,85 @@ export async function verifyWorkspaceModelPlugins(
  * provide only this model: enabling it must not also assign it to the other.
  * Secrets the plugin already holds are kept unless new ones are given.
  */
+export interface WorkspaceModelPluginAssignment {
+  capability: ModelCapability;
+  plugin: ModelPluginBundle;
+}
+
+/** Assigns every capability supplied by one app in a single transaction. */
+export async function assignWorkspaceModelPlugins(
+  client: PoolClient,
+  input: {
+    workspaceId: string;
+    userId: string;
+    plugins: readonly WorkspaceModelPluginAssignment[];
+  },
+): Promise<PluginInstallation[]> {
+  const capabilities = new Set<ModelCapability>();
+  for (const assignment of input.plugins) {
+    const manifest = parsePluginManifest(assignment.plugin.manifest);
+    const provided = MODEL_CAPABILITIES.filter((capability) =>
+      pluginProvidesCapability(manifest, capability),
+    );
+    if (provided.length !== 1 || provided[0] !== assignment.capability) {
+      throw new PluginInstallationError(
+        `${manifest.name} cannot be assigned as the only provider of ${assignment.capability}.`,
+        "capability_not_provided",
+      );
+    }
+    if (!usableConfiguration(assignment.plugin.configuration)) {
+      throw new PluginInstallationError(
+        "A model plugin requires a model.",
+        "configuration_invalid",
+      );
+    }
+    if (capabilities.has(assignment.capability)) {
+      throw new PluginInstallationError(
+        `An app cannot assign ${assignment.capability} more than once.`,
+        "capability_duplicated",
+      );
+    }
+    capabilities.add(assignment.capability);
+  }
+  await client.query("BEGIN");
+  try {
+    const installedPlugins: PluginInstallation[] = [];
+    for (const assignment of input.plugins) {
+      const manifest = parsePluginManifest(assignment.plugin.manifest);
+      const installed = await installPluginInTransaction(client, {
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        ...assignment.plugin,
+      });
+      const stored = await client.query<{ name: string }>(
+        "SELECT name FROM plugin_installation_secrets WHERE installation_id = $1",
+        [installed.id],
+      );
+      const held = new Set(stored.rows.map((row) => row.name));
+      const missing = requiredSecretNames(manifest.secretSchema).find((name) => !held.has(name));
+      if (missing) {
+        throw new PluginInstallationError(
+          `${manifest.name} requires its own ${missing} secret.`,
+          "secret_required",
+        );
+      }
+      await client.query(
+        `UPDATE plugin_installations
+            SET enabled = false, updated_by_user_id = $3, updated_at = now()
+          WHERE workspace_id = $1 AND id <> $2 AND enabled
+            AND manifest->'capabilities' ? $4`,
+        [input.workspaceId, installed.id, input.userId, assignment.capability],
+      );
+      installedPlugins.push(installed);
+    }
+    await client.query("COMMIT");
+    return installedPlugins;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+}
+
 export async function assignWorkspaceModelPlugin(
   client: PoolClient,
   input: {
@@ -273,49 +352,13 @@ export async function assignWorkspaceModelPlugin(
     plugin: ModelPluginBundle;
   },
 ): Promise<PluginInstallation> {
-  const manifest = parsePluginManifest(input.plugin.manifest);
-  const provided = MODEL_CAPABILITIES.filter((capability) =>
-    pluginProvidesCapability(manifest, capability),
-  );
-  if (provided.length !== 1 || provided[0] !== input.capability) {
-    throw new PluginInstallationError(
-      `${manifest.name} cannot be assigned as the only provider of ${input.capability}.`,
-      "capability_not_provided",
-    );
+  const [installed] = await assignWorkspaceModelPlugins(client, {
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    plugins: [{ capability: input.capability, plugin: input.plugin }],
+  });
+  if (!installed) {
+    throw new PluginInstallationError("Plugin installation failed.", "installation_failed", 500);
   }
-  if (!usableConfiguration(input.plugin.configuration)) {
-    throw new PluginInstallationError("A model plugin requires a model.", "configuration_invalid");
-  }
-  await client.query("BEGIN");
-  try {
-    const installed = await installPluginInTransaction(client, {
-      workspaceId: input.workspaceId,
-      userId: input.userId,
-      ...input.plugin,
-    });
-    const stored = await client.query<{ name: string }>(
-      "SELECT name FROM plugin_installation_secrets WHERE installation_id = $1",
-      [installed.id],
-    );
-    const held = new Set(stored.rows.map((row) => row.name));
-    const missing = requiredSecretNames(manifest.secretSchema).find((name) => !held.has(name));
-    if (missing) {
-      throw new PluginInstallationError(
-        `${manifest.name} requires its own ${missing} secret.`,
-        "secret_required",
-      );
-    }
-    await client.query(
-      `UPDATE plugin_installations
-          SET enabled = false, updated_by_user_id = $3, updated_at = now()
-        WHERE workspace_id = $1 AND id <> $2 AND enabled
-          AND manifest->'capabilities' ? $4`,
-      [input.workspaceId, installed.id, input.userId, input.capability],
-    );
-    await client.query("COMMIT");
-    return installed;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  }
+  return installed;
 }

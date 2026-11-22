@@ -336,6 +336,27 @@ export async function setPluginInstallationEnabled(
   return installation(row);
 }
 
+/** Removes one workspace app and lets its workspace-scoped secrets cascade. */
+export async function removePluginInstallation(
+  client: PoolClient,
+  input: { workspaceId: string; userId: string; installationId: string },
+): Promise<void> {
+  await requireOwner(client, input.workspaceId, input.userId);
+  const result = await client.query(
+    `DELETE FROM plugin_installations
+      WHERE workspace_id = $1 AND id = $2
+      RETURNING id`,
+    [input.workspaceId, input.installationId],
+  );
+  if (!result.rows[0]) {
+    throw new PluginInstallationError(
+      "Plugin installation is unavailable.",
+      "installation_unavailable",
+      404,
+    );
+  }
+}
+
 export async function configurePluginInstallation(
   client: PoolClient,
   input: {

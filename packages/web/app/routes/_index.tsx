@@ -75,7 +75,7 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
     getWorkspaceModelPluginReadiness(client, state.workspace.id),
   );
   // Nothing in the workspace works without its two models, so setup comes first.
-  if (!modelPlugins.ready) throw redirect("/admin/models");
+  if (!modelPlugins.ready) throw redirect("/apps");
   const range = orbitRange(new URL(request.url).searchParams.get("range"));
   return withClient(async (client) => {
     const workspaceResult = await client.query<WorkspaceView>(
@@ -404,8 +404,8 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
             <Link to="/admin" className={workspaceActionClass}>
               {t("Settings")}
             </Link>
-            <Link to="/plugins" className={workspaceActionClass}>
-              {t("Plugins")}
+            <Link to="/apps" className={workspaceActionClass}>
+              {t("Apps")}
             </Link>
             <Link to="/collaborators" className={workspaceActionClass}>
               {t("Collaborators")}

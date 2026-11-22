@@ -12,7 +12,8 @@ const senorBraino = readFileSync(resolve(app, "routes/api.v1.senor-braino[.]json
 const collaborators = readFileSync(resolve(app, "routes/collaborators.tsx"), "utf8");
 const integrations = readFileSync(resolve(app, "routes/integrations.tsx"), "utf8");
 const mcpTokens = readFileSync(resolve(app, "routes/mcp-tokens.tsx"), "utf8");
-const plugins = readFileSync(resolve(app, "routes/plugins.tsx"), "utf8");
+const apps = readFileSync(resolve(app, "routes/apps.tsx"), "utf8");
+const appDetail = readFileSync(resolve(app, "routes/apps.$appId.tsx"), "utf8");
 const workspace = readFileSync(resolve(app, "routes/_index.tsx"), "utf8");
 const timesIndex = readFileSync(resolve(app, "routes/times._index.tsx"), "utf8");
 
@@ -35,7 +36,7 @@ describe("open Braino administration", () => {
     expect(admin).toContain('to="/times"');
     expect(admin).toContain("People and access");
     expect(admin).toContain("Sources");
-    expect(admin).toContain("Plugins");
+    expect(admin).toContain("Apps");
     expect(admin).toContain("Agent access");
     expect(root).toContain("<AgentSidebar />");
     expect(root).toContain("doco-shell-body");
@@ -57,18 +58,26 @@ describe("open Braino administration", () => {
     expect(admin).toContain("BRAINO_CODELINKER_API_TOKEN");
     expect(admin).toContain('to="/collaborators"');
     expect(admin).toContain('to="/integrations"');
-    expect(admin).toContain('to="/plugins"');
+    expect(admin).toContain('to="/apps"');
     expect(admin).toContain('to="/mcp-tokens"');
   });
 
-  it("gives plugins, sources, and agent access one management home each", () => {
-    expect(routes).toContain('route("plugins", "routes/plugins.tsx")');
-    expect(plugins).toContain("Model plugins");
-    expect(plugins).toContain("Email provider");
-    expect(plugins).toContain("Señor Braino for Slack");
-    expect(plugins).toContain('to="/admin/models"');
-    expect(plugins).toContain('to: "/integrations/email"');
-    expect(plugins).toContain('to: "/integrations/slack-app"');
+  it("gives apps, sources, and agent access one management home each", () => {
+    expect(routes).toContain('route("apps", "routes/apps.tsx")');
+    expect(routes).toContain('route("apps/:appId", "routes/apps.$appId.tsx")');
+    expect(routes).not.toContain('route("plugins"');
+    expect(routes).not.toContain('route("admin/models"');
+    expect(apps).toContain("Browse");
+    expect(apps).toContain("Installed");
+    expect(apps).toContain("to={`/apps/${app.id}`}");
+    for (const app of ["OpenAI", "Ollama", "Slack", "Resend"]) {
+      expect(apps).toContain(app);
+    }
+    expect(appDetail).toContain("Install app");
+    expect(appDetail).toContain("Save changes");
+    expect(appDetail).toContain("Remove app");
+    expect(appDetail).not.toContain("Manage models");
+    expect(appDetail).not.toContain("Change models");
 
     expect(integrations).toContain('title={t("Sources")}');
     expect(integrations).toContain("Slack channel import");
@@ -79,20 +88,16 @@ describe("open Braino administration", () => {
     expect(integrations).not.toContain('to="/integrations/slack-app"');
 
     expect(workspace.match(/to="\/integrations"/g)).toHaveLength(1);
-    expect(workspace).toContain('to="/plugins"');
+    expect(workspace).toContain('to="/apps"');
     expect(workspace).toContain('{t("Agent access")}');
   });
 
-  it("changes models through the setup screens, with no model form of its own", () => {
-    expect(routes).toContain('route("admin/models", "routes/admin.models._index.tsx")');
-    expect(routes).toContain('route("admin/models/:model", "routes/admin.models.$model.tsx")');
-    expect(routes).toContain('route("integrations/email", "routes/integrations.email.tsx")');
-    expect(routes).toContain(
-      'route("admin/models/:model/:pluginId", "routes/admin.models.$model.$pluginId.tsx")',
-    );
-    expect(admin).toContain('id="model-plugins"');
-    expect(admin).toContain("Required model plugins");
-    expect(admin).toContain('to="/admin/models"');
+  it("keeps app installation on each app page instead of the admin console", () => {
+    expect(routes).not.toContain('route("integrations/email"');
+    expect(routes).not.toContain('route("integrations/slack-app"');
+    expect(admin).not.toContain('id="model-plugins"');
+    expect(admin).not.toContain("Required model plugins");
+    expect(admin).not.toContain('to="/admin/models"');
     expect(admin).toContain("loadModelSetup");
     expect(admin).not.toMatch(/name="(chat_model|embedding_model|embedding_dimensions|api_key)"/);
     expect(admin).not.toMatch(/install_ollama|configure_ollama|configure_openai_provider/);
@@ -133,7 +138,7 @@ describe("open Braino administration", () => {
   });
 
   it("keeps each administration page connected to the console", () => {
-    for (const page of [collaborators, integrations, mcpTokens]) {
+    for (const page of [collaborators, integrations, mcpTokens, apps]) {
       expect(page).toContain('to="/admin"');
     }
   });

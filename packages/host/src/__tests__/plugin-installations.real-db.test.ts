@@ -8,6 +8,7 @@ import {
   PluginInstallationError,
   installPlugin,
   listPluginInstallations,
+  removePluginInstallation,
   setPluginInstallationEnabled,
 } from "../plugin-installations.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
@@ -140,6 +141,29 @@ describe("workspace-bound plugin installations", () => {
         userId: first.owner.id,
       }),
     ).resolves.toEqual([expect.objectContaining({ id: installed.id, enabled: false })]);
+  });
+
+  it("removes an installation instead of retaining its configuration", async () => {
+    const first = await fixture();
+    const installed = await installPlugin(client(), {
+      workspaceId: first.workspace.id,
+      userId: first.owner.id,
+      manifest: manifest(),
+      component: component("one"),
+    });
+
+    await removePluginInstallation(client(), {
+      workspaceId: first.workspace.id,
+      userId: first.owner.id,
+      installationId: installed.id,
+    });
+
+    await expect(
+      listPluginInstallations(client(), {
+        workspaceId: first.workspace.id,
+        userId: first.owner.id,
+      }),
+    ).resolves.toEqual([]);
   });
 
   it("keeps installation management owner-only and rejects empty artifacts", async () => {
