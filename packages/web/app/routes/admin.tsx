@@ -489,9 +489,9 @@ export default function AdminPage() {
                 description={t("Connect sources, GitHub, and webhooks.")}
               />
               <AdminLink
-                to="/apps"
-                title={t("Apps")}
-                description={t("Install and manage workspace apps.")}
+                to="/plugins"
+                title={t("Plugins")}
+                description={t("Install and manage workspace plugins.")}
               />
               <AdminLink
                 to="/mcp-tokens"
@@ -522,7 +522,7 @@ export default function AdminPage() {
                 <StatusRow label={"PostgreSQL"} value={deployment.postgres} />
                 <StatusRow label={"Qdrant"} value={deployment.qdrant} />
                 <StatusRow label={"CodeLinker"} value={deployment.codeLinker} />
-                <StatusRow label={t("AI apps")} value={deployment.models} />
+                <StatusRow label={t("AI plugins")} value={deployment.models} />
                 <StatusRow label={t("Search")} value={deployment.search} />
                 <StatusRow label={t("Transport")} value={deployment.transport} />
               </dl>

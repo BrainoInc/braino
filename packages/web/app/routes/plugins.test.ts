@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelPluginEntry, ModelStep } from "~/lib/model-plugin-catalog";
 
 const mocks = vi.hoisted(() => ({
-  assignWorkspaceModelPlugins: vi.fn(),
+  assignWorkspaceModelPlugin: vi.fn(),
   bundledModelPlugin: vi.fn(),
   bundledPlugin: vi.fn(),
   connectWorkspaceEmailPlugin: vi.fn(),
@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   pluginHostConnection: vi.fn(),
   pluginSecretsKey: vi.fn(),
   removePluginInstallation: vi.fn(),
-  verifyWorkspaceModelPlugins: vi.fn(),
+  verifyWorkspaceModelPlugin: vi.fn(),
 }));
 
 vi.mock("@doco/db", () => ({
@@ -25,11 +25,11 @@ vi.mock("@doco/host", () => ({
     }
   },
   PluginInstallationError: class PluginInstallationError extends Error {},
-  assignWorkspaceModelPlugins: mocks.assignWorkspaceModelPlugins,
+  assignWorkspaceModelPlugin: mocks.assignWorkspaceModelPlugin,
   connectWorkspaceEmailPlugin: mocks.connectWorkspaceEmailPlugin,
   listPluginInstallations: mocks.listPluginInstallations,
   removePluginInstallation: mocks.removePluginInstallation,
-  verifyWorkspaceModelPlugins: mocks.verifyWorkspaceModelPlugins,
+  verifyWorkspaceModelPlugin: mocks.verifyWorkspaceModelPlugin,
 }));
 vi.mock("~/lib/bundled-model-plugins.server", () => ({
   bundledModelPlugin: mocks.bundledModelPlugin,
@@ -42,8 +42,8 @@ vi.mock("~/lib/model-setup.server", () => ({
   pluginSecretsKey: mocks.pluginSecretsKey,
 }));
 
-import { loader as appsLoader } from "./apps";
-import { action, loader } from "./apps.$appId";
+import { loader as pluginsLoader } from "./plugins";
+import { action, loader } from "./plugins.$pluginId";
 
 const entry = (
   id: string,
@@ -145,57 +145,79 @@ beforeEach(() => {
   });
 });
 
-describe("Apps", () => {
-  it("shows Browse and limits Installed to apps enabled for this workspace", async () => {
+describe("Plugins", () => {
+  it("shows each capability as its own plugin and limits Installed to enabled plugins", async () => {
     mocks.listPluginInstallations.mockResolvedValue([
       installation("braino.slack"),
       installation("braino.resend", false),
     ]);
 
-    const browse = await appsLoader({ request: request("/apps") });
-    const installed = await appsLoader({ request: request("/apps?view=installed") });
+    const browse = await pluginsLoader({ request: request("/plugins") });
+    const installed = await pluginsLoader({ request: request("/plugins?view=installed") });
 
-    expect(browse.apps.map((app) => app.id)).toEqual(["ollama", "openai", "slack", "resend"]);
-    expect(installed.apps.map((app) => app.id)).toEqual(["slack"]);
-  });
-
-  it("presents one OpenAI app with chat and search settings", async () => {
-    const data = await loader({ request: request("/apps/openai"), params: { appId: "openai" } });
-
-    expect(data).toMatchObject({ type: "ai", id: "openai", installed: false });
-    if (data.type !== "ai") throw new Error("Expected an AI app.");
-    expect(data.settings.map((setting) => [setting.kind, setting.model])).toEqual([
-      ["chat", "gpt-4.1-mini"],
-      ["embedding", "text-embedding-3-small"],
+    expect(browse.plugins.map((plugin) => plugin.id)).toEqual([
+      "ollama-chat",
+      "ollama-embedding",
+      "openai-chat",
+      "openai-embedding",
+      "slack",
+      "resend",
     ]);
+    expect(installed.plugins.map((plugin) => plugin.id)).toEqual(["slack"]);
   });
 
-  it("installs and verifies both capabilities from one OpenAI form", async () => {
-    const response = await action({
-      request: request("/apps/openai", {
-        intent: "save",
-        chat_model: "gpt-4.1-mini",
-        embedding_model: "text-embedding-3-small",
-        api_key: "sk-one-app-key",
-      }),
-      params: { appId: "openai" },
+  it("presents OpenAI chat as one plugin with one model and one key", async () => {
+    const data = await loader({
+      request: request("/plugins/openai-chat"),
+      params: { pluginId: "openai-chat" },
     });
 
-    expect(mocks.assignWorkspaceModelPlugins).toHaveBeenCalledTimes(1);
-    const installed = mocks.assignWorkspaceModelPlugins.mock.calls[0]?.[1].plugins;
-    expect(installed.map((input: { capability: string }) => input.capability)).toEqual([
-      "chat.complete",
-      "embedding.embed",
-    ]);
-    for (const input of installed) {
-      expect(input.plugin.secrets).toEqual({ api_key: "sk-one-app-key" });
-    }
-    expect(mocks.verifyWorkspaceModelPlugins).toHaveBeenCalledOnce();
-    expect(response).toBeInstanceOf(Response);
-    expect((response as Response).headers.get("location")).toBe("/apps/openai?saved=1");
+    expect(data).toMatchObject({
+      type: "model",
+      id: "openai-chat",
+      installed: false,
+      setting: { kind: "chat", model: "gpt-4.1-mini", requiredSecrets: ["api_key"] },
+    });
   });
 
-  it("removes every capability owned by one app", async () => {
+  it("installs chat and embeddings separately with different OpenAI keys", async () => {
+    const chatResponse = await action({
+      request: request("/plugins/openai-chat", {
+        intent: "save",
+        model: "gpt-4.1-mini",
+        api_key: "sk-chat-key",
+      }),
+      params: { pluginId: "openai-chat" },
+    });
+    const embeddingResponse = await action({
+      request: request("/plugins/openai-embedding", {
+        intent: "save",
+        model: "text-embedding-3-small",
+        api_key: "sk-embedding-key",
+      }),
+      params: { pluginId: "openai-embedding" },
+    });
+
+    expect(mocks.assignWorkspaceModelPlugin.mock.calls.map(([, input]) => input)).toEqual([
+      expect.objectContaining({
+        capability: "chat.complete",
+        plugin: expect.objectContaining({ secrets: { api_key: "sk-chat-key" } }),
+      }),
+      expect.objectContaining({
+        capability: "embedding.embed",
+        plugin: expect.objectContaining({ secrets: { api_key: "sk-embedding-key" } }),
+      }),
+    ]);
+    expect(
+      mocks.verifyWorkspaceModelPlugin.mock.calls.map(([, input]) => input.capability),
+    ).toEqual(["chat.complete", "embedding.embed"]);
+    expect((chatResponse as Response).headers.get("location")).toBe("/plugins/openai-chat?saved=1");
+    expect((embeddingResponse as Response).headers.get("location")).toBe(
+      "/plugins/openai-embedding?saved=1",
+    );
+  });
+
+  it("removes only the selected model plugin", async () => {
     mocks.listPluginInstallations.mockResolvedValue([
       installation("braino.ollama-chat"),
       installation("braino.ollama-embedding"),
@@ -203,34 +225,37 @@ describe("Apps", () => {
     ]);
 
     await action({
-      request: request("/apps/ollama", { intent: "remove" }),
-      params: { appId: "ollama" },
+      request: request("/plugins/ollama-chat", { intent: "remove" }),
+      params: { pluginId: "ollama-chat" },
     });
 
     expect(
       mocks.removePluginInstallation.mock.calls.map(([, input]) => input.installationId),
-    ).toEqual(["installation_braino.ollama-chat", "installation_braino.ollama-embedding"]);
+    ).toEqual(["installation_braino.ollama-chat"]);
   });
 
-  it("uses the app URL as Slack's return address", async () => {
-    const data = await loader({ request: request("/apps/slack"), params: { appId: "slack" } });
+  it("uses the plugin URL as Slack's return address", async () => {
+    const data = await loader({
+      request: request("/plugins/slack"),
+      params: { pluginId: "slack" },
+    });
 
     expect(data.type).toBe("slack");
     if (data.type !== "slack") throw new Error("Expected Slack.");
     expect(data.installUrl).toContain(
-      encodeURIComponent("https://meta.braino.dev/apps/slack/callback"),
+      encodeURIComponent("https://meta.braino.dev/plugins/slack/callback"),
     );
   });
 
   it("installs Resend from its own app page", async () => {
     const response = await action({
-      request: request("/apps/resend", {
+      request: request("/plugins/resend", {
         intent: "connect",
         sender: "Braino <hello@braino.dev>",
         api_key: "re_test",
         verification_recipient: "owner@example.com",
       }),
-      params: { appId: "resend" },
+      params: { pluginId: "resend" },
     });
 
     expect(mocks.connectWorkspaceEmailPlugin).toHaveBeenCalledWith(
@@ -242,6 +267,6 @@ describe("Apps", () => {
         verificationRecipient: "owner@example.com",
       }),
     );
-    expect((response as Response).headers.get("location")).toBe("/apps/resend?saved=1");
+    expect((response as Response).headers.get("location")).toBe("/plugins/resend?saved=1");
   });
 });

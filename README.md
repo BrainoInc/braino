@@ -41,13 +41,13 @@ from claiming ownership. After the sole workspace is created, first-run setup
 is closed and the token cannot initialize another workspace.
 
 Open `http://localhost:3000`, enter `BRAINO_SETUP_TOKEN`, and create the owner and
-sole workspace. Braino then opens **Apps**, where the owner installs either
-Ollama or OpenAI. One app configures
-both capabilities together, makes a real request through each one, learns the
-embedding width from the response, and keeps the dashboard closed if either
-check fails. Ollama's default models are already filled in and the normal
-Compose boot downloads them automatically; OpenAI asks once for the account's
-API key and stores it encrypted for both sandboxed capabilities. The
+sole workspace. Braino then opens **Plugins**, where the owner independently
+installs one Chat plugin and one Embedding plugin. Each plugin configures and
+tests only its own capability; Chat can use a different provider and API key
+from Embeddings. The embedding plugin learns its vector width from the live
+response, and the dashboard stays closed until both plugins pass. Ollama's
+default models are already filled in and the normal Compose boot downloads
+them automatically. Each OpenAI plugin asks for and encrypts its own API key. The
 application port binds to loopback; the optional Caddy
 profile is the supported way to expose Braino publicly. Records
 can be captured from a collection page or created, related, transitioned, and
@@ -64,11 +64,11 @@ people and roles, source connections, webhooks, GitHub sync, and agent/MCP
 access. It reports configuration readiness without displaying secret values;
 privileged backup, restore, and upgrade commands stay on the host.
 
-Every workspace requires one AI app that provides chat responses and semantic
-search; the dashboard stays closed until both are ready. **Apps** is the one
-place to browse, install, configure, test, and remove apps. OpenAI and Ollama
-each expose their chat and search settings on one page, while the Slack and
-Resend pages own their connection and account settings. The default stack pulls the
+Every workspace requires one Chat plugin and one Embedding plugin; the dashboard
+stays closed until both are ready. **Plugins** is the one place to browse,
+install, configure, test, and remove them. OpenAI Chat, OpenAI Embeddings,
+Ollama Chat, Ollama Embeddings, Slack, and Resend are separate installations
+with separate settings and secrets. The default stack pulls the
 `qwen3.5:4b` chat model and the 270M text-only
 `embeddinggemma-2:270m` model into its own local volume. Each plugin runs as a digest-pinned WebAssembly
 Component and can reach only the operator-approved `ollama:11434` service on
@@ -78,10 +78,9 @@ model input, completions, and vectors do not pass through Braino Cloud or
 another Braino instance. The workspace dashboard remains unavailable until
 exactly one enabled provider for each required model capability has passed its
 live check.
-The two OpenAI capabilities use the same app contract and can reach only
-`https://api.openai.com`. The key entered once is sealed separately into each
-capability's sandbox, encrypted in the workspace database, and never returned
-by the application.
+The two OpenAI plugins use capability-specific contracts and can reach only
+`https://api.openai.com`. Each key is sealed into only that plugin's sandbox,
+encrypted in the workspace database, and never returned by the application.
 
 Señor Braino and other agents connect directly to the deployment over stateless
 MCP. Open **MCP** on the workspace page, copy this instance's `/mcp` URL, then

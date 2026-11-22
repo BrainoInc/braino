@@ -192,7 +192,7 @@ describe("AI app readiness gate", () => {
     expect(sent).toBeInstanceOf(Response);
     if (!(sent instanceof Response)) throw new Error("Expected a redirect to model setup.");
     expect(sent.status).toBe(302);
-    expect(sent.headers.get("location")).toBe("/apps");
+    expect(sent.headers.get("location")).toBe("/plugins");
   });
 
   it("has no model form or install action of its own", () => {

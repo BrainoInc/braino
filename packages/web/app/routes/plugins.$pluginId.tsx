@@ -2,30 +2,29 @@ import { withClient } from "@doco/db";
 import {
   ModelPluginVerificationError,
   PluginInstallationError,
-  type WorkspaceModelPluginAssignment,
-  assignWorkspaceModelPlugins,
+  assignWorkspaceModelPlugin,
   connectWorkspaceEmailPlugin,
   listPluginInstallations,
   removePluginInstallation,
-  verifyWorkspaceModelPlugins,
+  verifyWorkspaceModelPlugin,
 } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
-import {
-  APP_PLUGIN_IDS,
-  type AiAppId,
-  type AppId,
-  appId,
-  isAiApp,
-  modelPluginId,
-} from "~/lib/app-catalog";
 import { bundledModelPlugin, bundledPlugin } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
-import { MODEL_CAPABILITY, MODEL_KINDS, type ModelKind } from "~/lib/model-plugin-catalog";
+import { MODEL_CAPABILITY } from "~/lib/model-plugin-catalog";
 import { loadModelSetup, pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
+import {
+  type ModelPluginPageId,
+  PLUGIN_MANIFEST_IDS,
+  type PluginPageId,
+  isModelPluginPage,
+  modelKindForPlugin,
+  pluginPageId,
+} from "~/lib/plugin-catalog";
 import {
   brainoPluginGatewayUrl,
   createPluginGatewayState,
@@ -37,22 +36,24 @@ import {
 } from "~/lib/request-body.server";
 import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
-type Params = { appId?: string };
+type Params = { pluginId?: string };
 
 function text(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value.trim() : "";
 }
 
-function nameOf(id: AppId): string {
-  if (id === "openai") return "OpenAI";
-  if (id === "ollama") return "Ollama";
+function nameOf(id: PluginPageId): string {
+  if (id === "openai-chat") return "OpenAI Chat";
+  if (id === "openai-embedding") return "OpenAI Embeddings";
+  if (id === "ollama-chat") return "Ollama Chat";
+  if (id === "ollama-embedding") return "Ollama Embeddings";
   if (id === "slack") return "Slack";
   return "Resend";
 }
 
-async function appContext(request: Request, params: Params) {
-  const id = appId(params.appId);
+async function pluginContext(request: Request, params: Params) {
+  const id = pluginPageId(params.pluginId);
   if (!id) throw new Response("Not found", { status: 404 });
   const setup = await loadModelSetup(request);
   if (!setup.isOwner) throw new Response("Owner access required", { status: 403 });
@@ -67,42 +68,37 @@ async function appContext(request: Request, params: Params) {
 
 export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
   const t = metaTranslator(matches);
-  return [{ title: t("App · Braino") }];
+  return [{ title: t("Plugin · Braino") }];
 }
 
 export async function loader({ request, params }: { request: Request; params: Params }) {
-  const { id, setup, installations } = await appContext(request, params);
+  const { id, setup, installations } = await pluginContext(request, params);
   const saved = new URL(request.url).searchParams.get("saved") === "1";
-  const pluginIds = APP_PLUGIN_IDS[id] as readonly string[];
-  const matching = installations.filter((item) => pluginIds.includes(item.manifest.id));
+  const manifestId = PLUGIN_MANIFEST_IDS[id];
+  const matching = installations.filter((item) => item.manifest.id === manifestId);
   const enabled = matching.filter((item) => item.enabled);
 
-  if (isAiApp(id)) {
-    const settings = MODEL_KINDS.map((kind) => {
-      const pluginId = modelPluginId(id, kind);
-      const entry = setup.catalog.find((candidate) => candidate.id === pluginId);
-      if (!entry) throw new Response("App is not included in this deployment", { status: 404 });
-      const installed = setup.installed.find((candidate) => candidate.pluginId === pluginId);
-      return {
+  if (isModelPluginPage(id)) {
+    const kind = modelKindForPlugin(id);
+    const entry = setup.catalog.find((candidate) => candidate.id === manifestId);
+    if (!entry) throw new Response("Plugin is not included in this deployment", { status: 404 });
+    const installed = setup.installed.find((candidate) => candidate.pluginId === manifestId);
+    return {
+      type: "model" as const,
+      id,
+      workspace: setup.workspace,
+      installed: enabled.length > 0,
+      active: setup.steps.some((step) => step.pluginId === manifestId && step.status === "ready"),
+      ready: setup.ready,
+      saved,
+      setting: {
         kind,
-        pluginId,
+        manifestId,
         model: installed?.configuration.model?.trim() || entry.defaultModel,
         suggestedModels: entry.suggestedModels,
         requiredSecrets: entry.requiredSecrets,
         storedSecrets: [...(installed?.secretNames ?? [])],
-      };
-    });
-    return {
-      type: "ai" as const,
-      id,
-      workspace: setup.workspace,
-      installed: enabled.length > 0,
-      active: pluginIds.every((pluginId) =>
-        setup.steps.some((step) => step.pluginId === pluginId && step.status !== "preselected"),
-      ),
-      ready: setup.ready,
-      saved,
-      settings,
+      },
     };
   }
 
@@ -115,7 +111,7 @@ export async function loader({ request, params }: { request: Request; params: Pa
     let installUrl: string | null = null;
     if (enabled.length === 0 && stateSecret && origin.startsWith("https://")) {
       const url = new URL("/v1/providers/slack/install", brainoPluginGatewayUrl());
-      url.searchParams.set("callback_url", new URL("/apps/slack/callback", origin).toString());
+      url.searchParams.set("callback_url", new URL("/plugins/slack/callback", origin).toString());
       url.searchParams.set(
         "state",
         createPluginGatewayState(
@@ -150,10 +146,10 @@ export async function loader({ request, params }: { request: Request; params: Pa
   };
 }
 
-async function removeApp(context: Awaited<ReturnType<typeof appContext>>): Promise<Response> {
-  const ids = APP_PLUGIN_IDS[context.id] as readonly string[];
+async function removePlugin(context: Awaited<ReturnType<typeof pluginContext>>): Promise<Response> {
+  const manifestId = PLUGIN_MANIFEST_IDS[context.id];
   for (const installation of context.installations) {
-    if (!installation.enabled || !ids.includes(installation.manifest.id)) continue;
+    if (!installation.enabled || installation.manifest.id !== manifestId) continue;
     await withClient((client) =>
       removePluginInstallation(client, {
         workspaceId: context.setup.workspace.id,
@@ -162,12 +158,12 @@ async function removeApp(context: Awaited<ReturnType<typeof appContext>>): Promi
       }),
     );
   }
-  return redirect("/apps?view=installed");
+  return redirect("/plugins?view=installed");
 }
 
-async function saveAiApp(
-  id: AiAppId,
-  context: Awaited<ReturnType<typeof appContext>>,
+async function saveModelPlugin(
+  id: ModelPluginPageId,
+  context: Awaited<ReturnType<typeof pluginContext>>,
   form: FormData,
   t: Awaited<ReturnType<typeof requestTranslator>>,
 ) {
@@ -176,22 +172,24 @@ async function saveAiApp(
   const host = pluginHostConnection();
   if (!encryptionKey)
     return { error: t("DOCO_ENCRYPTION_KEY must contain at least 32 characters.") };
-  if (!host) return { error: t("The app service is not configured.") };
+  if (!host) return { error: t("The plugin service is not configured.") };
 
   try {
-    const plugins: WorkspaceModelPluginAssignment[] = [];
-    for (const kind of MODEL_KINDS) {
-      const pluginId = modelPluginId(id, kind);
-      const bundled = await bundledModelPlugin(pluginId);
-      if (!bundled) return { error: t("This app is not included in this Braino image.") };
-      const model = text(form, `${kind}_model`);
-      if (!model) return { error: t("Choose a model for chat and search.") };
-      const installed = context.setup.installed.find((item) => item.pluginId === pluginId);
-      const needsKey = bundled.entry.requiredSecrets.includes("api_key");
-      if (needsKey && !apiKey && !installed?.secretNames.includes("api_key")) {
-        return { error: t("Enter your OpenAI API key.") };
-      }
-      plugins.push({
+    const kind = modelKindForPlugin(id);
+    const manifestId = PLUGIN_MANIFEST_IDS[id];
+    const bundled = await bundledModelPlugin(manifestId);
+    if (!bundled) return { error: t("This plugin is not included in this Braino image.") };
+    const model = text(form, "model");
+    if (!model) return { error: t("Choose a model.") };
+    const installed = context.setup.installed.find((item) => item.pluginId === manifestId);
+    const needsKey = bundled.entry.requiredSecrets.includes("api_key");
+    if (needsKey && !apiKey && !installed?.secretNames.includes("api_key")) {
+      return { error: t("Enter this plugin's OpenAI API key.") };
+    }
+    await withClient((client) =>
+      assignWorkspaceModelPlugin(client, {
+        workspaceId: context.setup.workspace.id,
+        userId: context.setup.userId,
         capability: MODEL_CAPABILITY[kind],
         plugin: {
           manifest: bundled.manifest,
@@ -199,18 +197,12 @@ async function saveAiApp(
           configuration: { model },
           ...(needsKey && apiKey ? { secrets: { api_key: apiKey }, encryptionKey } : {}),
         },
-      });
-    }
-    await withClient((client) =>
-      assignWorkspaceModelPlugins(client, {
-        workspaceId: context.setup.workspace.id,
-        userId: context.setup.userId,
-        plugins,
       }),
     );
     await withClient((client) =>
-      verifyWorkspaceModelPlugins(client, {
+      verifyWorkspaceModelPlugin(client, {
         workspaceId: context.setup.workspace.id,
+        capability: MODEL_CAPABILITY[kind],
         encryptionKey,
         host,
       }),
@@ -220,23 +212,21 @@ async function saveAiApp(
       return {
         error:
           error.kind === "chat"
-            ? t(
-                "Braino could not get an answer from this app. Check the chat model and connection.",
-              )
-            : t("Braino could not search with this app. Check the search model and connection."),
+            ? t("Braino could not get an answer from this plugin. Check the model and connection.")
+            : t("Braino could not search with this plugin. Check the model and connection."),
       };
     }
     if (error instanceof PluginInstallationError) {
-      return { error: t("Braino could not install this app.") };
+      return { error: t("Braino could not install this plugin.") };
     }
     throw error;
   }
-  return redirect(`/apps/${id}?saved=1`);
+  return redirect(`/plugins/${id}?saved=1`);
 }
 
 export async function action({ request, params }: { request: Request; params: Params }) {
   const t = await requestTranslator(request);
-  const context = await appContext(request, params);
+  const context = await pluginContext(request, params);
   let form: FormData;
   try {
     form = await readBoundedUrlEncodedForm(request, MAX_FORM_BODY_BYTES);
@@ -245,10 +235,10 @@ export async function action({ request, params }: { request: Request; params: Pa
     throw error;
   }
   const intent = text(form, "intent");
-  if (intent === "remove") return removeApp(context);
-  if (isAiApp(context.id)) {
+  if (intent === "remove") return removePlugin(context);
+  if (isModelPluginPage(context.id)) {
     if (intent !== "save") return { error: t("Unsupported action.") };
-    return saveAiApp(context.id, context, form, t);
+    return saveModelPlugin(context.id, context, form, t);
   }
   if (context.id === "slack") return { error: t("Unsupported action.") };
   if (intent !== "connect") return { error: t("Unsupported action.") };
@@ -261,9 +251,9 @@ export async function action({ request, params }: { request: Request; params: Pa
   }
   const encryptionKey = pluginSecretsKey();
   const host = pluginHostConnection();
-  if (!encryptionKey || !host) return { error: t("The app service is not configured.") };
+  if (!encryptionKey || !host) return { error: t("The plugin service is not configured.") };
   const bundled = await bundledPlugin("braino.resend");
-  if (!bundled) return { error: t("This app is not included in this Braino image.") };
+  if (!bundled) return { error: t("This plugin is not included in this Braino image.") };
   try {
     await withClient((client) =>
       connectWorkspaceEmailPlugin(client, {
@@ -279,12 +269,12 @@ export async function action({ request, params }: { request: Request; params: Pa
       }),
     );
   } catch {
-    return { error: t("Braino could not install this app. Check the settings and try again.") };
+    return { error: t("Braino could not install this plugin. Check the settings and try again.") };
   }
-  return redirect("/apps/resend?saved=1");
+  return redirect("/plugins/resend?saved=1");
 }
 
-function AppBreadcrumb({ name }: { name: string }) {
+function PluginBreadcrumb({ name }: { name: string }) {
   const t = useT();
   return (
     <nav className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
@@ -292,95 +282,96 @@ function AppBreadcrumb({ name }: { name: string }) {
       <span aria-hidden>›</span>
       <Link to="/admin">{t("Admin")}</Link>
       <span aria-hidden>›</span>
-      <Link to="/apps">{t("Apps")}</Link>
+      <Link to="/plugins">{t("Plugins")}</Link>
       <span aria-hidden>›</span>
       <span>{name}</span>
     </nav>
   );
 }
 
-function RemoveAppForm({ label }: { label: string }) {
+function RemovePluginForm({ label }: { label: string }) {
   const t = useT();
   return (
     <Form method="post">
       <input type="hidden" name="intent" value="remove" />
       <button type="submit" className="neu-button rounded-md px-4 py-2 text-sm text-destructive">
-        {t("Remove app")} · {label}
+        {t("Remove plugin")} · {label}
       </button>
     </Form>
   );
 }
 
-function AiAppPanel({
+function ModelPluginPanel({
   data,
-}: { data: Extract<Awaited<ReturnType<typeof loader>>, { type: "ai" }> }) {
+}: { data: Extract<Awaited<ReturnType<typeof loader>>, { type: "model" }> }) {
   const t = useT();
   const navigation = useNavigation();
   const saving = navigation.state !== "idle";
-  const openai = data.id === "openai";
+  const needsApiKey = data.setting.requiredSecrets.includes("api_key");
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{data.active ? t("App settings") : t("Install app")}</CardTitle>
+        <CardTitle>{data.active ? t("Plugin settings") : t("Install plugin")}</CardTitle>
         <CardDescription>
-          {openai
-            ? t("One OpenAI key powers both Braino answers and semantic search.")
-            : t("Ollama runs both capabilities privately on this Braino server.")}
+          {needsApiKey
+            ? t("This plugin keeps its own API key. Other plugins cannot read or reuse it.")
+            : t("This plugin uses the private Ollama service on this Braino server.")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {data.saved ? (
           <output className="block rounded-md border border-primary p-3 text-sm">
-            {t("The app is installed and working.")}{" "}
-            <Link to="/" className="font-semibold text-primary hover:underline">
-              {t("Continue to workspace")}
+            {t("The plugin is installed and working.")}{" "}
+            <Link
+              to={data.ready ? "/" : "/plugins"}
+              className="font-semibold text-primary hover:underline"
+            >
+              {data.ready ? t("Continue to workspace") : t("Choose the next required plugin")}
             </Link>
           </output>
         ) : null}
         <Form method="post" className="space-y-4">
           <input type="hidden" name="intent" value="save" />
-          {data.settings.map((setting) => (
-            <label key={setting.kind} className="block text-xs">
-              <span className="mb-1 block font-semibold">
-                {setting.kind === "chat" ? t("Chat responses") : t("Semantic search")}
-              </span>
-              <span className="mb-2 block text-muted-foreground">
-                {setting.kind === "chat"
-                  ? t("The model that answers questions and writes summaries.")
-                  : t("The model that helps search find meaning, not only matching words.")}
-              </span>
-              <input
-                name={`${setting.kind}_model`}
-                defaultValue={setting.model}
-                list={`${setting.kind}-models`}
-                required
-                className="w-full rounded-md px-3 py-2 font-mono text-sm"
-              />
-              <datalist id={`${setting.kind}-models`}>
-                {setting.suggestedModels.map((model) => (
-                  <option key={model} value={model} />
-                ))}
-              </datalist>
-            </label>
-          ))}
-          {openai ? (
+          <label className="block text-xs">
+            <span className="mb-1 block font-semibold">
+              {data.setting.kind === "chat" ? t("Chat model") : t("Embedding model")}
+            </span>
+            <span className="mb-2 block text-muted-foreground">
+              {data.setting.kind === "chat"
+                ? t("Answers questions and writes summaries.")
+                : t("Finds records by meaning, not only matching words.")}
+            </span>
+            <input
+              name="model"
+              defaultValue={data.setting.model}
+              list="plugin-models"
+              required
+              className="w-full rounded-md px-3 py-2 font-mono text-sm"
+            />
+            <datalist id="plugin-models">
+              {data.setting.suggestedModels.map((model) => (
+                <option key={model} value={model} />
+              ))}
+            </datalist>
+          </label>
+          {needsApiKey ? (
             <label className="block text-xs">
-              <span className="mb-1 block font-semibold">{"OpenAI API key"}</span>
+              <span className="mb-1 block font-semibold">
+                {data.setting.kind === "chat"
+                  ? t("Chat plugin API key")
+                  : t("Embedding plugin API key")}
+              </span>
               <input
                 name="api_key"
                 type="password"
                 autoComplete="off"
-                required={data.settings.some(
-                  (setting) =>
-                    setting.requiredSecrets.includes("api_key") &&
-                    !setting.storedSecrets.includes("api_key"),
-                )}
+                required={!data.setting.storedSecrets.includes("api_key")}
                 className="w-full rounded-md px-3 py-2 text-sm"
               />
               <span className="mt-1 block text-muted-foreground">
-                {data.settings.every((setting) => setting.storedSecrets.includes("api_key"))
+                {data.setting.storedSecrets.includes("api_key")
                   ? t("A key is already stored. Leave this empty to keep it.")
-                  : t("The key is encrypted and never displayed after you save it.")}
+                  : t("This key is encrypted for this plugin only and is never displayed again.")}
               </span>
             </label>
           ) : null}
@@ -389,10 +380,10 @@ function AiAppPanel({
             disabled={saving}
             className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            {saving ? t("Testing…") : data.active ? t("Save changes") : t("Install app")}
+            {saving ? t("Testing…") : data.active ? t("Save changes") : t("Install plugin")}
           </button>
         </Form>
-        {data.installed ? <RemoveAppForm label={nameOf(data.id)} /> : null}
+        {data.installed ? <RemovePluginForm label={nameOf(data.id)} /> : null}
       </CardContent>
     </Card>
   );
@@ -405,11 +396,15 @@ function SlackPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{data.installed ? t("Señor Braino is connected") : t("Install app")}</CardTitle>
+        <CardTitle>
+          {data.installed ? t("Señor Braino is connected") : t("Install plugin")}
+        </CardTitle>
         <CardDescription>
           {data.installed
             ? t("Mention Señor Braino in a channel or send it a direct message.")
-            : t("Slack will ask which workspace may install the official app, then return here.")}
+            : t(
+                "Slack will ask which workspace may install the official plugin, then return here.",
+              )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -420,17 +415,17 @@ function SlackPanel({
         ) : null}
         {!data.configured ? (
           <p role="alert" className="text-sm text-destructive">
-            {t("The app secret key must be configured before connecting Slack.")}
+            {t("The plugin secret key must be configured before connecting Slack.")}
           </p>
         ) : null}
         {data.installed ? (
-          <RemoveAppForm label={"Slack"} />
+          <RemovePluginForm label={"Slack"} />
         ) : data.installUrl ? (
           <a
             href={data.installUrl}
             className="neu-button inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           >
-            {t("Install app")}
+            {t("Install plugin")}
           </a>
         ) : null}
       </CardContent>
@@ -447,7 +442,7 @@ function ResendPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{data.installed ? t("App settings") : t("Install app")}</CardTitle>
+        <CardTitle>{data.installed ? t("Plugin settings") : t("Install plugin")}</CardTitle>
         <CardDescription>
           {t("Connect your Resend account and verify it with one test email.")}
         </CardDescription>
@@ -455,7 +450,7 @@ function ResendPanel({
       <CardContent className="space-y-4">
         {!data.configured ? (
           <p role="alert" className="text-sm text-destructive">
-            {t("The app service must be configured before connecting Resend.")}
+            {t("The plugin service must be configured before connecting Resend.")}
           </p>
         ) : null}
         {data.installed ? (
@@ -464,7 +459,7 @@ function ResendPanel({
               <span className="text-muted-foreground">{t("Sender")}: </span>
               <span className="font-mono">{data.sender}</span>
             </p>
-            <RemoveAppForm label={"Resend"} />
+            <RemovePluginForm label={"Resend"} />
           </div>
         ) : (
           <Form method="post" className="grid gap-4 sm:grid-cols-2">
@@ -505,7 +500,7 @@ function ResendPanel({
                 disabled={saving || !data.configured}
                 className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
-                {saving ? t("Testing…") : t("Install app")}
+                {saving ? t("Testing…") : t("Install plugin")}
               </button>
             </div>
           </Form>
@@ -515,22 +510,22 @@ function ResendPanel({
   );
 }
 
-export default function AppPage() {
+export default function PluginPage() {
   const t = useT();
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData() as { error?: string } | undefined;
   const name = nameOf(data.id);
   const description =
-    data.type === "ai"
-      ? data.id === "openai"
-        ? t("Use OpenAI for Braino answers and semantic search.")
-        : t("Run Braino answers and semantic search privately with Ollama.")
+    data.type === "model"
+      ? data.setting.kind === "chat"
+        ? t("Configure one plugin for Braino answers and summaries.")
+        : t("Configure one plugin for semantic search and indexing.")
       : data.type === "slack"
         ? t("Connect Señor Braino to your team's Slack workspace.")
         : t("Send Braino email through your Resend account.");
   return (
     <PageMain className="space-y-6 py-6">
-      <PageHeader breadcrumb={<AppBreadcrumb name={name} />} title={name}>
+      <PageHeader breadcrumb={<PluginBreadcrumb name={name} />} title={name}>
         <p className="text-xs text-muted-foreground">{description}</p>
       </PageHeader>
       {actionData?.error ? (
@@ -541,8 +536,8 @@ export default function AppPage() {
           {actionData.error}
         </p>
       ) : null}
-      {data.type === "ai" ? (
-        <AiAppPanel data={data} />
+      {data.type === "model" ? (
+        <ModelPluginPanel data={data} />
       ) : data.type === "slack" ? (
         <SlackPanel data={data} />
       ) : (

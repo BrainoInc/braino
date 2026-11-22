@@ -7,7 +7,7 @@ import { initializeSingleWorkspace } from "../single-workspace.js";
 import {
   assignWorkspaceModelPlugin,
   getWorkspaceModelPluginReadiness,
-  verifyWorkspaceModelPlugins,
+  verifyWorkspaceModelPlugin,
 } from "../workspace-model-plugins.js";
 
 let db: PGlite;
@@ -36,7 +36,7 @@ function manifest(id: string, capability: PluginCapabilityName): PluginManifest 
   };
 }
 
-async function fixture() {
+async function fixture(options: { embedding?: boolean } = { embedding: true }) {
   const setup = await initializeSingleWorkspace(client(), {
     workspaceHandle: "acme",
     workspaceName: "Acme",
@@ -56,67 +56,82 @@ async function fixture() {
       configuration: { model: "small-chat" },
     },
   });
-  await assignWorkspaceModelPlugin(client(), {
-    workspaceId: setup.workspace.id,
-    userId: setup.owner.id,
-    capability: "embedding.embed",
-    plugin: {
-      manifest: manifest("acme.embedding", "embedding.embed"),
-      component,
-      configuration: { model: "small-embedding" },
-    },
-  });
+  if (options.embedding) {
+    await assignWorkspaceModelPlugin(client(), {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      capability: "embedding.embed",
+      plugin: {
+        manifest: manifest("acme.embedding", "embedding.embed"),
+        component,
+        configuration: { model: "small-embedding" },
+      },
+    });
+  }
   return setup;
 }
 
 describe("workspace model verification", () => {
-  it("keeps configured plugins unready until both answer, then stores observed dimensions", async () => {
-    const setup = await fixture();
-    await db.query("UPDATE plugin_installations SET updated_at = '2026-11-16 13:03:03.241335+00'");
+  it("verifies chat before an embedding plugin is installed", async () => {
+    const setup = await fixture({ embedding: false });
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
       ready: false,
       chat: "unverified",
-      embedding: "unverified",
+      embedding: "missing",
     });
 
-    let activeCalls = 0;
-    let maxActiveCalls = 0;
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-      activeCalls += 1;
-      maxActiveCalls = Math.max(maxActiveCalls, activeCalls);
-      await new Promise((resolve) => setTimeout(resolve, 10));
       const envelope = JSON.parse(String(init?.body));
-      const response = Response.json({
-        outputJson:
-          envelope.capability === "chat.complete"
-            ? JSON.stringify({ content: "OK", model: "local:small-chat" })
-            : JSON.stringify({
-                model: "local:small-embedding",
-                dimensions: 3,
-                vectors: [[0.1, 0.2, 0.3]],
-              }),
+      expect(envelope.capability).toBe("chat.complete");
+      return Response.json({
+        outputJson: JSON.stringify({ content: "OK", model: "local:small-chat" }),
       });
-      activeCalls -= 1;
-      return response;
     }) as typeof fetch;
 
     await expect(
-      verifyWorkspaceModelPlugins(client(), {
+      verifyWorkspaceModelPlugin(client(), {
         workspaceId: setup.workspace.id,
+        capability: "chat.complete",
         encryptionKey,
         host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
         fetcher,
       }),
-    ).resolves.toEqual({
-      chatModel: "local:small-chat",
-      embeddingModel: "local:small-embedding",
-      embeddingDimensions: 3,
-    });
-    expect(maxActiveCalls).toBe(1);
+    ).resolves.toEqual({ model: "local:small-chat" });
 
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
-      ready: true,
+      ready: false,
       chat: "ready",
+      embedding: "missing",
+    });
+  });
+
+  it("verifies embeddings independently and stores observed dimensions", async () => {
+    const setup = await fixture();
+    const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const envelope = JSON.parse(String(init?.body));
+      expect(envelope.capability).toBe("embedding.embed");
+      return Response.json({
+        outputJson: JSON.stringify({
+          model: "local:small-embedding",
+          dimensions: 3,
+          vectors: [[0.1, 0.2, 0.3]],
+        }),
+      });
+    }) as typeof fetch;
+
+    await expect(
+      verifyWorkspaceModelPlugin(client(), {
+        workspaceId: setup.workspace.id,
+        capability: "embedding.embed",
+        encryptionKey,
+        host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
+        fetcher,
+      }),
+    ).resolves.toEqual({ model: "local:small-embedding", dimensions: 3 });
+
+    await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
+      ready: false,
+      chat: "unverified",
       embedding: "ready",
     });
     const stored = await db.query<{
@@ -133,29 +148,36 @@ describe("workspace model verification", () => {
     });
   });
 
-  it("marks neither plugin verified when either live check fails", async () => {
+  it("keeps an already verified chat plugin ready when embedding verification fails", async () => {
     const setup = await fixture();
-    const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-      const envelope = JSON.parse(String(init?.body));
-      if (envelope.capability === "embedding.embed") {
-        return Response.json({ error: { code: "plugin_error" } }, { status: 422 });
-      }
-      return Response.json({
+    const chatFetcher = vi.fn(async () =>
+      Response.json({
         outputJson: JSON.stringify({ content: "OK", model: "local:small-chat" }),
-      });
-    }) as typeof fetch;
+      }),
+    ) as typeof fetch;
+    await verifyWorkspaceModelPlugin(client(), {
+      workspaceId: setup.workspace.id,
+      capability: "chat.complete",
+      encryptionKey,
+      host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
+      fetcher: chatFetcher,
+    });
+    const embeddingFetcher = vi.fn(async () =>
+      Response.json({ error: { code: "plugin_error" } }, { status: 422 }),
+    ) as typeof fetch;
 
     await expect(
-      verifyWorkspaceModelPlugins(client(), {
+      verifyWorkspaceModelPlugin(client(), {
         workspaceId: setup.workspace.id,
+        capability: "embedding.embed",
         encryptionKey,
         host: { url: "http://plugin-host:8080", apiToken, timeoutMs: 65_000 },
-        fetcher,
+        fetcher: embeddingFetcher,
       }),
     ).rejects.toMatchObject({ kind: "embedding", code: "plugin_error" });
     await expect(getWorkspaceModelPluginReadiness(client(), setup.workspace.id)).resolves.toEqual({
       ready: false,
-      chat: "unverified",
+      chat: "ready",
       embedding: "unverified",
     });
   });

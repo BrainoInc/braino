@@ -12,7 +12,6 @@ import { openSecret } from "../secret-box.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
 import {
   assignWorkspaceModelPlugin,
-  assignWorkspaceModelPlugins,
   getWorkspaceModelPluginReadiness,
 } from "../workspace-model-plugins.js";
 
@@ -290,38 +289,6 @@ describe("assigning one plugin to one model", () => {
       ["local.chat", true],
       ["local.embedding", true],
     ]);
-  });
-
-  it("installs an AI app atomically when it provides both models", async () => {
-    const owner = await workspace();
-
-    await expect(
-      assignWorkspaceModelPlugins(client(), {
-        ...owner,
-        plugins: [
-          {
-            capability: "chat.complete",
-            plugin: {
-              manifest: manifest("cloud.chat", "chat.complete", { apiKey: true }),
-              component,
-              configuration: { model: "gpt-4.1-mini" },
-              secrets: { api_key: "sk-shared" },
-              encryptionKey,
-            },
-          },
-          {
-            capability: "embedding.embed",
-            plugin: {
-              manifest: manifest("cloud.embedding", "embedding.embed", { apiKey: true }),
-              component,
-              configuration: { model: "text-embedding-3-small" },
-            },
-          },
-        ],
-      }),
-    ).rejects.toMatchObject({ code: "secret_required" });
-
-    expect(await listPluginInstallations(client(), owner)).toEqual([]);
   });
 
   it("stores each plugin's secret under its own installation", async () => {

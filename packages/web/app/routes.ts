@@ -3,9 +3,9 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 export default [
   index("routes/_index.tsx"),
   route("admin", "routes/admin.tsx"),
-  route("apps", "routes/apps.tsx"),
-  route("apps/slack/callback", "routes/apps.slack.callback.ts"),
-  route("apps/:appId", "routes/apps.$appId.tsx"),
+  route("plugins", "routes/plugins.tsx"),
+  route("plugins/slack/callback", "routes/plugins.slack.callback.ts"),
+  route("plugins/:pluginId", "routes/plugins.$pluginId.tsx"),
   route("times", "routes/times._index.tsx"),
   route("times/:day", "routes/times.$day.tsx"),
   route("api/v1/senor-braino.json", "routes/api.v1.senor-braino[.]json.ts"),
