@@ -55,7 +55,7 @@ describe("sign out", () => {
 });
 
 describe("first-run workspace setup", () => {
-  it("creates the workspace before asking the owner to choose model plugins", async () => {
+  it("creates the workspace before asking the owner to install an AI app", async () => {
     mocks.getSingleWorkspaceState.mockResolvedValue({ initialized: false });
     mocks.hashPassword.mockResolvedValue("scrypt$test");
     mocks.passwordError.mockReturnValue(null);
@@ -167,8 +167,8 @@ describe("first-run workspace setup", () => {
   });
 });
 
-describe("model plugin readiness gate", () => {
-  it("sends an initialized workspace to model setup until both plugins are ready", async () => {
+describe("AI app readiness gate", () => {
+  it("sends an initialized workspace to apps until one AI app is ready", async () => {
     mocks.getSingleWorkspaceState.mockResolvedValue({
       initialized: true,
       workspace: { id: "workspace_meta", handle: "meta-braino", name: "Meta Braino" },
@@ -192,7 +192,7 @@ describe("model plugin readiness gate", () => {
     expect(sent).toBeInstanceOf(Response);
     if (!(sent instanceof Response)) throw new Error("Expected a redirect to model setup.");
     expect(sent.status).toBe(302);
-    expect(sent.headers.get("location")).toBe("/admin/models");
+    expect(sent.headers.get("location")).toBe("/apps");
   });
 
   it("has no model form or install action of its own", () => {

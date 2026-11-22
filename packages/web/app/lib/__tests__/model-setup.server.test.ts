@@ -29,7 +29,7 @@ vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUs
 
 import { loadModelSetup, pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
 
-const request = new Request("https://meta.braino.dev/admin/models");
+const request = new Request("https://meta.braino.dev/apps");
 
 beforeEach(() => {
   vi.resetAllMocks();

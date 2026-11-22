@@ -46,19 +46,19 @@ export async function loader({ request }: { request: Request }) {
   if (!workspaceState.initialized) throw redirect("/");
   const stateSecret = pluginSecretsKey();
   const host = pluginHostConnection();
-  if (!stateSecret || !host) throw redirect("/integrations/slack-app?error=plugin-service");
+  if (!stateSecret || !host) throw redirect("/apps/slack?error=plugin-service");
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const stateValue = url.searchParams.get("state");
-  if (!code || !stateValue) throw redirect("/integrations/slack-app?error=gateway");
+  if (!code || !stateValue) throw redirect("/apps/slack?error=gateway");
   let state: { userId: string; workspaceId: string };
   try {
     state = verifyPluginGatewayState(stateValue, "slack", stateSecret);
   } catch {
-    throw redirect("/integrations/slack-app?error=state");
+    throw redirect("/apps/slack?error=state");
   }
   if (state.userId !== user.id || state.workspaceId !== workspaceState.workspace.id) {
-    throw redirect("/integrations/slack-app?error=state");
+    throw redirect("/apps/slack?error=state");
   }
   const role = await withClient((client) =>
     getWorkspaceRole(client, workspaceState.workspace.id, user.id),
@@ -70,10 +70,10 @@ export async function loader({ request }: { request: Request }) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ code }),
   });
-  if (!response.ok) throw redirect("/integrations/slack-app?error=exchange");
+  if (!response.ok) throw redirect("/apps/slack?error=exchange");
   const installed = exchange(await response.json());
   const bundled = await bundledPlugin(SLACK_PLUGIN_ID);
-  if (!bundled) throw redirect("/integrations/slack-app?error=plugin-missing");
+  if (!bundled) throw redirect("/apps/slack?error=plugin-missing");
   try {
     await withClient((client) =>
       connectWorkspaceTeamChatPlugin(client, {
@@ -93,9 +93,9 @@ export async function loader({ request }: { request: Request }) {
     );
   } catch (error) {
     if (error instanceof PluginInstallationError) {
-      throw redirect(`/integrations/slack-app?error=${encodeURIComponent(error.code)}`);
+      throw redirect(`/apps/slack?error=${encodeURIComponent(error.code)}`);
     }
     throw error;
   }
-  throw redirect("/integrations/slack-app?connected=1");
+  throw redirect("/apps/slack?saved=1");
 }
