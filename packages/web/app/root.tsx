@@ -3,6 +3,7 @@ import { getSingleWorkspaceState, getWorkspaceRole } from "@doco/host";
 import { getWorkspaceModelPluginReadiness } from "@doco/host/model-plugins";
 import { type Locale, SOURCE_LOCALE, localeDirection, localeFromRequest } from "@doco/shared/i18n";
 import { I18nProvider, useT } from "@doco/shared/i18n/react";
+import { PageMain } from "@doco/ui";
 import {
   Link,
   Links,
@@ -16,7 +17,6 @@ import {
   useRouteLoaderData,
 } from "react-router";
 import { AgentSidebar } from "~/components/agent-sidebar";
-import { PageMain } from "~/components/page-main";
 import { SiteHeader } from "~/components/site-header";
 import { type CurrentUser, getCurrentUser } from "~/lib/current-user.server";
 import { securityHeaders } from "~/lib/security-headers.server";

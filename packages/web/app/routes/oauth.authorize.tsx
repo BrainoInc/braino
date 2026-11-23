@@ -7,9 +7,9 @@ import {
   issueMcpOauthAuthorizationCode,
 } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
+import { NarrowPageMain } from "@doco/ui";
 import { Form, Link, redirect, useLoaderData } from "react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
-import { NarrowPageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { mcpResource, publicOrigin } from "~/lib/public-origin.server";
 import {

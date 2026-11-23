@@ -7,11 +7,11 @@ import {
 } from "@doco/host";
 import { getWorkspaceModelPluginReadiness } from "@doco/host/model-plugins";
 import { useT } from "@doco/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
+import { PageHeader } from "@doco/ui";
+import { NarrowPageMain, PageMain } from "@doco/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { Orbit } from "~/components/orbit";
-import { PageHeader } from "~/components/page-header";
-import { NarrowPageMain, PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { type OrbitActivity, type OrbitLinks, type OrbitRange, orbitRange } from "~/lib/orbit";
 import { loadOrbitActivity, loadOrbitLinks, sizeCollections } from "~/lib/orbit.server";

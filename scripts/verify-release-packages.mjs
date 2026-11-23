@@ -3,7 +3,15 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, resolve } from "node:path";
 
-const PACKAGE_NAMES = ["shared", "plugin-runtime", "db", "index", "host", "connector-plugins"];
+const PACKAGE_NAMES = [
+  "shared",
+  "ui",
+  "plugin-runtime",
+  "db",
+  "index",
+  "host",
+  "connector-plugins",
+];
 const root = resolve(import.meta.dirname, "..");
 const releaseDir = resolve(process.argv[2] ?? resolve(root, "release-packages"));
 const { version } = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));

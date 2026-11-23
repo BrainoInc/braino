@@ -55,11 +55,11 @@
 // as you suggest"). Nothing stands in for the picture meanwhile.
 
 import { type ReactTranslator, useT } from "@doco/shared/i18n/react";
+import { LOGOS } from "@doco/ui";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useFetcher, useLocation, useNavigation, useRevalidator } from "react-router";
 import { cn } from "~/lib/cn";
 import { countCollectionItems } from "~/lib/collection-templates-meta";
-import { LOGOS } from "~/lib/logos";
 import {
   type BallView,
   DEFAULT_ORBIT_RANGE,

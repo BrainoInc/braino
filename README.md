@@ -6,6 +6,7 @@ their relationships. This repository is the sole upstream for the open product.
 This tree contains the supported single-workspace, self-hosted product:
 
 - `@doco/shared` — entity types, identifiers, policies, and URL conventions
+- `@doco/ui` — application shell, design primitives, provider logos, and plugin-management UI
 - `@doco/plugin-runtime` — versioned manifests and capability contracts for plugins
 - `@doco/db` — PostgreSQL schema and source-of-truth storage
 - `@doco/host` — workspace, collection, person, and template services
@@ -13,7 +14,7 @@ This tree contains the supported single-workspace, self-hosted product:
 - `@doco/web` — first-run setup, owner sign-in, workspace home, collection reader, and record authoring
 
 A release is cut when a version bump merges to main. Each one publishes the
-reusable packages above plus `@doco/connector-plugins` as immutable tarball
+reusable packages above except `@doco/web`, plus `@doco/connector-plugins` as immutable tarball
 assets beside the application image. Hosted Braino consumes those assets instead of carrying a second copy of
 the core implementation.
 

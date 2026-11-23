@@ -1,17 +1,23 @@
-import { LOGOS, type LogoId } from "~/lib/logos";
-import type { PluginPageId } from "~/lib/plugin-catalog";
+import { LOGOS, type LogoId } from "./logos.js";
 
-const PLUGIN_LOGOS = {
+export type { LogoId } from "./logos.js";
+
+export const BUILT_IN_PLUGIN_BRANDS = {
   "ollama-chat": "ollama",
   "ollama-embedding": "ollama",
   "openai-chat": "openai",
   "openai-embedding": "openai",
   slack: "slack",
   resend: "resend",
-} as const satisfies Record<PluginPageId, LogoId>;
+} as const satisfies Record<string, LogoId>;
 
-export function PluginLogo({ pluginId }: { pluginId: PluginPageId }) {
-  const logo = LOGOS[PLUGIN_LOGOS[pluginId]];
+export type BuiltInPluginId = keyof typeof BUILT_IN_PLUGIN_BRANDS;
+
+export function PluginLogo(
+  props: { brand: LogoId; pluginId?: never } | { pluginId: BuiltInPluginId; brand?: never },
+) {
+  const brand = props.brand ?? BUILT_IN_PLUGIN_BRANDS[props.pluginId];
+  const logo = LOGOS[brand];
   return (
     <span
       aria-hidden="true"

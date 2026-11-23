@@ -1,9 +1,9 @@
 import { withClient } from "@doco/db";
 import { getSingleWorkspaceState, latestTimesEditionDay, loadTimesEdition } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
+import { PageHeader } from "@doco/ui";
+import { PageMain } from "@doco/ui";
 import { Link, redirect, useLoaderData } from "react-router";
-import { PageHeader } from "~/components/page-header";
-import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { metaTranslator } from "~/locales/catalog";
 

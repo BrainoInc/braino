@@ -5,10 +5,6 @@ import { RouterProvider, createMemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { SiteHeader } from "../site-header";
 
-vi.mock("~/components/braino-mark", () => ({
-  BrainoMark: () => createElement("span", null, "Braino"),
-}));
-
 vi.mock("~/components/version-pill", () => ({
   VersionPill: () => createElement("span", null, "Private beta test"),
 }));

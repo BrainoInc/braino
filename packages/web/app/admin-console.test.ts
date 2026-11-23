@@ -13,6 +13,7 @@ const collaborators = readFileSync(resolve(app, "routes/collaborators.tsx"), "ut
 const integrations = readFileSync(resolve(app, "routes/integrations.tsx"), "utf8");
 const mcpTokens = readFileSync(resolve(app, "routes/mcp-tokens.tsx"), "utf8");
 const plugins = readFileSync(resolve(app, "routes/plugins.tsx"), "utf8");
+const pluginManager = readFileSync(resolve(app, "../../ui/src/plugin-manager.tsx"), "utf8");
 const pluginDetail = readFileSync(resolve(app, "routes/plugins.$pluginId.tsx"), "utf8");
 const workspace = readFileSync(resolve(app, "routes/_index.tsx"), "utf8");
 const timesIndex = readFileSync(resolve(app, "routes/times._index.tsx"), "utf8");
@@ -69,7 +70,8 @@ describe("open Braino administration", () => {
     expect(routes).not.toContain('route("admin/models"');
     expect(plugins).toContain("Browse");
     expect(plugins).toContain("Installed");
-    expect(plugins).toContain("to={`/plugins/${plugin.id}`}");
+    expect(plugins).toContain("href: `/plugins/${plugin.id}`");
+    expect(pluginManager).toContain("to={plugin.href}");
     for (const plugin of [
       "OpenAI Chat",
       "OpenAI Embeddings",
