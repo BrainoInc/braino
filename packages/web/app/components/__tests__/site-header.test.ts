@@ -44,6 +44,7 @@ describe("SiteHeader", () => {
     expect(markup).toMatch(/<a[^>]*href="\/"[^>]*>Workspace<\/a>/);
     expect(markup).toMatch(/<a[^>]*href="\/collaborators"[^>]*>Collaborators<\/a>/);
     expect(markup).toMatch(/<a[^>]*href="\/mcp-tokens"[^>]*>Agent access<\/a>/);
+    expect(markup).toMatch(/<a[^>]*href="\/plugins"[^>]*>Plugins<\/a>/);
     expect(markup).toMatch(/<a[^>]*href="\/admin"[^>]*>Admin<\/a>/);
     expect(markup).toMatch(
       /<a[^>]*class="[^"]*neu-button[^"]*max-w-48 truncate[^"]*"[^>]*href="\/collaborators"[^>]*>Alice Rojas<\/a>/,
@@ -67,8 +68,17 @@ describe("SiteHeader", () => {
   it("marks only the current top-level destination as active", () => {
     const workspace = render("/");
     const admin = render("/admin");
+    const plugins = render("/plugins/openai-chat");
     expect(workspace).toMatch(/class="[^"]*neu-pressed[^"]*" href="\/"[^>]*>Workspace<\/a>/);
     expect(admin).not.toMatch(/class="[^"]*neu-pressed[^"]*" href="\/"[^>]*>Workspace<\/a>/);
     expect(admin).toMatch(/class="[^"]*neu-pressed[^"]*" href="\/admin"[^>]*>Admin<\/a>/);
+    expect(plugins).toMatch(/class="[^"]*neu-pressed[^"]*" href="\/plugins"[^>]*>Plugins<\/a>/);
+    expect(plugins).not.toMatch(/class="[^"]*neu-pressed[^"]*" href="\/admin"[^>]*>Admin<\/a>/);
+  });
+
+  it("keeps owner-only destinations out of a collaborator's app bar", () => {
+    const markup = render("/", false);
+    expect(markup).not.toContain('href="/plugins"');
+    expect(markup).not.toContain('href="/admin"');
   });
 });

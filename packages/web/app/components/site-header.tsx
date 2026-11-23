@@ -82,9 +82,14 @@ function NavButtons({
         {t("Agent access")}
       </NavLink>
       {isOwner ? (
-        <NavLink to="/admin" className={navLinkClass} onClick={onNavigate}>
-          {t("Admin")}
-        </NavLink>
+        <>
+          <NavLink to="/plugins" className={navLinkClass} onClick={onNavigate}>
+            {t("Plugins")}
+          </NavLink>
+          <NavLink to="/admin" className={navLinkClass} onClick={onNavigate}>
+            {t("Admin")}
+          </NavLink>
+        </>
       ) : null}
       <NavLink
         to="/collaborators"
