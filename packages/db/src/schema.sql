@@ -1610,6 +1610,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS plugin_installations_workspace_plugin_idx
   ON plugin_installations (workspace_id, (manifest->>'id'));
 CREATE INDEX IF NOT EXISTS plugin_installations_workspace_enabled_idx
   ON plugin_installations (workspace_id, enabled);
+CREATE UNIQUE INDEX IF NOT EXISTS plugin_installations_workspace_id_idx
+  ON plugin_installations (workspace_id, id);
+
+-- Several model plugins may remain installed, but one explicit selection owns
+-- routing for each model capability. The composite foreign key keeps every
+-- selection inside its workspace and prevents removing the active plugin.
+CREATE TABLE IF NOT EXISTS workspace_model_plugin_selections (
+  workspace_id       text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  capability         text NOT NULL
+                       CHECK (capability IN ('chat.complete', 'embedding.embed')),
+  installation_id    text NOT NULL,
+  updated_by_user_id text NOT NULL REFERENCES users(id),
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (workspace_id, capability),
+  FOREIGN KEY (workspace_id, installation_id)
+    REFERENCES plugin_installations(workspace_id, id)
+);
+CREATE INDEX IF NOT EXISTS workspace_model_plugin_selections_installation_idx
+  ON workspace_model_plugin_selections (installation_id);
 
 -- Secret values are sealed independently so Admin can list configured names
 -- without ever selecting a plaintext value. The installation foreign key is

@@ -2,10 +2,10 @@ import { withClient } from "@doco/db";
 import {
   clearPasswordSignInAttempts,
   getSingleWorkspaceState,
-  getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace,
   reservePasswordSignInAttempt,
 } from "@doco/host";
+import { getWorkspaceModelPluginReadiness } from "@doco/host/model-plugins";
 import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";

@@ -111,7 +111,7 @@ describe("open Braino administration", () => {
     expect(admin).not.toMatch(/name="(chat_model|embedding_model|embedding_dimensions|api_key)"/);
     expect(admin).not.toMatch(/install_ollama|configure_ollama|configure_openai_provider/);
     expect(admin).not.toMatch(
-      /installPlugin|configurePluginInstallation|assignWorkspaceModelPlugin/,
+      /installPlugin|configurePluginInstallation|installWorkspaceModelPlugin/,
     );
   });
 

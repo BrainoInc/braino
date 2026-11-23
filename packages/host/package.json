@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./model-plugins": {
+      "types": "./dist/workspace-model-plugins.d.ts",
+      "import": "./dist/workspace-model-plugins.js"
     }
   },
   "files": ["dist"],

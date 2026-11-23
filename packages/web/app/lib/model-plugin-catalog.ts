@@ -1,4 +1,4 @@
-import type { ModelCapability, ModelPluginStatus } from "@doco/host";
+import type { ModelCapability, ModelPluginStatus } from "@doco/host/model-plugins";
 import {
   parsePluginManifest,
   pluginConfigurationChoices,
@@ -79,10 +79,12 @@ export function preselectedPlugin(
 
 /** A plugin installed in the workspace, as the setup screens need to see it. */
 export interface InstalledModelPlugin {
+  installationId: string;
   pluginId: string;
   name: string;
   kind: ModelKind;
-  enabled: boolean;
+  active: boolean;
+  verified: boolean;
   configuration: Readonly<Record<string, string>>;
   secretNames: readonly string[];
 }
@@ -106,8 +108,7 @@ export function modelSteps(
 ): ModelStep[] {
   return MODEL_KINDS.map((kind) => {
     const status = readiness[kind];
-    const assigned = installed.filter((plugin) => plugin.kind === kind && plugin.enabled);
-    const plugin = assigned.length === 1 ? assigned[0] : undefined;
+    const plugin = installed.find((candidate) => candidate.kind === kind && candidate.active);
     if (plugin) {
       const entry = catalog.find((candidate) => candidate.id === plugin.pluginId);
       const model = plugin.configuration.model?.trim() || null;

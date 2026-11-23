@@ -6,8 +6,7 @@ const mocks = vi.hoisted(() => ({
   getSingleWorkspaceState: vi.fn(),
   getWorkspaceModelPluginReadiness: vi.fn(),
   getWorkspaceRole: vi.fn(),
-  listPluginInstallations: vi.fn(),
-  listPluginSecretNames: vi.fn(),
+  listWorkspaceModelPlugins: vi.fn(),
   pluginHostConnectionFromEnv: vi.fn(),
 }));
 
@@ -16,11 +15,12 @@ vi.mock("@doco/db", () => ({
 }));
 vi.mock("@doco/host", () => ({
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
-  getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
   getWorkspaceRole: mocks.getWorkspaceRole,
-  listPluginInstallations: mocks.listPluginInstallations,
-  listPluginSecretNames: mocks.listPluginSecretNames,
   pluginHostConnectionFromEnv: mocks.pluginHostConnectionFromEnv,
+}));
+vi.mock("@doco/host/model-plugins", () => ({
+  getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
+  listWorkspaceModelPlugins: mocks.listWorkspaceModelPlugins,
 }));
 vi.mock("~/lib/bundled-model-plugins.server", () => ({
   bundledModelPluginCatalog: mocks.bundledModelPluginCatalog,
@@ -50,47 +50,35 @@ beforeEach(() => {
 describe("the state every model setup screen starts from", () => {
   it("shows an owner each installed model plugin with the names of the secrets it holds", async () => {
     mocks.getWorkspaceRole.mockResolvedValue("owner");
-    mocks.listPluginInstallations.mockResolvedValue([
+    mocks.listWorkspaceModelPlugins.mockResolvedValue([
       {
-        id: "plugin_installation_chat",
-        manifest: {
-          id: "braino.openai-chat",
-          name: "OpenAI chat",
-          capabilities: { "chat.complete": 1 },
-        },
+        installationId: "plugin_installation_chat",
+        pluginId: "braino.openai-chat",
+        name: "OpenAI chat",
+        capability: "chat.complete",
         configuration: { model: "gpt-4.1" },
-        enabled: true,
-      },
-      {
-        id: "plugin_installation_mail",
-        manifest: { id: "acme.mail", name: "Mail", capabilities: { "email.send": 1 } },
-        configuration: {},
-        enabled: true,
+        active: true,
+        verified: true,
+        secretNames: ["api_key"],
       },
     ]);
-    mocks.listPluginSecretNames.mockResolvedValue(["api_key"]);
 
     const setup = await loadModelSetup(request);
 
     expect(setup).toMatchObject({ isOwner: true, ready: false, userId: "user_owner" });
     expect(setup.installed).toEqual([
       {
+        installationId: "plugin_installation_chat",
         pluginId: "braino.openai-chat",
         name: "OpenAI chat",
         kind: "chat",
-        enabled: true,
+        active: true,
+        verified: true,
         configuration: { model: "gpt-4.1" },
         secretNames: ["api_key"],
       },
     ]);
-    expect(mocks.listPluginSecretNames).toHaveBeenCalledWith(
-      {},
-      {
-        workspaceId: "workspace_meta",
-        userId: "user_owner",
-        installationId: "plugin_installation_chat",
-      },
-    );
+    expect(mocks.listWorkspaceModelPlugins).toHaveBeenCalledWith({}, "workspace_meta");
     expect(setup.steps.map((step) => [step.kind, step.status, step.pluginName])).toEqual([
       ["chat", "ready", "OpenAI chat"],
       ["embedding", "missing", null],
@@ -107,7 +95,7 @@ describe("the state every model setup screen starts from", () => {
       ["ready", null],
       ["missing", null],
     ]);
-    expect(mocks.listPluginInstallations).not.toHaveBeenCalled();
+    expect(mocks.listWorkspaceModelPlugins).not.toHaveBeenCalled();
     expect(mocks.bundledModelPluginCatalog).not.toHaveBeenCalled();
   });
 

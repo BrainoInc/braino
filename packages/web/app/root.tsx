@@ -1,9 +1,6 @@
 import { withClient } from "@doco/db";
-import {
-  getSingleWorkspaceState,
-  getWorkspaceModelPluginReadiness,
-  getWorkspaceRole,
-} from "@doco/host";
+import { getSingleWorkspaceState, getWorkspaceRole } from "@doco/host";
+import { getWorkspaceModelPluginReadiness } from "@doco/host/model-plugins";
 import { type Locale, SOURCE_LOCALE, localeDirection, localeFromRequest } from "@doco/shared/i18n";
 import { I18nProvider, useT } from "@doco/shared/i18n/react";
 import {

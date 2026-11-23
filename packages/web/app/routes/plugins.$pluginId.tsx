@@ -1,13 +1,16 @@
 import { withClient } from "@doco/db";
 import {
-  ModelPluginVerificationError,
   PluginInstallationError,
-  assignWorkspaceModelPlugin,
   connectWorkspaceEmailPlugin,
   listPluginInstallations,
   removePluginInstallation,
-  verifyWorkspaceModelPlugin,
 } from "@doco/host";
+import {
+  ModelPluginVerificationError,
+  activateWorkspaceModelPlugin,
+  installWorkspaceModelPlugin,
+  verifyWorkspaceModelPlugin,
+} from "@doco/host/model-plugins";
 import { useT } from "@doco/shared/i18n/react";
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
@@ -87,8 +90,10 @@ export async function loader({ request, params }: { request: Request; params: Pa
       type: "model" as const,
       id,
       workspace: setup.workspace,
-      installed: enabled.length > 0,
-      active: setup.steps.some((step) => step.pluginId === manifestId && step.status === "ready"),
+      installed: Boolean(installed),
+      active: installed?.active ?? false,
+      verified: installed?.verified ?? false,
+      installationId: installed?.installationId ?? null,
       ready: setup.ready,
       saved,
       setting: {
@@ -146,17 +151,27 @@ export async function loader({ request, params }: { request: Request; params: Pa
   };
 }
 
-async function removePlugin(context: Awaited<ReturnType<typeof pluginContext>>): Promise<Response> {
+async function removePlugin(
+  context: Awaited<ReturnType<typeof pluginContext>>,
+  t: Awaited<ReturnType<typeof requestTranslator>>,
+): Promise<Response | { error: string }> {
   const manifestId = PLUGIN_MANIFEST_IDS[context.id];
   for (const installation of context.installations) {
-    if (!installation.enabled || installation.manifest.id !== manifestId) continue;
-    await withClient((client) =>
-      removePluginInstallation(client, {
-        workspaceId: context.setup.workspace.id,
-        userId: context.setup.userId,
-        installationId: installation.id,
-      }),
-    );
+    if (installation.manifest.id !== manifestId) continue;
+    try {
+      await withClient((client) =>
+        removePluginInstallation(client, {
+          workspaceId: context.setup.workspace.id,
+          userId: context.setup.userId,
+          installationId: installation.id,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof PluginInstallationError && error.code === "active_plugin_removal") {
+        return { error: t("Make another plugin active before removing this one.") };
+      }
+      throw error;
+    }
   }
   return redirect("/plugins?view=installed");
 }
@@ -186,8 +201,8 @@ async function saveModelPlugin(
     if (needsKey && !apiKey && !installed?.secretNames.includes("api_key")) {
       return { error: t("Enter this plugin's OpenAI API key.") };
     }
-    await withClient((client) =>
-      assignWorkspaceModelPlugin(client, {
+    const installation = await withClient((client) =>
+      installWorkspaceModelPlugin(client, {
         workspaceId: context.setup.workspace.id,
         userId: context.setup.userId,
         capability: MODEL_CAPABILITY[kind],
@@ -202,11 +217,25 @@ async function saveModelPlugin(
     await withClient((client) =>
       verifyWorkspaceModelPlugin(client, {
         workspaceId: context.setup.workspace.id,
+        installationId: installation.id,
         capability: MODEL_CAPABILITY[kind],
         encryptionKey,
         host,
       }),
     );
+    const active = context.setup.installed.find(
+      (candidate) => candidate.kind === kind && candidate.active,
+    );
+    if (!active || active.installationId === installation.id) {
+      await withClient((client) =>
+        activateWorkspaceModelPlugin(client, {
+          workspaceId: context.setup.workspace.id,
+          userId: context.setup.userId,
+          capability: MODEL_CAPABILITY[kind],
+          installationId: installation.id,
+        }),
+      );
+    }
   } catch (error) {
     if (error instanceof ModelPluginVerificationError) {
       return {
@@ -224,6 +253,33 @@ async function saveModelPlugin(
   return redirect(`/plugins/${id}?saved=1`);
 }
 
+async function activateModelPlugin(
+  id: ModelPluginPageId,
+  context: Awaited<ReturnType<typeof pluginContext>>,
+  t: Awaited<ReturnType<typeof requestTranslator>>,
+) {
+  const kind = modelKindForPlugin(id);
+  const manifestId = PLUGIN_MANIFEST_IDS[id];
+  const installed = context.setup.installed.find((plugin) => plugin.pluginId === manifestId);
+  if (!installed) return { error: t("Install and test this plugin before making it active.") };
+  try {
+    await withClient((client) =>
+      activateWorkspaceModelPlugin(client, {
+        workspaceId: context.setup.workspace.id,
+        userId: context.setup.userId,
+        capability: MODEL_CAPABILITY[kind],
+        installationId: installed.installationId,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof PluginInstallationError) {
+      return { error: t("Install and test this plugin before making it active.") };
+    }
+    throw error;
+  }
+  return redirect(`/plugins/${id}?saved=1`);
+}
+
 export async function action({ request, params }: { request: Request; params: Params }) {
   const t = await requestTranslator(request);
   const context = await pluginContext(request, params);
@@ -235,8 +291,9 @@ export async function action({ request, params }: { request: Request; params: Pa
     throw error;
   }
   const intent = text(form, "intent");
-  if (intent === "remove") return removePlugin(context);
+  if (intent === "remove") return removePlugin(context, t);
   if (isModelPluginPage(context.id)) {
+    if (intent === "activate") return activateModelPlugin(context.id, context, t);
     if (intent !== "save") return { error: t("Unsupported action.") };
     return saveModelPlugin(context.id, context, form, t);
   }
@@ -311,7 +368,7 @@ function ModelPluginPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{data.active ? t("Plugin settings") : t("Install plugin")}</CardTitle>
+        <CardTitle>{data.installed ? t("Plugin settings") : t("Install plugin")}</CardTitle>
         <CardDescription>
           {needsApiKey
             ? t("This plugin keeps its own API key. Other plugins cannot read or reuse it.")
@@ -380,10 +437,27 @@ function ModelPluginPanel({
             disabled={saving}
             className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            {saving ? t("Testing…") : data.active ? t("Save changes") : t("Install plugin")}
+            {saving ? t("Testing…") : data.installed ? t("Save changes") : t("Install plugin")}
           </button>
         </Form>
-        {data.installed ? <RemovePluginForm label={nameOf(data.id)} /> : null}
+        {data.installed && data.verified && !data.active ? (
+          <Form method="post">
+            <input type="hidden" name="intent" value="activate" />
+            <button
+              type="submit"
+              disabled={saving}
+              className="neu-button rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              {t("Make active")}
+            </button>
+          </Form>
+        ) : null}
+        {data.installed && data.active ? (
+          <p className="text-xs text-muted-foreground">
+            {t("Make another plugin active before removing this one.")}
+          </p>
+        ) : null}
+        {data.installed && !data.active ? <RemovePluginForm label={nameOf(data.id)} /> : null}
       </CardContent>
     </Card>
   );

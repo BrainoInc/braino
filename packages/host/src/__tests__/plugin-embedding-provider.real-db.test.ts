@@ -6,6 +6,7 @@ import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
 import { resolveWorkspaceEmbeddingProvider } from "../plugin-embedding-provider.js";
 import { configurePluginInstallation, installPlugin } from "../plugin-installations.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
+import { activateWorkspaceModelPlugin } from "../workspace-model-plugins.js";
 
 let db: PGlite;
 
@@ -60,6 +61,19 @@ async function fixture(verified = true) {
           SET verified_at = now(), verified_embedding_dimensions = 3
         WHERE id = $1`,
       [installation.id],
+    );
+    await activateWorkspaceModelPlugin(client(), {
+      workspaceId: setup.workspace.id,
+      userId: setup.owner.id,
+      capability: "embedding.embed",
+      installationId: installation.id,
+    });
+  } else {
+    await db.query(
+      `INSERT INTO workspace_model_plugin_selections
+         (workspace_id, capability, installation_id, updated_by_user_id)
+       VALUES ($1, 'embedding.embed', $2, $3)`,
+      [setup.workspace.id, installation.id, setup.owner.id],
     );
   }
   return { ...setup, installation };

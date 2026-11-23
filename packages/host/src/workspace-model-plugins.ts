@@ -6,11 +6,15 @@ import {
   parsePluginManifest,
   pluginProvidesCapability,
 } from "@doco/plugin-runtime";
-import { resolveAssignedModelPlugin } from "./model-plugin-installation.js";
+import {
+  resolveActiveWorkspaceModelPlugin,
+  resolveWorkspaceModelPluginInstallation,
+} from "./model-plugin-installation.js";
 import {
   type PluginInstallation,
   PluginInstallationError,
   installPluginInTransaction,
+  requireWorkspacePluginOwner,
 } from "./plugin-installations.js";
 import {
   type PluginHostConnection,
@@ -18,28 +22,19 @@ import {
   invokePlugin,
 } from "./plugin-invocation.js";
 
-/** The two models every workspace needs, named by the capability that provides each. */
+/** The two independently selectable models every workspace needs. */
 export const MODEL_CAPABILITIES = [
   "chat.complete",
   "embedding.embed",
 ] as const satisfies readonly PluginCapabilityName[];
 
 export type ModelCapability = (typeof MODEL_CAPABILITIES)[number];
-
-export type ModelPluginStatus = "missing" | "invalid" | "ambiguous" | "unverified" | "ready";
+export type ModelPluginStatus = "missing" | "invalid" | "unverified" | "ready";
 
 export interface WorkspaceModelPluginReadiness {
   ready: boolean;
   chat: ModelPluginStatus;
   embedding: ModelPluginStatus;
-}
-
-interface InstallationRow {
-  manifest: unknown;
-  configuration: unknown;
-  secret_names: string[];
-  verified_at: Date | string | null;
-  verified_embedding_dimensions: number | null;
 }
 
 export interface ModelPluginBundle {
@@ -48,6 +43,41 @@ export interface ModelPluginBundle {
   configuration: Readonly<Record<string, string>>;
   secrets?: Readonly<Record<string, string>>;
   encryptionKey?: string;
+}
+
+export interface WorkspaceModelPlugin {
+  workspaceId: string;
+  installationId: string;
+  pluginId: string;
+  name: string;
+  capability: ModelCapability;
+  model: string;
+  configuration: Readonly<Record<string, string>>;
+  secretNames: readonly string[];
+  active: boolean;
+  verified: boolean;
+  verifiedEmbeddingDimensions: number | null;
+  updatedAt: string;
+}
+
+interface InstallationRow {
+  workspace_id: string;
+  id: string;
+  manifest: unknown;
+  configuration: unknown;
+  secret_names: string[];
+  active_capability: string | null;
+  verified_at: Date | string | null;
+  verified_embedding_dimensions: number | null;
+  updated_at: Date | string;
+}
+
+interface SelectedInstallationRow {
+  manifest: unknown;
+  configuration: unknown;
+  secret_names: string[];
+  verified_at: Date | string | null;
+  verified_embedding_dimensions: number | null;
 }
 
 function configuration(value: unknown): Readonly<Record<string, string>> | null {
@@ -68,50 +98,113 @@ function usableConfiguration(configured: Readonly<Record<string, string>>): bool
   return Boolean(configured.model?.trim());
 }
 
-function status(rows: readonly InstallationRow[], capability: ModelCapability): ModelPluginStatus {
-  const providers = rows.filter((row) =>
-    pluginProvidesCapability(parsePluginManifest(row.manifest), capability),
+function modelCapability(manifest: unknown): ModelCapability | null {
+  const parsed = parsePluginManifest(manifest);
+  const provided = MODEL_CAPABILITIES.filter((capability) =>
+    pluginProvidesCapability(parsed, capability),
   );
-  if (providers.length === 0) return "missing";
-  if (providers.length > 1) return "ambiguous";
-  const provider = providers[0];
-  const configured = configuration(provider?.configuration);
-  if (!provider || !configured || !usableConfiguration(configured)) return "invalid";
-  const required = requiredSecretNames(parsePluginManifest(provider.manifest).secretSchema);
-  if (!required.every((name) => provider.secret_names.includes(name))) return "invalid";
-  if (!provider.verified_at) return "unverified";
+  return provided.length === 1 ? provided[0] : null;
+}
+
+function status(
+  row: SelectedInstallationRow | undefined,
+  capability: ModelCapability,
+): ModelPluginStatus {
+  if (!row) return "missing";
+  const manifest = parsePluginManifest(row.manifest);
+  if (!pluginProvidesCapability(manifest, capability)) return "invalid";
+  const configured = configuration(row.configuration);
+  if (!configured || !usableConfiguration(configured)) return "invalid";
+  const required = requiredSecretNames(manifest.secretSchema);
+  if (!required.every((name) => row.secret_names.includes(name))) return "invalid";
+  if (!row.verified_at) return "unverified";
   if (
     capability === "embedding.embed" &&
-    (!Number.isInteger(provider.verified_embedding_dimensions) ||
-      Number(provider.verified_embedding_dimensions) < 1)
+    (!Number.isInteger(row.verified_embedding_dimensions) ||
+      Number(row.verified_embedding_dimensions) < 1)
   ) {
     return "invalid";
   }
   return "ready";
 }
 
+/** Lists every installed model plugin and identifies the active one per capability. */
+export async function listWorkspaceModelPlugins(
+  client: PoolClient,
+  workspaceId: string,
+): Promise<WorkspaceModelPlugin[]> {
+  const found = await client.query<InstallationRow>(
+    `SELECT i.workspace_id, i.id, i.manifest, i.configuration,
+            i.verified_at, i.verified_embedding_dimensions, i.updated_at,
+            selected.capability AS active_capability,
+            ARRAY(
+              SELECT secret.name
+                FROM plugin_installation_secrets secret
+               WHERE secret.installation_id = i.id
+               ORDER BY secret.name
+            ) AS secret_names
+       FROM plugin_installations i
+       LEFT JOIN workspace_model_plugin_selections selected
+         ON selected.workspace_id = i.workspace_id
+        AND selected.installation_id = i.id
+      WHERE i.workspace_id = $1 AND i.enabled
+        AND (i.manifest->'capabilities' ? 'chat.complete'
+          OR i.manifest->'capabilities' ? 'embedding.embed')
+      ORDER BY i.created_at, i.id`,
+    [workspaceId],
+  );
+  return found.rows.map((row) => {
+    const manifest = parsePluginManifest(row.manifest);
+    const capability = modelCapability(row.manifest);
+    const configured = configuration(row.configuration);
+    const model = configured?.model?.trim();
+    if (!capability || !configured || !model) {
+      throw new PluginInstallationError(
+        "Stored model plugin configuration is invalid.",
+        "configuration_invalid",
+        500,
+      );
+    }
+    return {
+      workspaceId: row.workspace_id,
+      installationId: row.id,
+      pluginId: manifest.id,
+      name: manifest.name,
+      capability,
+      model,
+      configuration: configured,
+      secretNames: row.secret_names,
+      active: row.active_capability === capability,
+      verified: Boolean(row.verified_at),
+      verifiedEmbeddingDimensions: row.verified_embedding_dimensions,
+      updatedAt: new Date(row.updated_at).toISOString(),
+    };
+  });
+}
+
 export async function getWorkspaceModelPluginReadiness(
   client: PoolClient,
   workspaceId: string,
 ): Promise<WorkspaceModelPluginReadiness> {
-  const found = await client.query<InstallationRow>(
-    `SELECT i.manifest, i.configuration, i.verified_at,
+  const found = await client.query<SelectedInstallationRow & { capability: ModelCapability }>(
+    `SELECT selected.capability, i.manifest, i.configuration, i.verified_at,
             i.verified_embedding_dimensions,
             ARRAY(
-              SELECT s.name
-                FROM plugin_installation_secrets s
-               WHERE s.installation_id = i.id
-               ORDER BY s.name
+              SELECT secret.name
+                FROM plugin_installation_secrets secret
+               WHERE secret.installation_id = i.id
+               ORDER BY secret.name
             ) AS secret_names
-       FROM plugin_installations i
-      WHERE workspace_id = $1 AND enabled
-        AND (manifest->'capabilities' ? 'chat.complete'
-          OR manifest->'capabilities' ? 'embedding.embed')
-      ORDER BY id`,
+       FROM workspace_model_plugin_selections selected
+       JOIN plugin_installations i
+         ON i.workspace_id = selected.workspace_id
+        AND i.id = selected.installation_id
+      WHERE selected.workspace_id = $1 AND i.enabled`,
     [workspaceId],
   );
-  const chat = status(found.rows, "chat.complete");
-  const embedding = status(found.rows, "embedding.embed");
+  const selected = new Map(found.rows.map((row) => [row.capability, row]));
+  const chat = status(selected.get("chat.complete"), "chat.complete");
+  const embedding = status(selected.get("embedding.embed"), "embedding.embed");
   return { ready: chat === "ready" && embedding === "ready", chat, embedding };
 }
 
@@ -131,11 +224,12 @@ export class ModelPluginVerificationError extends PluginInvocationError {
   }
 }
 
-/** Exercises one assigned model plugin before it becomes available to Braino. */
+/** Exercises one specific installed model plugin before it may become active. */
 export async function verifyWorkspaceModelPlugin(
   client: PoolClient,
   input: {
     workspaceId: string;
+    installationId: string;
     capability: ModelCapability;
     encryptionKey: string;
     host: PluginHostConnection;
@@ -143,9 +237,15 @@ export async function verifyWorkspaceModelPlugin(
   },
 ): Promise<{ model: string; dimensions?: number }> {
   const kind = input.capability === "chat.complete" ? "chat" : "embedding";
-  const plugin = await resolveAssignedModelPlugin(client, input.workspaceId, input.capability, {
-    requireVerified: false,
-  });
+  const plugin = await resolveWorkspaceModelPluginInstallation(
+    client,
+    {
+      workspaceId: input.workspaceId,
+      installationId: input.installationId,
+      capability: input.capability,
+    },
+    { requireVerified: false },
+  );
   if (!plugin) {
     throw new ModelPluginVerificationError(
       kind,
@@ -218,15 +318,8 @@ export async function verifyWorkspaceModelPlugin(
     : { model: output.model };
 }
 
-/**
- * Makes one plugin the workspace's provider for one model. The plugin is
- * installed or updated with its own configuration and its own secrets, and
- * every other enabled plugin with the same capability is disabled, all in one
- * transaction. An enabled plugin is an assigned one, so the plugin must
- * provide only this model: enabling it must not also assign it to the other.
- * Secrets the plugin already holds are kept unless new ones are given.
- */
-export async function assignWorkspaceModelPlugin(
+/** Installs or updates a model plugin without changing the workspace's active provider. */
+export async function installWorkspaceModelPlugin(
   client: PoolClient,
   input: {
     workspaceId: string;
@@ -241,7 +334,7 @@ export async function assignWorkspaceModelPlugin(
   );
   if (provided.length !== 1 || provided[0] !== input.capability) {
     throw new PluginInstallationError(
-      `${manifest.name} cannot be assigned as the only provider of ${input.capability}.`,
+      `${manifest.name} cannot be installed as a provider of ${input.capability}.`,
       "capability_not_provided",
     );
   }
@@ -267,17 +360,106 @@ export async function assignWorkspaceModelPlugin(
         "secret_required",
       );
     }
-    await client.query(
-      `UPDATE plugin_installations
-          SET enabled = false, updated_by_user_id = $3, updated_at = now()
-        WHERE workspace_id = $1 AND id <> $2 AND enabled
-          AND manifest->'capabilities' ? $4`,
-      [input.workspaceId, installed.id, input.userId, input.capability],
-    );
     await client.query("COMMIT");
     return installed;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
   }
+}
+
+export interface WorkspaceModelPluginSelection {
+  workspaceId: string;
+  capability: ModelCapability;
+  installationId: string;
+  pluginId: string;
+  updatedAt: string;
+}
+
+/** Atomically makes one verified installation active for one model capability. */
+export async function activateWorkspaceModelPlugin(
+  client: PoolClient,
+  input: {
+    workspaceId: string;
+    userId: string;
+    capability: ModelCapability;
+    installationId: string;
+  },
+): Promise<WorkspaceModelPluginSelection> {
+  await client.query("BEGIN");
+  try {
+    await requireWorkspacePluginOwner(client, input.workspaceId, input.userId);
+    const found = await client.query<{
+      manifest: unknown;
+      verified_at: Date | string | null;
+      verified_embedding_dimensions: number | null;
+    }>(
+      `SELECT manifest, verified_at, verified_embedding_dimensions
+         FROM plugin_installations
+        WHERE workspace_id = $1 AND id = $2 AND enabled
+        FOR UPDATE`,
+      [input.workspaceId, input.installationId],
+    );
+    const row = found.rows[0];
+    if (!row) {
+      throw new PluginInstallationError(
+        "Plugin installation is unavailable.",
+        "installation_unavailable",
+        404,
+      );
+    }
+    const manifest = parsePluginManifest(row.manifest);
+    if (!pluginProvidesCapability(manifest, input.capability)) {
+      throw new PluginInstallationError(
+        `${manifest.name} does not provide ${input.capability}.`,
+        "capability_not_provided",
+      );
+    }
+    if (
+      !row.verified_at ||
+      (input.capability === "embedding.embed" &&
+        (!Number.isInteger(row.verified_embedding_dimensions) ||
+          Number(row.verified_embedding_dimensions) < 1))
+    ) {
+      throw new PluginInstallationError(
+        "Verify the plugin before making it active.",
+        "plugin_unverified",
+      );
+    }
+    const selected = await client.query<{ updated_at: Date | string }>(
+      `INSERT INTO workspace_model_plugin_selections
+         (workspace_id, capability, installation_id, updated_by_user_id)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (workspace_id, capability) DO UPDATE
+         SET installation_id = EXCLUDED.installation_id,
+             updated_by_user_id = EXCLUDED.updated_by_user_id,
+             updated_at = now()
+       RETURNING updated_at`,
+      [input.workspaceId, input.capability, input.installationId, input.userId],
+    );
+    const selection = selected.rows[0];
+    if (!selection) {
+      throw new PluginInstallationError("Plugin activation failed.", "activation_failed", 500);
+    }
+    await client.query("COMMIT");
+    return {
+      workspaceId: input.workspaceId,
+      capability: input.capability,
+      installationId: input.installationId,
+      pluginId: manifest.id,
+      updatedAt: new Date(selection.updated_at).toISOString(),
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+}
+
+/** Returns the selected installation for consumers that need its public configuration. */
+export async function getActiveWorkspaceModelPlugin(
+  client: PoolClient,
+  workspaceId: string,
+  capability: ModelCapability,
+) {
+  return resolveActiveWorkspaceModelPlugin(client, workspaceId, capability);
 }
