@@ -203,7 +203,7 @@ impl Guest for GithubPlugin {
             ),
             "scm.request" => action(&input_json, "request"),
             "scm.check.publish" => action(&input_json, "check.publish"),
-            "scm.ruleset.reconcile" => action(&input_json, "ruleset.reconcile"),
+            "scm.review.reject" => action(&input_json, "review.reject"),
             _ => Err("unsupported capability".to_string()),
         }
     }

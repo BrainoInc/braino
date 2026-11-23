@@ -16,6 +16,7 @@ import {
 import { generateUlid, makeEntityId } from "@doco/shared";
 import type { ClientScope } from "./client-scope.js";
 import { createCollectionInWorkspace } from "./host.js";
+import { createWorkspaceBrief } from "./mcp-core.js";
 import type { PluginGithubProvider } from "./plugin-github.js";
 import { openSecret, sealSecret } from "./secret-box.js";
 
@@ -47,7 +48,6 @@ export interface GithubConnectionSummary {
   codeCollectionHandle: string;
   active: boolean;
   gatewayConnected: boolean;
-  requireBraino: boolean;
   lastSyncedAt: string | null;
   lastError: string | null;
   webhookConfigured: boolean;
@@ -63,7 +63,6 @@ interface ConnectionRow {
   repository: string;
   token_sealed: string | null;
   plugin_installation_id: string | null;
-  require_braino: boolean;
   issues_collection_id: string;
   pull_requests_collection_id: string;
   code_collection_id: string;
@@ -424,12 +423,11 @@ async function summary(client: PoolClient, connectionId: string): Promise<Github
     webhook_url: string | null;
     webhook_last_delivery_at: Date | string | null;
     plugin_installation_id: string | null;
-    require_braino: boolean;
   }>(
     `SELECT g.id, g.repository, i.handle AS issues_handle, p.handle AS pulls_handle,
             c.handle AS code_handle,
             g.active, g.last_synced_at, g.last_error, g.webhook_id, g.webhook_url,
-            g.webhook_last_delivery_at, g.plugin_installation_id, g.require_braino
+            g.webhook_last_delivery_at, g.plugin_installation_id
        FROM github_connections g
        JOIN collections i ON i.id = g.issues_collection_id
        JOIN collections p ON p.id = g.pull_requests_collection_id
@@ -448,7 +446,6 @@ async function summary(client: PoolClient, connectionId: string): Promise<Github
     codeCollectionHandle: row.code_handle,
     active: row.active,
     gatewayConnected: row.plugin_installation_id !== null,
-    requireBraino: row.require_braino,
     lastSyncedAt: row.last_synced_at ? new Date(row.last_synced_at).toISOString() : null,
     lastError: row.last_error,
     webhookConfigured: row.webhook_id !== null && Boolean(row.webhook_url),
@@ -964,54 +961,9 @@ export async function listGithubConnections(
   return Promise.all(found.rows.map((row) => summary(client, row.id)));
 }
 
-export async function setGithubEnforcement(
-  withClient: ClientScope,
-  input: {
-    connectionId: string;
-    userId: string;
-    required: boolean;
-    plugin: PluginGithubProvider;
-  },
-): Promise<GithubConnectionSummary> {
-  const connection = await withClient(async (client) => {
-    const found = await client.query<ConnectionRow>(
-      "SELECT * FROM github_connections WHERE id = $1",
-      [input.connectionId],
-    );
-    const row = found.rows[0];
-    if (
-      !row ||
-      !row.active ||
-      row.plugin_installation_id !== input.plugin.installation.installationId
-    ) {
-      throw new GithubConnectionError(
-        "GitHub App connection is unavailable.",
-        "connection_inactive",
-        409,
-      );
-    }
-    await requireOwner(client, row.workspace_id, input.userId);
-    return row;
-  });
-  await input.plugin.reconcileRuleset({
-    repository: connection.repository,
-    checkName: "Braino",
-    required: input.required,
-  });
-  return withClient(async (client) => {
-    await client.query(
-      `UPDATE github_connections
-          SET require_braino = $2, last_error = NULL
-        WHERE id = $1`,
-      [connection.id, input.required],
-    );
-    return summary(client, connection.id);
-  });
-}
-
 const BRIEF_TRAILER = /(?:Doco|Braino)-Brief:\s*https?:\/\/\S+/i;
 const BRAINO_RECORD =
-  /https?:\/\/[^\s)]+\/(?:decision|rule|intent|idea|eval|reference|log|action|state)\/(?:decision|rule|intent|idea|eval|reference|log|action|state)_[0-9A-Z]+/i;
+  /\b(?:intent|idea|rule|decision|action|log|eval|reference|state|principal|policy|brief)_[0-9A-HJKMNP-TV-Z]{26}\b/i;
 
 export function pullRequestWentThroughBraino(input: {
   body: string | null;
@@ -1020,6 +972,265 @@ export function pullRequestWentThroughBraino(input: {
   return [input.body ?? "", ...input.commitMessages].some(
     (value) => BRIEF_TRAILER.test(value) || BRAINO_RECORD.test(value),
   );
+}
+
+interface PullRequestVerdictRow {
+  went_through_braino: boolean;
+  review_status: "processing" | "completed" | null;
+  brief_id: string | null;
+  brief_status: "processing" | "completed" | null;
+}
+
+async function storedPullRequestVerdict(
+  withClient: ClientScope,
+  connectionId: string,
+  pullNumber: number,
+): Promise<PullRequestVerdictRow | null> {
+  return withClient(async (client) => {
+    const found = await client.query<PullRequestVerdictRow>(
+      `SELECT went_through_braino, review_status, brief_id, brief_status
+         FROM github_pull_request_verdicts
+        WHERE connection_id = $1 AND pull_number = $2`,
+      [connectionId, pullNumber],
+    );
+    return found.rows[0] ?? null;
+  });
+}
+
+async function freezePullRequestVerdict(
+  withClient: ClientScope,
+  input: { connectionId: string; pullNumber: number; wentThroughBraino: boolean },
+): Promise<PullRequestVerdictRow> {
+  return withClient(async (client) => {
+    await client.query(
+      `INSERT INTO github_pull_request_verdicts
+         (connection_id, pull_number, went_through_braino)
+       VALUES ($1, $2, $3)
+       ON CONFLICT DO NOTHING`,
+      [input.connectionId, input.pullNumber, input.wentThroughBraino],
+    );
+    const found = await client.query<PullRequestVerdictRow>(
+      `SELECT went_through_braino, review_status, brief_id, brief_status
+         FROM github_pull_request_verdicts
+        WHERE connection_id = $1 AND pull_number = $2`,
+      [input.connectionId, input.pullNumber],
+    );
+    const row = found.rows[0];
+    if (!row) throw new Error("GitHub pull-request verdict was not stored.");
+    return row;
+  });
+}
+
+async function judgePullRequest(
+  withClient: ClientScope,
+  input: {
+    connectionId: string;
+    repository: string;
+    pullNumber: number;
+    body: string | null;
+    plugin: PluginGithubProvider;
+  },
+): Promise<PullRequestVerdictRow | null> {
+  const stored = await storedPullRequestVerdict(withClient, input.connectionId, input.pullNumber);
+  if (stored) return stored;
+
+  let wentThroughBraino = pullRequestWentThroughBraino({
+    body: input.body,
+    commitMessages: [],
+  });
+  if (!wentThroughBraino) {
+    let commitMessages: readonly string[];
+    try {
+      commitMessages = await input.plugin.pullRequestCommits(input.repository, input.pullNumber);
+    } catch {
+      // An unreadable provenance source is not evidence of failure. Do not
+      // freeze a verdict until GitHub lets Braino inspect the commits.
+      return null;
+    }
+    wentThroughBraino = pullRequestWentThroughBraino({
+      body: input.body,
+      commitMessages,
+    });
+  }
+  return freezePullRequestVerdict(withClient, {
+    connectionId: input.connectionId,
+    pullNumber: input.pullNumber,
+    wentThroughBraino,
+  });
+}
+
+async function rejectPullRequestOnce(
+  withClient: ClientScope,
+  input: {
+    connectionId: string;
+    repository: string;
+    pullNumber: number;
+    headSha: string;
+    plugin: PluginGithubProvider;
+  },
+): Promise<void> {
+  const claimed = await withClient(async (client) => {
+    const result = await client.query(
+      `UPDATE github_pull_request_verdicts
+          SET review_status = 'processing', review_started_at = now(), updated_at = now()
+        WHERE connection_id = $1 AND pull_number = $2
+          AND NOT went_through_braino
+          AND (
+            review_status IS NULL OR (
+              review_status = 'processing'
+              AND review_started_at < now() - interval '5 minutes'
+            )
+          )
+      RETURNING connection_id`,
+      [input.connectionId, input.pullNumber],
+    );
+    return Boolean(result.rows[0]);
+  });
+  if (!claimed) return;
+
+  try {
+    const review = await input.plugin.rejectPullRequest({
+      repository: input.repository,
+      pullNumber: input.pullNumber,
+      commitId: input.headSha,
+      body: [
+        "Braino found no provenance evidence when this pull request was first checked.",
+        "This verdict is permanent for this pull request. Close it and open a new pull request after working through Braino.",
+      ].join("\n\n"),
+    });
+    await withClient((client) =>
+      client.query(
+        `UPDATE github_pull_request_verdicts
+            SET review_status = 'completed', review_id = $3, updated_at = now()
+          WHERE connection_id = $1 AND pull_number = $2
+            AND review_status = 'processing'`,
+        [input.connectionId, input.pullNumber, review.id],
+      ),
+    );
+  } catch (error) {
+    await withClient((client) =>
+      client.query(
+        `UPDATE github_pull_request_verdicts
+            SET review_status = NULL, review_started_at = NULL, updated_at = now()
+          WHERE connection_id = $1 AND pull_number = $2
+            AND review_status = 'processing'`,
+        [input.connectionId, input.pullNumber],
+      ),
+    );
+    throw error;
+  }
+}
+
+function publicBrainoOrigin(): string {
+  const configured = process.env.DOCO_PUBLIC_HOST?.trim();
+  if (!configured) throw new Error("DOCO_PUBLIC_HOST is required to publish a Braino brief.");
+  const origin = new URL(configured);
+  if (origin.protocol !== "https:") {
+    throw new Error("DOCO_PUBLIC_HOST must use HTTPS to publish a Braino brief.");
+  }
+  return origin.origin;
+}
+
+async function publishPullRequestBriefOnce(
+  withClient: ClientScope,
+  input: {
+    connection: ConnectionRow;
+    repository: string;
+    pullNumber: number;
+    pullTitle: string;
+    pullUrl: string;
+    plugin: PluginGithubProvider;
+  },
+): Promise<void> {
+  let claimed = false;
+  let briefId: string | null = null;
+  let workspaceHandle: string | null = null;
+  try {
+    const brief = await withClient(async (client) => {
+      const result = await client.query<{ brief_id: string | null }>(
+        `UPDATE github_pull_request_verdicts
+            SET brief_status = 'processing', brief_started_at = now(), updated_at = now()
+          WHERE connection_id = $1 AND pull_number = $2
+            AND went_through_braino
+            AND (
+              brief_status IS NULL OR (
+                brief_status = 'processing'
+                AND brief_started_at < now() - interval '5 minutes'
+              )
+            )
+        RETURNING brief_id`,
+        [input.connection.id, input.pullNumber],
+      );
+      const row = result.rows[0];
+      if (!row) return null;
+      claimed = true;
+
+      if (row.brief_id) {
+        const workspace = await client.query<{ handle: string }>(
+          "SELECT handle FROM workspaces WHERE id = $1",
+          [input.connection.workspace_id],
+        );
+        const handle = workspace.rows[0]?.handle;
+        if (!handle) throw new Error("Braino workspace was not found.");
+        return { briefId: row.brief_id, workspaceHandle: handle };
+      }
+
+      const created = await createWorkspaceBrief(client, {
+        workspaceId: input.connection.workspace_id,
+        userId: input.connection.created_by_user_id,
+        agentLabel: "Braino GitHub App",
+        about: `Pull request #${input.pullNumber}: ${input.pullTitle}`,
+        touching: [input.repository, input.pullUrl],
+      });
+      await client.query(
+        `UPDATE github_pull_request_verdicts
+            SET brief_id = $3, updated_at = now()
+          WHERE connection_id = $1 AND pull_number = $2
+            AND brief_status = 'processing'`,
+        [input.connection.id, input.pullNumber, created.brief_id],
+      );
+      return { briefId: created.brief_id, workspaceHandle: created.workspace.handle };
+    });
+    if (!brief) return;
+    ({ briefId, workspaceHandle } = brief);
+
+    const briefUrl = new URL(
+      `/workspaces/${encodeURIComponent(workspaceHandle)}/brief`,
+      publicBrainoOrigin(),
+    );
+    briefUrl.searchParams.set("id", briefId);
+    const comment = await input.plugin.publishPullRequestComment({
+      repository: input.repository,
+      pullNumber: input.pullNumber,
+      body: [
+        "### Braino brief",
+        "This pull request went through Braino. The brief stays private to the connected Braino workspace.",
+        `[Open the workspace brief](${briefUrl.toString()})`,
+      ].join("\n\n"),
+    });
+    await withClient((client) =>
+      client.query(
+        `UPDATE github_pull_request_verdicts
+            SET brief_status = 'completed', brief_comment_id = $3, updated_at = now()
+          WHERE connection_id = $1 AND pull_number = $2
+            AND brief_status = 'processing'`,
+        [input.connection.id, input.pullNumber, comment.id],
+      ),
+    );
+  } catch (error) {
+    if (claimed) {
+      await withClient((client) =>
+        client.query(
+          `UPDATE github_pull_request_verdicts
+              SET brief_status = NULL, brief_started_at = NULL, updated_at = now()
+            WHERE connection_id = $1 AND pull_number = $2
+              AND brief_status = 'processing'`,
+          [input.connection.id, input.pullNumber],
+        ),
+      );
+    }
+    throw error;
+  }
 }
 
 function object(value: unknown): Record<string, unknown> | null {
@@ -1122,27 +1333,55 @@ export async function deliverGithubGatewayWebhook(
       pullNumber > 0 &&
       typeof head?.sha === "string"
     ) {
-      const passed = pullRequestWentThroughBraino({
+      const verdict = await judgePullRequest(withClient, {
+        connectionId: reserved.row.id,
+        repository,
+        pullNumber,
         body: typeof pull.body === "string" ? pull.body : null,
-        commitMessages: await input.plugin.pullRequestCommits(repository, pullNumber),
+        plugin: input.plugin,
       });
-      const conclusion = passed ? "success" : reserved.row.require_braino ? "failure" : "neutral";
+      const conclusion = verdict
+        ? verdict.went_through_braino
+          ? "success"
+          : "failure"
+        : "neutral";
       await input.plugin.publishCheck({
         repository,
         name: "Braino",
         headSha: head.sha,
         conclusion,
-        title: passed
-          ? "Went through Braino"
-          : reserved.row.require_braino
-            ? "Didn't go through Braino"
-            : "No Braino evidence",
-        summary: passed
-          ? "A pull-request commit or description cites the Braino brief or record used for this work."
-          : reserved.row.require_braino
-            ? "This repository requires Braino, but no commit trailer or Braino record was found."
-            : "No commit trailer or Braino record was found; enforcement is not enabled.",
+        title: verdict
+          ? verdict.went_through_braino
+            ? "Went through Braino"
+            : "Didn't go through Braino"
+          : "Not checked",
+        summary: verdict
+          ? verdict.went_through_braino
+            ? "A pull-request commit or description cites the Braino brief or record used for this work."
+            : "No Braino brief or record was present when this pull request was first checked. This verdict is permanent for this pull request."
+          : "Braino could not read the pull-request commits, so no verdict was recorded. GitHub can retry this check.",
       });
+      if (verdict?.went_through_braino) {
+        await publishPullRequestBriefOnce(withClient, {
+          connection: reserved.row,
+          repository,
+          pullNumber,
+          pullTitle: typeof pull.title === "string" ? pull.title : `Pull request #${pullNumber}`,
+          pullUrl:
+            typeof pull.html_url === "string"
+              ? pull.html_url
+              : `https://github.com/${repository}/pull/${pullNumber}`,
+          plugin: input.plugin,
+        });
+      } else if (verdict) {
+        await rejectPullRequestOnce(withClient, {
+          connectionId: reserved.row.id,
+          repository,
+          pullNumber,
+          headSha: head.sha,
+          plugin: input.plugin,
+        });
+      }
       checked = true;
     }
     const synced = supported

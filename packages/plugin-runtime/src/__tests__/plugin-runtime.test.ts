@@ -53,7 +53,7 @@ describe("Braino plugin protocol", () => {
           "event.receive": 1,
           "scm.request": 1,
           "scm.check.publish": 1,
-          "scm.ruleset.reconcile": 1,
+          "scm.review.reject": 1,
         },
         permissions: { network: ["plugins.braino.dev"] },
       }).capabilities,
@@ -61,7 +61,7 @@ describe("Braino plugin protocol", () => {
       "event.receive": 1,
       "scm.request": 1,
       "scm.check.publish": 1,
-      "scm.ruleset.reconcile": 1,
+      "scm.review.reject": 1,
     });
   });
 

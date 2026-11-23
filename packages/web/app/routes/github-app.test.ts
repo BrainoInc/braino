@@ -61,6 +61,24 @@ beforeEach(() => {
 });
 
 describe("Braino GitHub App setup", () => {
+  it("leaves merge enforcement to GitHub instead of accepting an enforcement action", async () => {
+    mocks.resolveWorkspaceGithubPlugin.mockResolvedValue(plugin);
+
+    const result = await action({
+      request: new Request("https://meta.braino.dev/integrations/github-app", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          intent: "enforcement",
+          connection_id: "github_connection",
+          required: "true",
+        }),
+      }),
+    });
+
+    expect(result).toEqual({ error: "Unsupported action." });
+  });
+
   it("offers the official App installation without asking for a PAT", async () => {
     const result = await loader({
       request: new Request("https://meta.braino.dev/integrations/github-app"),

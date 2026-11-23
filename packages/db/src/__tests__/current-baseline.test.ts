@@ -50,6 +50,7 @@ describe("current database baseline", () => {
       "020_account_links.sql",
       "021_workspace_chat_conversations.sql",
       "022_model_plugin_selections.sql",
+      "023_github_provenance_verdicts.sql",
     ]);
     expect(schemaSql).not.toMatch(/\bapplied_migrations\b/);
     expect(schemaSql).not.toMatch(/\bschema_applied\b/);

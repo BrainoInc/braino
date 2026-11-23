@@ -6,8 +6,7 @@ import type {
   ScmCheckPublishInput,
   ScmRequestInput,
   ScmRequestOutput,
-  ScmRulesetReconcileInput,
-  ScmRulesetReconcileResult,
+  ScmReviewRejectInput,
 } from "@doco/plugin-runtime";
 import {
   type PluginInstallation,
@@ -64,7 +63,7 @@ export class PluginGithubProvider {
   ) {}
 
   private invoke(
-    capability: "event.receive" | "scm.request" | "scm.check.publish" | "scm.ruleset.reconcile",
+    capability: "event.receive" | "scm.request" | "scm.check.publish" | "scm.review.reject",
     input: unknown,
   ) {
     return invokePlugin(this.client, {
@@ -172,19 +171,38 @@ export class PluginGithubProvider {
     return { id };
   }
 
-  async reconcileRuleset(input: ScmRulesetReconcileInput): Promise<ScmRulesetReconcileResult> {
-    const output = object(
-      await this.invoke("scm.ruleset.reconcile", input),
-      "GitHub ruleset response",
-    );
-    if (!(["created", "updated", "removed", "unchanged"] as unknown[]).includes(output.result)) {
+  async rejectPullRequest(input: ScmReviewRejectInput): Promise<{ id: number }> {
+    const output = object(await this.invoke("scm.review.reject", input), "GitHub review response");
+    const id = Number(output.id);
+    if (!Number.isSafeInteger(id) || id <= 0) {
       throw new PluginInstallationError(
-        "GitHub ruleset response is invalid.",
+        "GitHub review response is invalid.",
         "plugin_output_invalid",
         502,
       );
     }
-    return output.result as ScmRulesetReconcileResult;
+    return { id };
+  }
+
+  async publishPullRequestComment(input: {
+    repository: string;
+    pullNumber: number;
+    body: string;
+  }): Promise<{ id: number }> {
+    const output = await this.request({
+      method: "POST",
+      path: `/repos/${input.repository}/issues/${input.pullNumber}/comments`,
+      body: { body: input.body },
+    });
+    const id = Number(object(output.data, "GitHub comment response").id);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new PluginInstallationError(
+        "GitHub comment response is invalid.",
+        "plugin_output_invalid",
+        502,
+      );
+    }
+    return { id };
   }
 
   async receive(input: PluginEventRequest): Promise<readonly PluginEvent[]> {
@@ -207,7 +225,7 @@ export async function resolveWorkspaceGithubPlugin(
       WHERE workspace_id = $1 AND enabled
         AND manifest->>'id' = 'braino.github'
         AND manifest->'capabilities' ?& ARRAY[
-          'event.receive', 'scm.request', 'scm.check.publish', 'scm.ruleset.reconcile'
+          'event.receive', 'scm.request', 'scm.check.publish', 'scm.review.reject'
         ]
       ORDER BY id`,
     [input.workspaceId],

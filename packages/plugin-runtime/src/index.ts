@@ -93,16 +93,15 @@ export interface ScmCheckPublishCapability {
   publish(input: ScmCheckPublishInput): Promise<{ id: number }>;
 }
 
-export interface ScmRulesetReconcileInput {
+export interface ScmReviewRejectInput {
   repository: string;
-  checkName: string;
-  required: boolean;
+  pullNumber: number;
+  body: string;
+  commitId?: string;
 }
 
-export type ScmRulesetReconcileResult = "created" | "updated" | "removed" | "unchanged";
-
-export interface ScmRulesetReconcileCapability {
-  reconcile(input: ScmRulesetReconcileInput): Promise<ScmRulesetReconcileResult>;
+export interface ScmReviewRejectCapability {
+  reject(input: ScmReviewRejectInput): Promise<{ id: number }>;
 }
 
 export interface PluginCapabilityImplementations {
@@ -115,7 +114,7 @@ export interface PluginCapabilityImplementations {
   "chat.complete": ChatCompleteCapability;
   "scm.request": ScmRequestCapability;
   "scm.check.publish": ScmCheckPublishCapability;
-  "scm.ruleset.reconcile": ScmRulesetReconcileCapability;
+  "scm.review.reject": ScmReviewRejectCapability;
 }
 
 export type PluginImplementations = Partial<PluginCapabilityImplementations>;
