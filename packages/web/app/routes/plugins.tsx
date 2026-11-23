@@ -5,6 +5,7 @@ import { Link, useLoaderData } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
+import { PluginLogo } from "~/components/plugin-logo";
 import { loadModelSetup } from "~/lib/model-setup.server";
 import {
   PLUGIN_MANIFEST_IDS,
@@ -199,9 +200,12 @@ export default function PluginsPage() {
                     <Card key={plugin.id} className="flex h-full flex-col">
                       <CardHeader>
                         <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <CardTitle>{copy.name}</CardTitle>
-                            <CardDescription>{copy.description}</CardDescription>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <PluginLogo pluginId={plugin.id} />
+                            <div className="min-w-0">
+                              <CardTitle>{copy.name}</CardTitle>
+                              <CardDescription>{copy.description}</CardDescription>
+                            </div>
                           </div>
                           <span className="rounded-full border border-border px-2 py-1 font-mono text-[10px] text-muted-foreground">
                             {plugin.needsAttention

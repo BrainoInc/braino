@@ -16,6 +16,7 @@ import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } fro
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
 import { PageHeader } from "~/components/page-header";
 import { PageMain } from "~/components/page-main";
+import { PluginLogo } from "~/components/plugin-logo";
 import { bundledModelPlugin, bundledPlugin } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { MODEL_CAPABILITY } from "~/lib/model-plugin-catalog";
@@ -599,7 +600,15 @@ export default function PluginPage() {
         : t("Send Braino email through your Resend account.");
   return (
     <PageMain className="space-y-6 py-6">
-      <PageHeader breadcrumb={<PluginBreadcrumb name={name} />} title={name}>
+      <PageHeader
+        breadcrumb={<PluginBreadcrumb name={name} />}
+        title={
+          <span className="inline-flex items-center gap-3">
+            <PluginLogo pluginId={data.id} />
+            <span>{name}</span>
+          </span>
+        }
+      >
         <p className="text-xs text-muted-foreground">{description}</p>
       </PageHeader>
       {actionData?.error ? (
