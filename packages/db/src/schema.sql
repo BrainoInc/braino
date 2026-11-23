@@ -1721,7 +1721,6 @@ CREATE TABLE IF NOT EXISTS github_connections (
   repository                   text NOT NULL,
   token_sealed                 text,
   plugin_installation_id       text REFERENCES plugin_installations(id),
-  require_braino               boolean NOT NULL DEFAULT false,
   issues_collection_id         text NOT NULL REFERENCES collections(id),
   pull_requests_collection_id  text NOT NULL REFERENCES collections(id),
   code_collection_id           text NOT NULL REFERENCES collections(id),
@@ -1743,7 +1742,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS github_connections_repository_idx
 ALTER TABLE github_connections
   ALTER COLUMN token_sealed DROP NOT NULL,
   ADD COLUMN IF NOT EXISTS plugin_installation_id text REFERENCES plugin_installations(id),
-  ADD COLUMN IF NOT EXISTS require_braino boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS webhook_id bigint,
   ADD COLUMN IF NOT EXISTS webhook_secret_sealed text,
   ADD COLUMN IF NOT EXISTS webhook_url text,
@@ -1754,6 +1752,24 @@ ALTER TABLE github_connections
 CREATE INDEX IF NOT EXISTS github_connections_plugin_installation_idx
   ON github_connections (plugin_installation_id)
   WHERE plugin_installation_id IS NOT NULL;
+
+-- One immutable, first-readable Braino verdict per pull request. GitHub owns
+-- merge enforcement; this stores only provenance and idempotent side effects.
+CREATE TABLE IF NOT EXISTS github_pull_request_verdicts (
+  connection_id       text NOT NULL REFERENCES github_connections(id) ON DELETE CASCADE,
+  pull_number          bigint NOT NULL CHECK (pull_number > 0),
+  went_through_braino  boolean NOT NULL,
+  review_status        text CHECK (review_status IN ('processing', 'completed')),
+  review_started_at    timestamptz,
+  review_id            bigint,
+  brief_id             text,
+  brief_status         text CHECK (brief_status IN ('processing', 'completed')),
+  brief_started_at     timestamptz,
+  brief_comment_id     bigint,
+  created_at           timestamptz NOT NULL DEFAULT now(),
+  updated_at           timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (connection_id, pull_number)
+);
 
 -- GitHub names every webhook request with a globally unique delivery id. This
 -- ledger makes redelivery safe: a completed refresh is returned verbatim and

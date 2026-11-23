@@ -9,7 +9,6 @@ import {
   getWorkspaceRole,
   listGithubConnections,
   resolveWorkspaceGithubPlugin,
-  setGithubEnforcement,
   syncGithubConnection,
 } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
@@ -163,17 +162,6 @@ export async function action({ request }: { request: Request }) {
         return redirect("/integrations/github-app?synced=1");
       });
     }
-    if (intent === "enforcement") {
-      return await withGithubPlugin(workspace.id, async (plugin) => {
-        await setGithubEnforcement(withClient, {
-          connectionId: text(form, "connection_id"),
-          userId: user.id,
-          required: text(form, "required") === "true",
-          plugin,
-        });
-        return redirect("/integrations/github-app?enforcement=updated");
-      });
-    }
     if (intent === "disconnect") {
       const encryptionKey = pluginSecretsKey();
       if (!encryptionKey) throw new Error("The encryption key is not configured.");
@@ -188,6 +176,10 @@ export async function action({ request }: { request: Request }) {
   } catch (error) {
     return { error: error instanceof Error ? error.message : "GitHub operation failed." };
   }
+}
+
+export function githubRulesUrl(repository: string): string {
+  return `https://github.com/${repository}/settings/rules`;
 }
 
 function Connection({ connection }: { connection: GithubConnectionSummary }) {
@@ -226,23 +218,6 @@ function Connection({ connection }: { connection: GithubConnectionSummary }) {
               </button>
             </Form>
             <Form method="post">
-              <input type="hidden" name="intent" value="enforcement" />
-              <input type="hidden" name="connection_id" value={connection.id} />
-              <input
-                type="hidden"
-                name="required"
-                value={connection.requireBraino ? "false" : "true"}
-              />
-              <button
-                type="submit"
-                className="neu-button rounded-md px-3 py-2 text-xs font-semibold"
-              >
-                {connection.requireBraino
-                  ? t("Stop requiring Braino")
-                  : t("Require Braino on pull requests")}
-              </button>
-            </Form>
-            <Form method="post">
               <input type="hidden" name="intent" value="disconnect" />
               <input type="hidden" name="connection_id" value={connection.id} />
               <button
@@ -255,6 +230,30 @@ function Connection({ connection }: { connection: GithubConnectionSummary }) {
           </div>
         ) : null}
       </div>
+      {connection.active && connection.gatewayConnected ? (
+        <div className="space-y-2 rounded-md border p-3 text-xs">
+          <p className="font-semibold">{t("Require Braino before merging")}</p>
+          <p className="text-muted-foreground">
+            {t(
+              "GitHub controls whether the Braino check blocks merging. Add Braino as a required status check in each repository you want to protect.",
+            )}
+          </p>
+          <ol className="list-decimal space-y-1 ps-5 text-muted-foreground">
+            <li>{t("Open the repository's rulesets settings on GitHub.")}</li>
+            <li>{t("Edit the branch ruleset that protects the default branch.")}</li>
+            <li>{t('Turn on "Require status checks to pass" and add "Braino".')}</li>
+            <li>{t('Leave "Require branches to be up to date before merging" off.')}</li>
+          </ol>
+          <a
+            className="neu-button inline-flex rounded-md px-3 py-2 font-semibold"
+            href={githubRulesUrl(connection.repository)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t("Configure in GitHub")}
+          </a>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2 text-xs">
         <Link
           className="neu-button rounded-md px-3 py-2 font-semibold"
@@ -336,7 +335,7 @@ export default function GithubAppPage() {
           </CardTitle>
           <CardDescription>
             {t(
-              "Choose the repositories Braino may read, check, and protect. No personal access token is stored here.",
+              "Choose the repositories Braino may read, check, and review. No personal access token is stored here.",
             )}
           </CardDescription>
         </CardHeader>

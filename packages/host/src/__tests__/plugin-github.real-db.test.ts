@@ -25,7 +25,7 @@ const manifest: PluginManifest = {
     "event.receive": 1,
     "scm.request": 1,
     "scm.check.publish": 1,
-    "scm.ruleset.reconcile": 1,
+    "scm.review.reject": 1,
   },
   permissions: { network: ["plugins.braino.dev"] },
   configurationSchema: {
@@ -108,12 +108,12 @@ describe("workspace GitHub gateway plugin", () => {
     expect(stored.rows[0]?.value_sealed).not.toContain("scoped-secret");
   });
 
-  it("resolves the workspace-scoped provider for reads, checks, rulesets, and events", async () => {
+  it("resolves the workspace-scoped provider for reads, checks, rejection reviews, and events", async () => {
     const setup = await fixture();
     const outputs = [
       { data: { full_name: "BrainoInc/braino", default_branch: "main" }, next: null },
       { id: 9001 },
-      { result: "created" },
+      { id: 9002 },
       [
         {
           id: "delivery-1",
@@ -168,12 +168,13 @@ describe("workspace GitHub gateway plugin", () => {
       }),
     ).resolves.toEqual({ id: 9001 });
     await expect(
-      provider?.reconcileRuleset({
+      provider?.rejectPullRequest({
         repository: "BrainoInc/braino",
-        checkName: "Braino",
-        required: true,
+        pullNumber: 42,
+        body: "This pull request did not go through Braino.",
+        commitId: "abc123",
       }),
-    ).resolves.toBe("created");
+    ).resolves.toEqual({ id: 9002 });
     await expect(
       provider?.receive({
         body: "{}",

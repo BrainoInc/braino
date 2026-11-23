@@ -9,7 +9,7 @@ export const PLUGIN_CAPABILITY_CONTRACT_VERSIONS = {
   "chat.complete": 1,
   "scm.request": 1,
   "scm.check.publish": 1,
-  "scm.ruleset.reconcile": 1,
+  "scm.review.reject": 1,
 } as const;
 
 export const PLUGIN_CAPABILITIES = Object.freeze(

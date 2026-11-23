@@ -1,6 +1,6 @@
 import type { PoolClient } from "@doco/db";
 import type { PGlite } from "@electric-sql/pglite";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
 import {
   connectGithubRepository,
@@ -14,8 +14,11 @@ import { initializeSingleWorkspace } from "../single-workspace.js";
 let db: PGlite;
 
 beforeEach(async () => {
+  vi.stubEnv("DOCO_PUBLIC_HOST", "https://meta.braino.dev");
   db = await freshDb();
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 const client = () => db as unknown as PoolClient;
 const scope = <T>(operation: (client: PoolClient) => Promise<T>) => operation(client());
@@ -47,6 +50,8 @@ async function gatewayPlugin(input: {
   ownerId: string;
   commitMessages: string[];
   publishCheck: ReturnType<typeof vi.fn>;
+  rejectPullRequest: ReturnType<typeof vi.fn>;
+  publishPullRequestComment: ReturnType<typeof vi.fn>;
 }): Promise<PluginGithubProvider> {
   const digest = `sha256:${"1".repeat(64)}`;
   await db.query("INSERT INTO plugin_artifacts (digest, component) VALUES ($1, $2)", [
@@ -90,7 +95,9 @@ async function gatewayPlugin(input: {
           repository: { full_name: "acme/widgets" },
           pull_request: {
             state: "open",
+            title: "Keep the gateway safe",
             body: "No brief here.",
+            html_url: "https://github.com/acme/widgets/pull/23",
             head: { sha: "abc123" },
           },
         },
@@ -101,46 +108,64 @@ async function gatewayPlugin(input: {
       return input.commitMessages;
     },
     publishCheck: input.publishCheck,
+    rejectPullRequest: input.rejectPullRequest,
+    publishPullRequestComment: input.publishPullRequestComment,
   } as unknown as PluginGithubProvider;
 }
 
+async function connectedPlugin(input: {
+  commitMessages: string[];
+  publishCheck: ReturnType<typeof vi.fn>;
+  rejectPullRequest: ReturnType<typeof vi.fn>;
+  publishPullRequestComment: ReturnType<typeof vi.fn>;
+}) {
+  const setup = await fixture();
+  const legacy = await connectGithubRepository(scope, {
+    workspaceId: setup.workspace.id,
+    userId: setup.owner.id,
+    repository: "acme/widgets",
+    accessToken: "github_pat_test-only",
+    encryptionKey,
+    fetcher: githubForConnection(),
+  });
+  const plugin = await gatewayPlugin({
+    workspaceId: setup.workspace.id,
+    ownerId: setup.owner.id,
+    ...input,
+  });
+  await connectGithubRepositoryWithPlugin(scope, {
+    workspaceId: setup.workspace.id,
+    userId: setup.owner.id,
+    repository: "acme/widgets",
+    plugin,
+  });
+  await finishGithubGatewayMigration(scope, {
+    connectionId: legacy.id,
+    pluginInstallationId: plugin.installation.installationId,
+  });
+  return { legacy, plugin };
+}
+
+const deliver = (plugin: PluginGithubProvider) =>
+  deliverGithubGatewayWebhook(scope, {
+    plugin,
+    headers: { "x-braino-gateway-signature": "v0=signed" },
+    body: "{}",
+  });
+
 describe("GitHub gateway enforcement deliveries", () => {
-  it("publishes one required failure and replays without repeating side effects", async () => {
-    const setup = await fixture();
-    const legacy = await connectGithubRepository(scope, {
-      workspaceId: setup.workspace.id,
-      userId: setup.owner.id,
-      repository: "acme/widgets",
-      accessToken: "github_pat_test-only",
-      encryptionKey,
-      fetcher: githubForConnection(),
-    });
+  it("freezes the opening failure, rejects once, and never lets later evidence reverse it", async () => {
     const publishCheck = vi.fn().mockResolvedValue({ id: 99 });
-    const plugin = await gatewayPlugin({
-      workspaceId: setup.workspace.id,
-      ownerId: setup.owner.id,
+    const rejectPullRequest = vi.fn().mockResolvedValue({ id: 100 });
+    const publishPullRequestComment = vi.fn().mockResolvedValue({ id: 101 });
+    const { legacy, plugin } = await connectedPlugin({
       commitMessages: [],
       publishCheck,
+      rejectPullRequest,
+      publishPullRequestComment,
     });
-    await connectGithubRepositoryWithPlugin(scope, {
-      workspaceId: setup.workspace.id,
-      userId: setup.owner.id,
-      repository: "acme/widgets",
-      plugin,
-    });
-    await finishGithubGatewayMigration(scope, {
-      connectionId: legacy.id,
-      pluginInstallationId: plugin.installation.installationId,
-    });
-    await db.query("UPDATE github_connections SET require_braino = true WHERE id = $1", [
-      legacy.id,
-    ]);
 
-    const first = await deliverGithubGatewayWebhook(scope, {
-      plugin,
-      headers: { "x-braino-gateway-signature": "v0=signed" },
-      body: "{}",
-    });
+    const first = await deliver(plugin);
     expect(first).toEqual({
       event: "pull_request",
       synced: true,
@@ -158,14 +183,187 @@ describe("GitHub gateway enforcement deliveries", () => {
         title: "Didn't go through Braino",
       }),
     );
+    expect(rejectPullRequest).toHaveBeenCalledTimes(1);
+    expect(publishPullRequestComment).not.toHaveBeenCalled();
 
-    await expect(
-      deliverGithubGatewayWebhook(scope, {
-        plugin,
-        headers: { "x-braino-gateway-signature": "v0=signed" },
-        body: "{}",
-      }),
-    ).resolves.toEqual({ ...first, replayed: true });
+    await expect(deliver(plugin)).resolves.toEqual({ ...first, replayed: true });
     expect(publishCheck).toHaveBeenCalledTimes(1);
+    expect(rejectPullRequest).toHaveBeenCalledTimes(1);
+
+    plugin.receive = async () => [
+      {
+        id: "delivery-2",
+        occurredAt: "2026-11-16T20:05:00.000Z",
+        kind: "pull_request",
+        data: {
+          action: "synchronize",
+          number: 23,
+          repository: { full_name: "acme/widgets" },
+          pull_request: {
+            state: "open",
+            title: "Keep the gateway safe",
+            body: "Doco-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
+            html_url: "https://github.com/acme/widgets/pull/23",
+            head: { sha: "def456" },
+          },
+        },
+      },
+    ];
+    plugin.pullRequestCommits = async () => [
+      "Late evidence\n\nDoco-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
+    ];
+    await deliver(plugin);
+
+    expect(publishCheck).toHaveBeenLastCalledWith(
+      expect.objectContaining({ headSha: "def456", conclusion: "failure" }),
+    );
+    expect(rejectPullRequest).toHaveBeenCalledTimes(1);
+    expect(publishPullRequestComment).not.toHaveBeenCalled();
+
+    const verdict = await db.query<{
+      went_through_braino: boolean;
+      review_status: string | null;
+    }>(
+      `SELECT went_through_braino, review_status
+         FROM github_pull_request_verdicts
+        WHERE connection_id = $1 AND pull_number = 23`,
+      [legacy.id],
+    );
+    expect(verdict.rows[0]).toEqual({
+      went_through_braino: false,
+      review_status: "completed",
+    });
+  });
+
+  it("posts one private Braino brief link for a pull request that passed", async () => {
+    const publishCheck = vi.fn().mockResolvedValue({ id: 99 });
+    const rejectPullRequest = vi.fn().mockResolvedValue({ id: 100 });
+    const publishPullRequestComment = vi.fn().mockResolvedValue({ id: 101 });
+    const { legacy, plugin } = await connectedPlugin({
+      commitMessages: [
+        "Went through Braino\n\nDoco-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
+      ],
+      publishCheck,
+      rejectPullRequest,
+      publishPullRequestComment,
+    });
+
+    await deliver(plugin);
+
+    expect(publishCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ conclusion: "success", title: "Went through Braino" }),
+    );
+    expect(rejectPullRequest).not.toHaveBeenCalled();
+    expect(publishPullRequestComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repository: "acme/widgets",
+        pullNumber: 23,
+        body: expect.stringMatching(
+          /https:\/\/meta\.braino\.dev\/workspaces\/acme\/brief\?id=brief_[0-9A-Z]+/,
+        ),
+      }),
+    );
+    plugin.receive = async () => [
+      {
+        id: "delivery-2",
+        occurredAt: "2026-11-16T20:05:00.000Z",
+        kind: "pull_request",
+        data: {
+          action: "synchronize",
+          number: 23,
+          repository: { full_name: "acme/widgets" },
+          pull_request: {
+            state: "open",
+            title: "Keep the gateway safe",
+            body: "Doco-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
+            html_url: "https://github.com/acme/widgets/pull/23",
+            head: { sha: "def456" },
+          },
+        },
+      },
+    ];
+    await deliver(plugin);
+    expect(publishPullRequestComment).toHaveBeenCalledTimes(1);
+
+    const verdict = await db.query<{
+      went_through_braino: boolean;
+      brief_id: string | null;
+      brief_status: string | null;
+    }>(
+      `SELECT went_through_braino, brief_id, brief_status
+         FROM github_pull_request_verdicts
+        WHERE connection_id = $1 AND pull_number = 23`,
+      [legacy.id],
+    );
+    expect(verdict.rows[0]).toMatchObject({
+      went_through_braino: true,
+      brief_id: expect.stringMatching(/^brief_/),
+      brief_status: "completed",
+    });
+  });
+
+  it("keeps an unreadable verdict neutral and judges it when provenance becomes readable", async () => {
+    const publishCheck = vi.fn().mockResolvedValue({ id: 99 });
+    const rejectPullRequest = vi.fn().mockResolvedValue({ id: 100 });
+    const publishPullRequestComment = vi.fn().mockResolvedValue({ id: 101 });
+    const { legacy, plugin } = await connectedPlugin({
+      commitMessages: [],
+      publishCheck,
+      rejectPullRequest,
+      publishPullRequestComment,
+    });
+    plugin.pullRequestCommits = async () => {
+      throw new Error("GitHub commits temporarily unavailable");
+    };
+
+    await deliver(plugin);
+
+    expect(publishCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ conclusion: "neutral", title: "Not checked" }),
+    );
+    expect(rejectPullRequest).not.toHaveBeenCalled();
+    expect(publishPullRequestComment).not.toHaveBeenCalled();
+    const unreadable = await db.query(
+      `SELECT 1 FROM github_pull_request_verdicts
+        WHERE connection_id = $1 AND pull_number = 23`,
+      [legacy.id],
+    );
+    expect(unreadable.rows).toHaveLength(0);
+
+    plugin.receive = async () => [
+      {
+        id: "delivery-2",
+        occurredAt: "2026-11-16T20:05:00.000Z",
+        kind: "pull_request",
+        data: {
+          action: "synchronize",
+          number: 23,
+          repository: { full_name: "acme/widgets" },
+          pull_request: {
+            state: "open",
+            title: "Keep the gateway safe",
+            body: "Still no brief here.",
+            html_url: "https://github.com/acme/widgets/pull/23",
+            head: { sha: "def456" },
+          },
+        },
+      },
+    ];
+    plugin.pullRequestCommits = async () => [];
+
+    await deliver(plugin);
+
+    expect(publishCheck).toHaveBeenLastCalledWith(
+      expect.objectContaining({ headSha: "def456", conclusion: "failure" }),
+    );
+    expect(rejectPullRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("has no Braino-side enforcement flag", async () => {
+    const columns = await db.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'github_connections'`,
+    );
+    expect(columns.rows.map((row) => row.column_name)).not.toContain("require_braino");
   });
 });

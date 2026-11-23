@@ -7,7 +7,7 @@
     "event.receive": 1,
     "scm.request": 1,
     "scm.check.publish": 1,
-    "scm.ruleset.reconcile": 1
+    "scm.review.reject": 1
   },
   "permissions": { "network": ["plugins.braino.dev"] },
   "configurationSchema": {
