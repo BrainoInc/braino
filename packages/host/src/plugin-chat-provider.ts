@@ -4,7 +4,7 @@ import type {
   ChatCompleteRequest,
   ChatCompleteResponse,
 } from "@doco/plugin-runtime";
-import { resolveAssignedModelPlugin } from "./model-plugin-installation.js";
+import { resolveActiveWorkspaceModelPlugin } from "./model-plugin-installation.js";
 import { type PluginHostConnection, invokePlugin } from "./plugin-invocation.js";
 
 type Fetcher = typeof fetch;
@@ -53,7 +53,11 @@ export async function resolveWorkspaceChatProvider(
     fetcher?: Fetcher;
   },
 ): Promise<PluginChatProvider | null> {
-  const installation = await resolveAssignedModelPlugin(client, input.workspaceId, "chat.complete");
+  const installation = await resolveActiveWorkspaceModelPlugin(
+    client,
+    input.workspaceId,
+    "chat.complete",
+  );
   if (!installation) return null;
   return new PluginChatProvider(client, installation, {
     encryptionKey: input.encryptionKey,

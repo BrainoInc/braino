@@ -173,7 +173,7 @@ function installation(row: InstallationRow): PluginInstallation {
   };
 }
 
-async function requireOwner(
+export async function requireWorkspacePluginOwner(
   client: PoolClient,
   workspaceId: string,
   userId: string,
@@ -229,7 +229,7 @@ export async function installPluginInTransaction(
   }
   const artifactDigest = `sha256:${createHash("sha256").update(input.component).digest("hex")}`;
   const id = `plugin_installation_${generateUlid()}`;
-  await requireOwner(client, input.workspaceId, input.userId);
+  await requireWorkspacePluginOwner(client, input.workspaceId, input.userId);
   await client.query(
     `INSERT INTO plugin_artifacts (digest, component)
      VALUES ($1, $2)
@@ -292,7 +292,7 @@ export async function listPluginInstallations(
   client: PoolClient,
   input: { workspaceId: string; userId: string },
 ): Promise<PluginInstallation[]> {
-  await requireOwner(client, input.workspaceId, input.userId);
+  await requireWorkspacePluginOwner(client, input.workspaceId, input.userId);
   const result = await client.query<InstallationRow>(
     `SELECT ${INSTALLATION_COLUMNS}
        FROM plugin_installations
@@ -312,7 +312,7 @@ export async function setPluginInstallationEnabled(
     enabled: boolean;
   },
 ): Promise<PluginInstallation> {
-  await requireOwner(client, input.workspaceId, input.userId);
+  await requireWorkspacePluginOwner(client, input.workspaceId, input.userId);
   const result = await client.query<InstallationRow>(
     `UPDATE plugin_installations
         SET enabled = $4,
@@ -336,24 +336,44 @@ export async function setPluginInstallationEnabled(
   return installation(row);
 }
 
-/** Removes one workspace app and lets its workspace-scoped secrets cascade. */
+/** Removes an inactive workspace plugin and lets its workspace-scoped secrets cascade. */
 export async function removePluginInstallation(
   client: PoolClient,
   input: { workspaceId: string; userId: string; installationId: string },
 ): Promise<void> {
-  await requireOwner(client, input.workspaceId, input.userId);
-  const result = await client.query(
-    `DELETE FROM plugin_installations
-      WHERE workspace_id = $1 AND id = $2
-      RETURNING id`,
-    [input.workspaceId, input.installationId],
-  );
-  if (!result.rows[0]) {
-    throw new PluginInstallationError(
-      "Plugin installation is unavailable.",
-      "installation_unavailable",
-      404,
+  await client.query("BEGIN");
+  try {
+    await requireWorkspacePluginOwner(client, input.workspaceId, input.userId);
+    const found = await client.query<{ id: string }>(
+      `SELECT id FROM plugin_installations
+        WHERE workspace_id = $1 AND id = $2
+        FOR UPDATE`,
+      [input.workspaceId, input.installationId],
     );
+    if (!found.rows[0]) {
+      throw new PluginInstallationError(
+        "Plugin installation is unavailable.",
+        "installation_unavailable",
+        404,
+      );
+    }
+    const active = await client.query(
+      `SELECT 1 FROM workspace_model_plugin_selections
+        WHERE workspace_id = $1 AND installation_id = $2`,
+      [input.workspaceId, input.installationId],
+    );
+    if (active.rows[0]) {
+      throw new PluginInstallationError(
+        "Select a replacement before removing the active plugin.",
+        "active_plugin_removal",
+        409,
+      );
+    }
+    await client.query("DELETE FROM plugin_installations WHERE id = $1", [input.installationId]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   }
 }
 
@@ -375,7 +395,7 @@ export async function configurePluginInstallation(
   >;
   await client.query("BEGIN");
   try {
-    await requireOwner(client, input.workspaceId, input.userId);
+    await requireWorkspacePluginOwner(client, input.workspaceId, input.userId);
     const found = await client.query<InstallationRow>(
       `SELECT ${INSTALLATION_COLUMNS}
          FROM plugin_installations
@@ -439,7 +459,7 @@ export async function listPluginSecretNames(
   client: PoolClient,
   input: { workspaceId: string; userId: string; installationId: string },
 ): Promise<string[]> {
-  await requireOwner(client, input.workspaceId, input.userId);
+  await requireWorkspacePluginOwner(client, input.workspaceId, input.userId);
   const found = await client.query<{ name: string }>(
     `SELECT s.name
        FROM plugin_installation_secrets s

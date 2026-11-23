@@ -10,7 +10,7 @@ interface InstallationRow {
   verified_embedding_dimensions: number | null;
 }
 
-export interface AssignedModelPlugin {
+export interface WorkspaceModelPluginInstallation {
   workspaceId: string;
   installationId: string;
   pluginId: string;
@@ -37,34 +37,10 @@ function stringRecord(value: unknown): Record<string, string> {
   return Object.fromEntries(entries) as Record<string, string>;
 }
 
-/** Resolves the workspace's one enabled provider for a model capability. */
-export async function resolveAssignedModelPlugin(
-  client: PoolClient,
+function mappedInstallation(
+  row: InstallationRow,
   workspaceId: string,
-  capability: ModelCapabilityName,
-  options: { requireVerified?: boolean } = {},
-): Promise<AssignedModelPlugin | null> {
-  const requireVerified = options.requireVerified !== false;
-  const found = await client.query<InstallationRow>(
-    `SELECT id, manifest, configuration, updated_at::text AS updated_at,
-            verified_embedding_dimensions
-       FROM plugin_installations
-      WHERE workspace_id = $1 AND enabled
-        AND manifest->'capabilities' ? $2
-        AND (NOT $3::boolean OR verified_at IS NOT NULL)
-      ORDER BY updated_at DESC, id
-      LIMIT 2`,
-    [workspaceId, capability, requireVerified],
-  );
-  if (found.rows.length === 0) return null;
-  if (found.rows.length > 1) {
-    throw new PluginInvocationError(
-      `Only one ${capability} plugin can be enabled per workspace.`,
-      capability === "chat.complete" ? "chat_plugin_ambiguous" : "embedding_plugin_ambiguous",
-      409,
-    );
-  }
-  const row = found.rows[0];
+): WorkspaceModelPluginInstallation {
   const manifest = parsePluginManifest(row.manifest);
   const configuration = stringRecord(row.configuration);
   const model = configuration.model?.trim();
@@ -80,4 +56,48 @@ export async function resolveAssignedModelPlugin(
     updatedAt: row.updated_at,
     verifiedEmbeddingDimensions: row.verified_embedding_dimensions,
   };
+}
+
+/** Resolves one installed provider without changing or requiring the active selection. */
+export async function resolveWorkspaceModelPluginInstallation(
+  client: PoolClient,
+  input: { workspaceId: string; installationId: string; capability: ModelCapabilityName },
+  options: { requireVerified?: boolean } = {},
+): Promise<WorkspaceModelPluginInstallation | null> {
+  const requireVerified = options.requireVerified !== false;
+  const found = await client.query<InstallationRow>(
+    `SELECT id, manifest, configuration, updated_at::text AS updated_at,
+            verified_embedding_dimensions
+       FROM plugin_installations
+      WHERE workspace_id = $1 AND id = $2 AND enabled
+        AND manifest->'capabilities' ? $3
+        AND (NOT $4::boolean OR verified_at IS NOT NULL)`,
+    [input.workspaceId, input.installationId, input.capability, requireVerified],
+  );
+  const row = found.rows[0];
+  return row ? mappedInstallation(row, input.workspaceId) : null;
+}
+
+/** Resolves the workspace's explicitly selected provider for one model capability. */
+export async function resolveActiveWorkspaceModelPlugin(
+  client: PoolClient,
+  workspaceId: string,
+  capability: ModelCapabilityName,
+  options: { requireVerified?: boolean } = {},
+): Promise<WorkspaceModelPluginInstallation | null> {
+  const requireVerified = options.requireVerified !== false;
+  const found = await client.query<InstallationRow>(
+    `SELECT i.id, i.manifest, i.configuration, i.updated_at::text AS updated_at,
+            i.verified_embedding_dimensions
+       FROM workspace_model_plugin_selections selected
+       JOIN plugin_installations i
+         ON i.workspace_id = selected.workspace_id
+        AND i.id = selected.installation_id
+      WHERE selected.workspace_id = $1 AND selected.capability = $2
+        AND i.enabled
+        AND (NOT $3::boolean OR i.verified_at IS NOT NULL)`,
+    [workspaceId, capability, requireVerified],
+  );
+  const row = found.rows[0];
+  return row ? mappedInstallation(row, workspaceId) : null;
 }

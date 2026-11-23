@@ -49,6 +49,7 @@ describe("current database baseline", () => {
       "019_github_gateway_plugin.sql",
       "020_account_links.sql",
       "021_workspace_chat_conversations.sql",
+      "022_model_plugin_selections.sql",
     ]);
     expect(schemaSql).not.toMatch(/\bapplied_migrations\b/);
     expect(schemaSql).not.toMatch(/\bschema_applied\b/);
@@ -69,6 +70,18 @@ describe("current database baseline", () => {
     expect(secrets).toMatch(/value_sealed\s+text\s+NOT NULL/i);
     expect(schemaSql).toMatch(/plugin_installations_workspace_plugin_idx/i);
     expect(schemaSql).toMatch(/REFERENCES\s+plugin_artifacts\s*\(digest\)/i);
+  });
+
+  it("selects one active installation for each required model capability", () => {
+    const selections = tableBlock("workspace_model_plugin_selections");
+
+    expect(selections).toMatch(/workspace_id\s+text\s+NOT NULL/i);
+    expect(selections).toMatch(/capability\s+text\s+NOT NULL/i);
+    expect(selections).toMatch(/installation_id\s+text\s+NOT NULL/i);
+    expect(selections).toMatch(/PRIMARY KEY\s*\(workspace_id, capability\)/i);
+    expect(schemaSql).toMatch(
+      /FOREIGN KEY\s*\(workspace_id, installation_id\)[\s\S]*?plugin_installations/i,
+    );
   });
 
   it("binds OAuth authorization codes to one MCP resource", () => {

@@ -17,9 +17,11 @@ vi.mock("@doco/db", () => ({
 vi.mock("@doco/host", () => ({
   clearPasswordSignInAttempts: vi.fn(),
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
-  getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
   initializeSingleWorkspace: mocks.initializeSingleWorkspace,
   reservePasswordSignInAttempt: vi.fn(),
+}));
+vi.mock("@doco/host/model-plugins", () => ({
+  getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
 }));
 vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("~/lib/password.server", () => ({

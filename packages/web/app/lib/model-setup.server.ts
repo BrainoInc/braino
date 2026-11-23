@@ -1,14 +1,10 @@
 import { withClient } from "@doco/db";
-import {
-  getSingleWorkspaceState,
-  getWorkspaceModelPluginReadiness,
-  getWorkspaceRole,
-  listPluginInstallations,
-  listPluginSecretNames,
-  pluginHostConnectionFromEnv,
-} from "@doco/host";
+import { getSingleWorkspaceState, getWorkspaceRole, pluginHostConnectionFromEnv } from "@doco/host";
 import type { PluginHostConnection } from "@doco/host";
-import { pluginProvidesCapability } from "@doco/plugin-runtime";
+import {
+  getWorkspaceModelPluginReadiness,
+  listWorkspaceModelPlugins,
+} from "@doco/host/model-plugins";
 import { redirect } from "react-router";
 import { bundledModelPluginCatalog } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
@@ -47,26 +43,18 @@ export async function loadModelSetup(request: Request): Promise<ModelSetup> {
     if ((await getWorkspaceRole(client, workspaceId, user.id)) !== "owner") {
       return { readiness, isOwner: false, installed: [] };
     }
-    const owner = { workspaceId, userId: user.id };
-    const installed: InstalledModelPlugin[] = [];
-    for (const plugin of await listPluginInstallations(client, owner)) {
-      const kinds = MODEL_KINDS.filter((kind) =>
-        pluginProvidesCapability(plugin.manifest, MODEL_CAPABILITY[kind]),
-      );
-      for (const kind of kinds) {
-        installed.push({
-          pluginId: plugin.manifest.id,
-          name: plugin.manifest.name,
-          kind,
-          enabled: plugin.enabled,
-          configuration: plugin.configuration,
-          secretNames: await listPluginSecretNames(client, {
-            ...owner,
-            installationId: plugin.id,
-          }),
-        });
-      }
-    }
+    const installed: InstalledModelPlugin[] = (
+      await listWorkspaceModelPlugins(client, workspaceId)
+    ).map((plugin) => ({
+      installationId: plugin.installationId,
+      pluginId: plugin.pluginId,
+      name: plugin.name,
+      kind: plugin.capability === MODEL_CAPABILITY.chat ? "chat" : "embedding",
+      active: plugin.active,
+      verified: plugin.verified,
+      configuration: plugin.configuration,
+      secretNames: plugin.secretNames,
+    }));
     return { readiness, isOwner: true, installed };
   });
   const catalog = loaded.isOwner ? await bundledModelPluginCatalog() : [];

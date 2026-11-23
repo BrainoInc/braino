@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelPluginEntry, ModelStep } from "~/lib/model-plugin-catalog";
 
 const mocks = vi.hoisted(() => ({
-  assignWorkspaceModelPlugin: vi.fn(),
+  activateWorkspaceModelPlugin: vi.fn(),
   bundledModelPlugin: vi.fn(),
   bundledPlugin: vi.fn(),
   connectWorkspaceEmailPlugin: vi.fn(),
   getCurrentUser: vi.fn(),
+  installWorkspaceModelPlugin: vi.fn(),
   listPluginInstallations: vi.fn(),
   loadModelSetup: vi.fn(),
   pluginHostConnection: vi.fn(),
@@ -19,16 +20,19 @@ vi.mock("@doco/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
 vi.mock("@doco/host", () => ({
+  PluginInstallationError: class PluginInstallationError extends Error {},
+  connectWorkspaceEmailPlugin: mocks.connectWorkspaceEmailPlugin,
+  listPluginInstallations: mocks.listPluginInstallations,
+  removePluginInstallation: mocks.removePluginInstallation,
+}));
+vi.mock("@doco/host/model-plugins", () => ({
   ModelPluginVerificationError: class ModelPluginVerificationError extends Error {
     constructor(public readonly kind: "chat" | "embedding") {
       super("verification failed");
     }
   },
-  PluginInstallationError: class PluginInstallationError extends Error {},
-  assignWorkspaceModelPlugin: mocks.assignWorkspaceModelPlugin,
-  connectWorkspaceEmailPlugin: mocks.connectWorkspaceEmailPlugin,
-  listPluginInstallations: mocks.listPluginInstallations,
-  removePluginInstallation: mocks.removePluginInstallation,
+  activateWorkspaceModelPlugin: mocks.activateWorkspaceModelPlugin,
+  installWorkspaceModelPlugin: mocks.installWorkspaceModelPlugin,
   verifyWorkspaceModelPlugin: mocks.verifyWorkspaceModelPlugin,
 }));
 vi.mock("~/lib/bundled-model-plugins.server", () => ({
@@ -101,6 +105,25 @@ function setup(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function installedModel(
+  pluginId: string,
+  kind: "chat" | "embedding",
+  options: { active?: boolean; verified?: boolean } = {},
+) {
+  return {
+    installationId: `installation_${pluginId}`,
+    pluginId,
+    name: pluginId,
+    kind,
+    active: options.active ?? false,
+    verified: options.verified ?? true,
+    configuration: {
+      model: kind === "chat" ? "gpt-4.1-mini" : "text-embedding-3-small",
+    },
+    secretNames: ["api_key"],
+  };
+}
+
 function request(path: string, fields?: Record<string, string>) {
   return new Request(
     `https://meta.braino.dev${path}`,
@@ -143,10 +166,18 @@ beforeEach(() => {
     manifest: { id: "braino.resend" },
     component: new Uint8Array([2]),
   });
+  mocks.installWorkspaceModelPlugin.mockImplementation(
+    async (_client: object, input: { capability: string }) => ({
+      id: `installation_${input.capability}`,
+    }),
+  );
 });
 
 describe("Plugins", () => {
-  it("shows each capability as its own plugin and limits Installed to enabled plugins", async () => {
+  it("keeps inactive model plugins in Installed while other disabled plugins stay hidden", async () => {
+    mocks.loadModelSetup.mockResolvedValue(
+      setup({ installed: [installedModel("braino.openai-chat", "chat")] }),
+    );
     mocks.listPluginInstallations.mockResolvedValue([
       installation("braino.slack"),
       installation("braino.resend", false),
@@ -163,7 +194,8 @@ describe("Plugins", () => {
       "slack",
       "resend",
     ]);
-    expect(installed.plugins.map((plugin) => plugin.id)).toEqual(["slack"]);
+    expect(installed.plugins.map((plugin) => plugin.id)).toEqual(["openai-chat", "slack"]);
+    expect(installed.plugins[0]).toMatchObject({ installed: true, active: false });
   });
 
   it("presents OpenAI chat as one plugin with one model and one key", async () => {
@@ -198,7 +230,7 @@ describe("Plugins", () => {
       params: { pluginId: "openai-embedding" },
     });
 
-    expect(mocks.assignWorkspaceModelPlugin.mock.calls.map(([, input]) => input)).toEqual([
+    expect(mocks.installWorkspaceModelPlugin.mock.calls.map(([, input]) => input)).toEqual([
       expect.objectContaining({
         capability: "chat.complete",
         plugin: expect.objectContaining({ secrets: { api_key: "sk-chat-key" } }),
@@ -209,12 +241,69 @@ describe("Plugins", () => {
       }),
     ]);
     expect(
-      mocks.verifyWorkspaceModelPlugin.mock.calls.map(([, input]) => input.capability),
+      mocks.verifyWorkspaceModelPlugin.mock.calls.map(([, input]) => [
+        input.capability,
+        input.installationId,
+      ]),
+    ).toEqual([
+      ["chat.complete", "installation_chat.complete"],
+      ["embedding.embed", "installation_embedding.embed"],
+    ]);
+    expect(
+      mocks.activateWorkspaceModelPlugin.mock.calls.map(([, input]) => input.capability),
     ).toEqual(["chat.complete", "embedding.embed"]);
     expect((chatResponse as Response).headers.get("location")).toBe("/plugins/openai-chat?saved=1");
     expect((embeddingResponse as Response).headers.get("location")).toBe(
       "/plugins/openai-embedding?saved=1",
     );
+  });
+
+  it("installs and verifies an alternative without replacing the active Chat plugin", async () => {
+    mocks.loadModelSetup.mockResolvedValue(
+      setup({
+        ready: true,
+        installed: [installedModel("braino.ollama-chat", "chat", { active: true })],
+      }),
+    );
+
+    await action({
+      request: request("/plugins/openai-chat", {
+        intent: "save",
+        model: "gpt-4.1-mini",
+        api_key: "sk-chat-key",
+      }),
+      params: { pluginId: "openai-chat" },
+    });
+
+    expect(mocks.installWorkspaceModelPlugin).toHaveBeenCalledOnce();
+    expect(mocks.verifyWorkspaceModelPlugin).toHaveBeenCalledOnce();
+    expect(mocks.activateWorkspaceModelPlugin).not.toHaveBeenCalled();
+  });
+
+  it("makes a verified installed plugin active only when its owner asks", async () => {
+    mocks.loadModelSetup.mockResolvedValue(
+      setup({
+        ready: true,
+        installed: [
+          installedModel("braino.ollama-chat", "chat", { active: true }),
+          installedModel("braino.openai-chat", "chat"),
+        ],
+      }),
+    );
+
+    const response = await action({
+      request: request("/plugins/openai-chat", { intent: "activate" }),
+      params: { pluginId: "openai-chat" },
+    });
+
+    expect(mocks.activateWorkspaceModelPlugin).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        capability: "chat.complete",
+        installationId: "installation_braino.openai-chat",
+      }),
+    );
+    expect((response as Response).headers.get("location")).toBe("/plugins/openai-chat?saved=1");
   });
 
   it("removes only the selected model plugin", async () => {

@@ -42,10 +42,12 @@ is closed and the token cannot initialize another workspace.
 
 Open `http://localhost:3000`, enter `BRAINO_SETUP_TOKEN`, and create the owner and
 sole workspace. Braino then opens **Plugins**, where the owner independently
-installs one Chat plugin and one Embedding plugin. Each plugin configures and
-tests only its own capability; Chat can use a different provider and API key
-from Embeddings. The embedding plugin learns its vector width from the live
-response, and the dashboard stays closed until both plugins pass. Ollama's
+installs Chat and Embedding plugins. Several providers can remain installed for
+each capability, while exactly one verified plugin is active. Each plugin
+configures and tests only its own capability; Chat can use a different provider
+and API key from Embeddings. The embedding plugin learns its vector width from
+the live response, and the dashboard stays closed until both capabilities have
+an active verified plugin. Ollama's
 default models are already filled in and the normal Compose boot downloads
 them automatically. Each OpenAI plugin asks for and encrypts its own API key. The
 application port binds to loopback; the optional Caddy
@@ -64,9 +66,9 @@ people and roles, source connections, webhooks, GitHub sync, and agent/MCP
 access. It reports configuration readiness without displaying secret values;
 privileged backup, restore, and upgrade commands stay on the host.
 
-Every workspace requires one Chat plugin and one Embedding plugin; the dashboard
-stays closed until both are ready. **Plugins** is the one place to browse,
-install, configure, test, and remove them. OpenAI Chat, OpenAI Embeddings,
+Every workspace requires one active Chat plugin and one active Embedding plugin;
+the dashboard stays closed until both are ready. **Plugins** is the one place to
+browse, install, configure, test, activate, switch, and remove them. OpenAI Chat, OpenAI Embeddings,
 Ollama Chat, Ollama Embeddings, Slack, and Resend are separate installations
 with separate settings and secrets. The default stack pulls the
 `qwen3.5:4b` chat model and the 270M text-only
@@ -76,8 +78,9 @@ the private Compose network. The retrieval scheduler embeds pending source
 documents and projects the resulting vectors to Qdrant; workspace content,
 model input, completions, and vectors do not pass through Braino Cloud or
 another Braino instance. The workspace dashboard remains unavailable until
-exactly one enabled provider for each required model capability has passed its
-live check.
+exactly one active provider for each required model capability has passed its
+live check. Switching is an atomic selection change: the previous provider
+stays installed and ready to restore.
 The two OpenAI plugins use capability-specific contracts and can reach only
 `https://api.openai.com`. Each key is sealed into only that plugin's sandbox,
 encrypted in the workspace database, and never returned by the application.
@@ -120,7 +123,7 @@ explicit operator-approved local services are mediated by the instance-local
 plugin host. Ordinary plugin calls have no Braino-operated relay in their data
 path. PostgreSQL stores the immutable component bytes by their
 computed SHA-256 digest. The application is the only invocation broker: it
-selects an enabled installation by workspace, validates the requested
+selects the active installation by workspace and capability, validates the requested
 capability, opens only that installation's secrets, and sends one complete
 envelope to the private host.
 
@@ -128,9 +131,11 @@ Chat and embedding providers use the same boundary. Braino depends only on the
 versioned `chat.complete` and `embedding.embed` contracts; model names,
 credentials, endpoints, and provider-specific request formats belong to the
 installed plugin. The application validates canonical inputs and outputs on
-both sides of every invocation, and resolves exactly one enabled provider for
-each capability. Adding another provider therefore requires a conforming plugin,
-not a provider branch in Braino.
+both sides of every invocation, and resolves exactly one active provider for
+each capability. The public `@doco/host/model-plugins` module owns installation,
+verification, selection, readiness, and removal rules so self-hosted and Hosted
+Braino use the same contract. Adding another provider therefore requires a
+conforming plugin, not a provider branch in Braino.
 
 Email providers follow the same rule. Open **Admin → Integrations → Email
 provider** to install the bundled Resend plugin with a verified sender and a

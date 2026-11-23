@@ -1,7 +1,7 @@
 import type { PoolClient } from "@doco/db";
 import type { EmbeddingInputType, EmbeddingProvider } from "@doco/index";
 import type { EmbeddingResponse } from "@doco/plugin-runtime";
-import { resolveAssignedModelPlugin } from "./model-plugin-installation.js";
+import { resolveActiveWorkspaceModelPlugin } from "./model-plugin-installation.js";
 import {
   type PluginHostConnection,
   PluginInvocationError,
@@ -79,7 +79,7 @@ export async function resolveWorkspaceEmbeddingProvider(
     fetcher?: Fetcher;
   },
 ): Promise<PluginEmbeddingProvider | null> {
-  const installation = await resolveAssignedModelPlugin(
+  const installation = await resolveActiveWorkspaceModelPlugin(
     client,
     input.workspaceId,
     "embedding.embed",

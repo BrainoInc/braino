@@ -20,6 +20,7 @@ interface PluginRow {
   id: PluginPageId;
   installed: boolean;
   active: boolean;
+  needsAttention: boolean;
 }
 
 export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
@@ -40,14 +41,17 @@ export async function loader({ request }: { request: Request }) {
     new URL(request.url).searchParams.get("view") === "installed" ? "installed" : "browse";
   const plugins: PluginRow[] = PLUGIN_PAGE_IDS.map((id) => {
     const manifestId = PLUGIN_MANIFEST_IDS[id];
-    const installed = installations.some((item) => item.manifest.id === manifestId && item.enabled);
+    const modelPlugin = isModelPluginPage(id)
+      ? setup.installed.find((item) => item.pluginId === manifestId)
+      : null;
+    const installed = modelPlugin
+      ? true
+      : installations.some((item) => item.manifest.id === manifestId && item.enabled);
     return {
       id,
       installed,
-      active: isModelPluginPage(id)
-        ? installed &&
-          setup.steps.some((step) => step.pluginId === manifestId && step.status === "ready")
-        : installed,
+      active: modelPlugin?.active ?? (!isModelPluginPage(id) && installed),
+      needsAttention: Boolean(modelPlugin && !modelPlugin.verified),
     };
   });
   return {
@@ -105,6 +109,23 @@ function pluginCopy(t: ReturnType<typeof useT>, id: PluginPageId) {
 export default function PluginsPage() {
   const t = useT();
   const data = useLoaderData<typeof loader>();
+  const groups: Array<{
+    title: string;
+    ids: readonly PluginPageId[];
+  }> = [
+    {
+      title: t("Chat"),
+      ids: ["ollama-chat", "openai-chat"] as const,
+    },
+    {
+      title: t("Embeddings"),
+      ids: ["ollama-embedding", "openai-embedding"] as const,
+    },
+    {
+      title: t("Connections"),
+      ids: ["slack", "resend"] as const,
+    },
+  ];
   return (
     <PageMain className="space-y-6 py-6">
       <PageHeader
@@ -163,41 +184,54 @@ export default function PluginsPage() {
       </nav>
 
       {data.plugins.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {data.plugins.map((plugin) => {
-            const copy = pluginCopy(t, plugin.id);
-            return (
-              <Card key={plugin.id} className="flex h-full flex-col">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle>{copy.name}</CardTitle>
-                      <CardDescription>{copy.description}</CardDescription>
-                    </div>
-                    <span className="rounded-full border border-border px-2 py-1 font-mono text-[10px] text-muted-foreground">
-                      {plugin.active
-                        ? t("Active")
-                        : plugin.installed
-                          ? t("Installed")
-                          : t("Available")}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col justify-between gap-4">
-                  <p className="neu-well self-start rounded-md px-2.5 py-1 text-xs">
-                    {copy.capability}
-                  </p>
-                  <Link
-                    to={`/plugins/${plugin.id}`}
-                    className="neu-button self-start rounded-md px-4 py-2 text-sm font-semibold"
-                  >
-                    {plugin.installed ? t("Manage") : t("View plugin")}
-                  </Link>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        groups.map((group) => {
+          const plugins = data.plugins.filter((plugin) => group.ids.includes(plugin.id));
+          if (plugins.length === 0) return null;
+          return (
+            <section key={group.title} className="space-y-3">
+              <div>
+                <h2 className="font-serif text-xl font-semibold">{group.title}</h2>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {plugins.map((plugin) => {
+                  const copy = pluginCopy(t, plugin.id);
+                  return (
+                    <Card key={plugin.id} className="flex h-full flex-col">
+                      <CardHeader>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <CardTitle>{copy.name}</CardTitle>
+                            <CardDescription>{copy.description}</CardDescription>
+                          </div>
+                          <span className="rounded-full border border-border px-2 py-1 font-mono text-[10px] text-muted-foreground">
+                            {plugin.needsAttention
+                              ? t("Needs attention")
+                              : plugin.active
+                                ? t("Active")
+                                : plugin.installed
+                                  ? t("Installed")
+                                  : t("Available")}
+                          </span>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="flex flex-1 flex-col justify-between gap-4">
+                        <p className="neu-well self-start rounded-md px-2.5 py-1 text-xs">
+                          {copy.capability}
+                        </p>
+                        <Link
+                          to={`/plugins/${plugin.id}`}
+                          className="neu-button self-start rounded-md px-4 py-2 text-sm font-semibold"
+                        >
+                          {plugin.installed ? t("Manage") : t("View plugin")}
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })
       ) : (
         <p className="text-sm text-muted-foreground">{t("No plugins are installed yet.")}</p>
       )}

@@ -6,6 +6,7 @@ import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
 import { resolveWorkspaceChatProvider } from "../plugin-chat-provider.js";
 import { configurePluginInstallation, installPlugin } from "../plugin-installations.js";
 import { initializeSingleWorkspace } from "../single-workspace.js";
+import { activateWorkspaceModelPlugin } from "../workspace-model-plugins.js";
 
 let db: PGlite;
 
@@ -57,6 +58,12 @@ async function fixture() {
   await db.query("UPDATE plugin_installations SET verified_at = now() WHERE id = $1", [
     installation.id,
   ]);
+  await activateWorkspaceModelPlugin(client(), {
+    workspaceId: setup.workspace.id,
+    userId: setup.owner.id,
+    capability: "chat.complete",
+    installationId: installation.id,
+  });
   return { ...setup, installation };
 }
 

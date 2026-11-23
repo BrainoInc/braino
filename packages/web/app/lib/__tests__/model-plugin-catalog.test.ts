@@ -164,10 +164,12 @@ describe("the two model setup steps", () => {
     configuration: Record<string, string>,
     extra: Partial<InstalledModelPlugin> = {},
   ): InstalledModelPlugin => ({
+    installationId: `installation_${pluginId}`,
     pluginId,
     name: catalog.find((entry) => entry.id === pluginId)?.name ?? pluginId,
     kind,
-    enabled: true,
+    active: true,
+    verified: true,
     configuration,
     secretNames: [],
     ...extra,
@@ -198,7 +200,7 @@ describe("the two model setup steps", () => {
 
   it("shows the one assigned plugin of each model, whichever plugins are merely installed", () => {
     const steps = modelSteps({ chat: "ready", embedding: "ready" }, catalog, [
-      installed("braino.ollama-chat", "chat", { model: "qwen3.5:2b" }, { enabled: false }),
+      installed("braino.ollama-chat", "chat", { model: "qwen3.5:2b" }, { active: false }),
       installed("braino.openai-chat", "chat", { model: "gpt-4.1" }, { secretNames: ["api_key"] }),
       installed("braino.ollama-embedding", "embedding", {
         model: "embeddinggemma-2:270m",
@@ -227,14 +229,18 @@ describe("the two model setup steps", () => {
     ]);
   });
 
-  it("offers nothing in place of a model whose assignment needs attention", () => {
-    const steps = modelSteps({ chat: "ambiguous", embedding: "invalid" }, catalog, [
-      installed("braino.ollama-chat", "chat", { model: "qwen3.5:2b" }),
+  it("shows the selected plugin when its verification needs attention", () => {
+    const steps = modelSteps({ chat: "unverified", embedding: "invalid" }, catalog, [
+      installed("braino.ollama-chat", "chat", { model: "qwen3.5:2b" }, { active: false }),
       installed("braino.openai-chat", "chat", { model: "gpt-4.1-mini" }),
       installed("braino.openai-embedding", "embedding", { model: "text-embedding-3-small" }),
     ]);
 
-    expect(steps[0]).toMatchObject({ status: "ambiguous", pluginId: null, model: null });
+    expect(steps[0]).toMatchObject({
+      status: "unverified",
+      pluginId: "braino.openai-chat",
+      model: "gpt-4.1-mini",
+    });
     expect(steps[1]).toMatchObject({
       status: "invalid",
       pluginId: "braino.openai-embedding",
