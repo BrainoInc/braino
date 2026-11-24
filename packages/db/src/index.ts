@@ -122,9 +122,11 @@ export { CHUNK_CHARS, CHUNK_OVERLAP_CHARS, chunkText, nodeIndexText } from "./ch
 
 export {
   exportRetrievalSnapshot,
+  replaceRetrievalSnapshot,
   restoreRetrievalSnapshot,
   retrievalSnapshotDigest,
   type ExportRetrievalSnapshotOptions,
+  type ReplaceRetrievalSnapshotResult,
   type RestoreRetrievalSnapshotResult,
   type RetrievalSnapshot,
   type RetrievalSnapshotManifest,
