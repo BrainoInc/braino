@@ -89,6 +89,9 @@ describe("durable team-chat events", () => {
       userId: setup.collaborator.id,
       question: "What changed?",
     });
+    expect((await db.query("SELECT kind FROM workspace_operations")).rows).toEqual([
+      { kind: "reply" },
+    ]);
     expect(send).toHaveBeenCalledWith({
       workspaceId: setup.workspace.id,
       installationId: setup.installation.id,

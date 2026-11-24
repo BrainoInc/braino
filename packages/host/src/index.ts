@@ -1,4 +1,5 @@
 export * from "./host.js";
+export * from "./workspace-usage.js";
 export type { ClientScope } from "./client-scope.js";
 export * from "./collection-templates.js";
 export * from "./single-workspace.js";

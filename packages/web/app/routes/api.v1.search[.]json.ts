@@ -1,6 +1,7 @@
 import { withClient } from "@doco/db";
-import { getSingleWorkspaceState, searchWorkspaceRecords } from "@doco/host";
+import { getSingleWorkspaceState } from "@doco/host";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { searchAsWorkspaceMember } from "~/lib/workspace-search.server";
 
 export async function loader({ request }: { request: Request }) {
   const user = await getCurrentUser(request);
@@ -12,13 +13,11 @@ export async function loader({ request }: { request: Request }) {
   if (!query) return Response.json({ error: "Query parameter q is required." }, { status: 400 });
   const requestedLimit = Number(url.searchParams.get("limit"));
   const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : undefined;
-  const results = await withClient((client) =>
-    searchWorkspaceRecords(client, {
-      workspaceId: state.workspace.id,
-      userId: user.id,
-      query,
-      ...(limit === undefined ? {} : { limit }),
-    }),
-  );
+  const results = await searchAsWorkspaceMember({
+    workspaceId: state.workspace.id,
+    userId: user.id,
+    query,
+    ...(limit === undefined ? {} : { limit }),
+  });
   return Response.json({ query, results });
 }

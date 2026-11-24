@@ -187,3 +187,11 @@ export {
 } from "./history.js";
 
 // Postgres is the only source-of-truth.
+
+export {
+  readWorkspaceUsage,
+  recordWorkspaceOperation,
+  workspaceUsageWindow,
+  type WorkspaceUsage,
+  type UsageWindow,
+} from "./workspace-usage.js";

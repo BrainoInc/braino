@@ -1,11 +1,12 @@
 import { withClient } from "@doco/db";
-import { getSingleWorkspaceState, searchWorkspaceRecords } from "@doco/host";
+import { getSingleWorkspaceState } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
 import { Card, CardContent } from "@doco/ui";
 import { PageHeader } from "@doco/ui";
 import { PageMain } from "@doco/ui";
 import { Form, Link, redirect, useLoaderData } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
+import { searchAsWorkspaceMember } from "~/lib/workspace-search.server";
 import { metaTranslator } from "~/locales/catalog";
 
 export function meta({ matches }: { matches: Parameters<typeof metaTranslator>[0] }) {
@@ -19,15 +20,11 @@ export async function loader({ request }: { request: Request }) {
   const state = await withClient(getSingleWorkspaceState);
   if (!state.initialized) throw redirect("/");
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 500) ?? "";
-  const results = query
-    ? await withClient((client) =>
-        searchWorkspaceRecords(client, {
-          workspaceId: state.workspace.id,
-          userId: user.id,
-          query,
-        }),
-      )
-    : [];
+  const results = await searchAsWorkspaceMember({
+    workspaceId: state.workspace.id,
+    userId: user.id,
+    query,
+  });
   return { query, results, workspace: state.workspace };
 }
 
