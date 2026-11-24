@@ -182,6 +182,7 @@ describe("the supported self-hosted stack", () => {
     expect(env).toContain("BRAINO_SETUP_TOKEN=");
     expect(env).toContain("BRAINO_CODELINKER_API_TOKEN=");
     expect(env).toContain("BRAINO_PLUGIN_HOST_API_TOKEN=");
+    expect(dockerfile).toContain("COPY packages/ui/package.json packages/ui/package.json");
     expect(dockerfile).toContain("pnpm --filter @doco/web build");
     expect(dockerfile).toContain("plugins/ollama-embedding");
     expect(dockerfile).toContain("plugins/ollama-chat");

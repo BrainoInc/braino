@@ -41,6 +41,7 @@ COPY packages/host/package.json packages/host/package.json
 COPY packages/index/package.json packages/index/package.json
 COPY packages/plugin-runtime/package.json packages/plugin-runtime/package.json
 COPY packages/shared/package.json packages/shared/package.json
+COPY packages/ui/package.json packages/ui/package.json
 COPY packages/web/package.json packages/web/package.json
 RUN pnpm install --frozen-lockfile
 
