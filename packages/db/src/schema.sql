@@ -3704,15 +3704,18 @@ CREATE TABLE IF NOT EXISTS background_job_leases (
 -- Usage is scoped to the workspace. Source text is measured before chunking or
 -- embedding. A retained text revision contributes its full estimated input once.
 CREATE TABLE IF NOT EXISTS workspace_operations (
+  user_id text REFERENCES users(id) ON DELETE SET NULL,
   workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   kind text NOT NULL CHECK (kind IN ('query','reply')),
   operation_id text NOT NULL,
   at timestamptz NOT NULL DEFAULT statement_timestamp(),
   PRIMARY KEY (workspace_id, kind, operation_id)
 );
+CREATE INDEX IF NOT EXISTS workspace_operations_member_time_idx ON workspace_operations(workspace_id, user_id, at) WHERE user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS workspace_operations_time_idx ON workspace_operations (workspace_id, at);
 
 CREATE TABLE IF NOT EXISTS workspace_content_usage (
+  user_id text REFERENCES users(id) ON DELETE SET NULL,
   workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   -- Keeps attribution after a collection and its source rows are deleted.
   collection_id text NOT NULL,
@@ -3722,6 +3725,18 @@ CREATE TABLE IF NOT EXISTS workspace_content_usage (
 );
 CREATE INDEX IF NOT EXISTS workspace_content_usage_time_idx ON workspace_content_usage (workspace_id, at);
 CREATE INDEX IF NOT EXISTS workspace_content_usage_collection_idx ON workspace_content_usage (collection_id, workspace_id);
+
+CREATE OR REPLACE FUNCTION attribute_content_usage() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  SELECT user_id INTO NEW.user_id FROM workspace_users
+   WHERE workspace_id = NEW.workspace_id AND user_id = current_setting('braino.usage_user_id', true);
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS attribute_content_usage ON workspace_content_usage;
+CREATE TRIGGER attribute_content_usage BEFORE INSERT ON workspace_content_usage FOR EACH ROW
+  WHEN (NEW.ingested_tokens > 0 AND nullif(current_setting('braino.usage_user_id', true), '') IS NOT NULL)
+  EXECUTE FUNCTION attribute_content_usage();
 
 -- One definition of the retained body per source, used for inserts, edits,
 -- moves and deletes. Shared collection locks serialize attribution with a

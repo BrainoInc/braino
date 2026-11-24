@@ -5,6 +5,10 @@ import { PageHeader, PageMain } from "./page.js";
 
 interface UsageLabels {
   title: string;
+  teamMember: string;
+  allMembers: string;
+  workspaceStorage: string;
+  attribution: string;
   timeRange: string;
   month: string;
   daily: string;
@@ -185,11 +189,13 @@ export function WorkspaceUsagePage({
   labels,
   locale,
   breadcrumb,
+  onMemberChange,
 }: {
   report: WorkspaceUsageReport;
   labels: UsageLabels;
   locale: string;
   breadcrumb: ReactNode;
+  onMemberChange: (id: string | null) => void;
 }) {
   const [range, setRange] = useState<(typeof timeRanges)[number]>("month");
   const rangeGroup = useId();
@@ -214,35 +220,53 @@ export function WorkspaceUsagePage({
           {labels.updated} <time dateTime={report.asOf}>{stamp.format(new Date(report.asOf))}</time>
         </p>
       </PageHeader>
-      <fieldset className="min-w-0">
-        <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
-          {labels.timeRange}
-        </legend>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <div className="inline-flex max-w-full rounded-md border border-border p-0.5">
-            {timeRanges.map((option) => (
-              <label key={option} className="cursor-pointer">
-                <input
-                  type="radio"
-                  name={rangeGroup}
-                  value={option}
-                  checked={range === option}
-                  onChange={() => setRange(option)}
-                  className="peer sr-only"
-                />
-                <span className="block rounded px-3 py-2 text-sm text-muted-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
-                  {labels[option]}
-                </span>
-              </label>
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+        <label className="grid min-w-0 max-w-full gap-1.5 text-xs font-medium text-muted-foreground">
+          {labels.teamMember}
+          <select
+            className="max-w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+            value={report.memberId ?? ""}
+            onChange={(event) => onMemberChange(event.currentTarget.value || null)}
+          >
+            <option value="">{labels.allMembers}</option>
+            {report.members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
+              </option>
             ))}
+          </select>
+        </label>
+        <fieldset className="min-w-0">
+          <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
+            {labels.timeRange}
+          </legend>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div className="inline-flex max-w-full rounded-md border border-border p-0.5">
+              {timeRanges.map((option) => (
+                <label key={option} className="cursor-pointer">
+                  <input
+                    type="radio"
+                    name={rangeGroup}
+                    value={option}
+                    checked={range === option}
+                    onChange={() => setRange(option)}
+                    className="peer sr-only"
+                  />
+                  <span className="block rounded px-3 py-2 text-sm text-muted-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+                    {labels[option]}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {daily ? labels.daily : labels.quarterHourly}
+            </span>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {daily ? labels.daily : labels.quarterHourly}
-          </span>
-        </div>
-      </fieldset>
+        </fieldset>
+      </div>
+      {report.memberId && <p className="text-xs text-muted-foreground">{labels.attribution}</p>}
       <div
-        key={range}
+        key={JSON.stringify([range, report.memberId])}
         className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-5"
       >
         {metrics.map((metric) => (
@@ -251,7 +275,11 @@ export function WorkspaceUsagePage({
               period={report[range]}
               daily={daily}
               metric={metric}
-              metricName={labels[metric]}
+              metricName={
+                metric === "storedBytes" && report.memberId
+                  ? labels.workspaceStorage
+                  : labels[metric]
+              }
               total={metric === "storedBytes" ? report.storedBytes : report[range][metric]}
               description={descriptions[metric]}
               locale={locale}

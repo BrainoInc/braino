@@ -1,7 +1,7 @@
 import { getWorkspaceUsageReport } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
 import { WorkspaceUsagePage } from "@doco/ui";
-import { Link, redirect, useLoaderData } from "react-router";
+import { Link, redirect, useLoaderData, useSearchParams } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { metaTranslator, requestTranslator } from "~/locales/catalog";
 
@@ -22,7 +22,8 @@ export async function loader({
 }: { request: Request; params: { workspaceHandle: string } }) {
   const user = await getCurrentUser(request);
   if (!user) throw redirect(`/?next=${encodeURIComponent(new URL(request.url).pathname)}`);
-  const report = await getWorkspaceUsageReport(params.workspaceHandle, user.id);
+  const member = new URL(request.url).searchParams.get("member") || null;
+  const report = await getWorkspaceUsageReport(params.workspaceHandle, user.id, undefined, member);
   if (!report) {
     const t = await requestTranslator(request);
     throw new Response(t('Workspace "{handle}" not found.', { handle: params.workspaceHandle }), {
@@ -34,11 +35,23 @@ export async function loader({
 
 export default function Usage() {
   const t = useT();
+  const [, setSearchParams] = useSearchParams();
   const { report, handle } = useLoaderData<typeof loader>();
   return (
     <WorkspaceUsagePage
       report={report}
       locale={t.locale}
+      onMemberChange={(memberId) =>
+        setSearchParams(
+          (current) => {
+            const next = new URLSearchParams(current);
+            if (memberId) next.set("member", memberId);
+            else next.delete("member");
+            return next;
+          },
+          { preventScrollReset: true },
+        )
+      }
       breadcrumb={
         <Link className="text-xs text-muted-foreground hover:underline" to="/">
           {handle}
@@ -47,6 +60,10 @@ export default function Usage() {
       labels={{
         title: t("Workspace usage"),
         updated: t("Updated"),
+        teamMember: t("Team member"),
+        allMembers: t("All members"),
+        workspaceStorage: t("Workspace storage"),
+        attribution: t("Activity without a recorded member appears only under All members."),
         timeRange: t("Time range"),
         daily: t("Daily"),
         quarterHourly: t("15-minute intervals"),

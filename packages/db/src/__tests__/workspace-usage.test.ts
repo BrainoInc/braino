@@ -1,6 +1,10 @@
 import type { PoolClient } from "pg";
 import { beforeEach, expect, it } from "vitest";
-import { readWorkspaceUsage, recordWorkspaceOperation } from "../workspace-usage.js";
+import {
+  readWorkspaceUsage,
+  recordWorkspaceOperation,
+  setWorkspaceUsageActor,
+} from "../workspace-usage.js";
 import { freshDb } from "./fresh-db.js";
 
 let db: Awaited<ReturnType<typeof freshDb>>;
@@ -77,4 +81,23 @@ it("isolates workspaces, deduplicates completed operations and integrates retain
       end: new Date("2026-01-01T00:00:10Z"),
     }),
   ).toMatchObject({ ingestedTokens: 1, storedBytes: 6, storageByteSeconds: "80.000000" });
+});
+
+it("attributes revisions only inside the member's write transaction", async () => {
+  await db.exec(`INSERT INTO users(id,username,data) VALUES ('a','a','{}');
+    INSERT INTO workspace_users(workspace_id,user_id,role) VALUES ('w1','a','owner');
+    BEGIN`);
+  await setWorkspaceUsageActor(client(), "a");
+  await db.exec(`INSERT INTO nodes(id,collection_id,node_type,prose) VALUES ('log_a','c1','log','four');
+    COMMIT; UPDATE nodes SET prose='anonymous';`);
+  expect(
+    (
+      await db.query(
+        "SELECT user_id,ingested_tokens::int AS tokens FROM workspace_content_usage ORDER BY tokens",
+      )
+    ).rows,
+  ).toEqual([
+    { user_id: "a", tokens: 1 },
+    { user_id: null, tokens: 3 },
+  ]);
 });

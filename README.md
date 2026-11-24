@@ -236,7 +236,10 @@ Source code in this repository is available under the Mozilla Public License
 Signed-in workspace members can read `GET /api/v1/workspaces/{handle}/usage.json`.
 It reports the current UTC month to date. Pass ISO 8601 `start` and `end`
 to inspect a different window, such as the last five hours. Start is inclusive
-and end is exclusive.
+and end is exclusive. Pass `member=<user ID>` to filter queries, replies and
+ingested tokens to a current workspace member. The same filter is available on
+the workspace usage page. Workspace totals include historical and automated
+events without a recorded member. Storage always measures the whole workspace.
 
 - `queries` counts completed external reads, searches and briefs per workspace.
 - `replies` counts completed workspace assistant replies, including team chat.

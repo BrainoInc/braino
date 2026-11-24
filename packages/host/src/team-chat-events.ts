@@ -150,7 +150,13 @@ export async function processNextTeamChatEvent(
         },
       });
       if (delivery.actor_user_id) {
-        await recordWorkspaceOperation(client, delivery.workspace_id, "reply", delivery.id);
+        await recordWorkspaceOperation(
+          client,
+          delivery.workspace_id,
+          "reply",
+          delivery.id,
+          delivery.actor_user_id,
+        );
       }
     }
     await client.query(

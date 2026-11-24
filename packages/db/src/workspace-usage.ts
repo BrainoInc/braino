@@ -1,17 +1,24 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 
+/** Call inside the authenticated write transaction so triggers see the same actor
+ * and the connection releases their identity on commit or rollback. */
+export async function setWorkspaceUsageActor(client: PoolClient, userId: string): Promise<void> {
+  await client.query("SELECT set_config('braino.usage_user_id', $1, true)", [userId]);
+}
+
 /** Use a stable server-side operation identity when a completion can be replayed. */
 export async function recordWorkspaceOperation(
   client: PoolClient,
   workspaceId: string,
   kind: "query" | "reply",
   operationId: string = randomUUID(),
+  userId: string | null = null,
 ): Promise<void> {
   await client.query(
-    `INSERT INTO workspace_operations (workspace_id, kind, operation_id)
-     VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-    [workspaceId, kind, operationId],
+    `INSERT INTO workspace_operations (workspace_id, kind, operation_id, user_id)
+     VALUES ($1, $2, $3, (SELECT user_id FROM workspace_users WHERE workspace_id=$1 AND user_id=$4)) ON CONFLICT DO NOTHING`,
+    [workspaceId, kind, operationId, userId],
   );
 }
 
@@ -49,18 +56,19 @@ export async function readWorkspaceUsageBuckets(
   workspaceId: string,
   { start, end }: UsageWindow,
   step?: "24 hours" | "15 minutes",
+  memberId: string | null = null,
 ) {
-  const params = [workspaceId, start.toISOString(), end.toISOString()];
+  const params = [workspaceId, start.toISOString(), end.toISOString(), memberId];
   const spans = step
-    ? `SELECT tick AS lo, least(tick + $4::interval, $3::timestamptz) AS hi
-         FROM generate_series($2::timestamptz, $3::timestamptz, $4::interval) tick
+    ? `SELECT tick AS lo, least(tick + $5::interval, $3::timestamptz) AS hi
+         FROM generate_series($2::timestamptz, $3::timestamptz, $5::interval) tick
         WHERE tick < $3 OR tick = $2`
     : "SELECT $2::timestamptz AS lo, $3::timestamptz AS hi";
   if (step) params.push(step);
   const { rows } = await client.query<WorkspaceUsage & { start: Date; end: Date }>(
     `WITH spans AS (${spans}),
      opening AS (
-       SELECT coalesce(sum(byte_delta), 0) AS bytes, coalesce(sum(ingested_tokens), 0) AS tokens
+       SELECT coalesce(sum(byte_delta), 0) AS bytes, coalesce(sum(ingested_tokens) FILTER (WHERE $4::text IS NULL OR user_id = $4), 0) AS tokens
        FROM workspace_content_usage WHERE workspace_id = $1 AND at < $2
      ), balances AS (
        SELECT spans.*, ops.*, content.*,
@@ -71,9 +79,10 @@ export async function readWorkspaceUsageBuckets(
          SELECT count(*) FILTER (WHERE kind = 'query')::float8 AS queries,
                 count(*) FILTER (WHERE kind = 'reply')::float8 AS replies
          FROM workspace_operations WHERE workspace_id = $1 AND at >= lo AND at < hi
+           AND ($4::text IS NULL OR user_id = $4)
        ) ops
        CROSS JOIN LATERAL (
-         SELECT coalesce(sum(ingested_tokens), 0) AS tokens, coalesce(sum(byte_delta), 0) AS delta,
+         SELECT coalesce(sum(ingested_tokens) FILTER (WHERE $4::text IS NULL OR user_id = $4), 0) AS tokens, coalesce(sum(byte_delta), 0) AS delta,
                 coalesce(sum(byte_delta * extract(epoch FROM (at - lo))), 0) AS offset_byte_seconds
          FROM workspace_content_usage WHERE workspace_id = $1 AND at >= lo AND at < hi
        ) content
@@ -96,8 +105,9 @@ export async function readWorkspaceUsage(
   client: PoolClient,
   workspaceId: string,
   window: UsageWindow,
+  memberId: string | null = null,
 ) {
-  const [usage] = await readWorkspaceUsageBuckets(client, workspaceId, window);
+  const [usage] = await readWorkspaceUsageBuckets(client, workspaceId, window, undefined, memberId);
   if (!usage) throw new Error("Workspace usage aggregation returned no row.");
-  return { workspaceId, ...usage };
+  return { workspaceId, ...(memberId ? { memberId } : {}), ...usage };
 }

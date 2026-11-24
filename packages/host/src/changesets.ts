@@ -8,6 +8,7 @@ import {
   createEdge,
   nodeRowFromFields,
   retireActiveEdgesForNode,
+  setWorkspaceUsageActor,
   upsertNode,
 } from "@doco/db";
 import {
@@ -1001,6 +1002,7 @@ export async function applyChangeset(
 
   await client.query("BEGIN");
   try {
+    await setWorkspaceUsageActor(client, input.actorId);
     const txId = await createChangeset(client, {
       collectionId: collection.id,
       actor: input.actorId,
