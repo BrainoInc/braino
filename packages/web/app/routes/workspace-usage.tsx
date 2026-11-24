@@ -53,10 +53,13 @@ export default function Usage() {
         month: t("This month (UTC)"),
         fiveHours: t("Last 5 hours"),
         queries: t("Queries"),
-        replies: t("Assistant replies"),
-        ingestedTokens: t("Estimated ingestion tokens"),
-        averageStoredBytes: t("Average storage"),
-        currentStorage: t("Current storage"),
+        replies: t("Señor Braino replies"),
+        ingestedTokens: t("Ingested tokens"),
+        storedBytes: t("Storage used"),
+        ingestionDescription: t(
+          "Braino estimates one token per four characters and rounds up for each text revision.",
+        ),
+        storageDescription: t("Total source text retained at the end of each interval."),
       }}
     />
   );

@@ -2,11 +2,10 @@ export interface UsagePeriodTotals {
   queries: number;
   replies: number;
   ingestedTokens: number;
-  averageStoredBytes: number;
 }
 
 export interface WorkspaceUsagePeriod extends UsagePeriodTotals {
-  buckets: (UsagePeriodTotals & { start: string; end: string })[];
+  buckets: (UsagePeriodTotals & { start: string; end: string; storedBytes: number })[];
 }
 
 export interface WorkspaceUsageReport {

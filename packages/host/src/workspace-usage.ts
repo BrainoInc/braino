@@ -51,32 +51,25 @@ function summarizePeriod(
   let queries = 0;
   let replies = 0;
   let ingestedTokens = 0;
-  let seconds = 0;
-  let byteSeconds = 0;
   const buckets: WorkspaceUsagePeriod["buckets"] = [];
   for (const row of rows) {
-    const duration = (Date.parse(row.end) - Date.parse(row.start)) / 1000;
-    if (duration === 0) continue;
-    const integral = Number(row.storageByteSeconds);
+    if (row.start === row.end) continue;
     buckets.push({
       start: row.start,
       end: row.end,
       queries: row.queries,
       replies: row.replies,
       ingestedTokens: row.ingestedTokens,
-      averageStoredBytes: integral / duration,
+      storedBytes: row.storedBytes,
     });
     queries += row.queries;
     replies += row.replies;
     ingestedTokens += row.ingestedTokens;
-    seconds += duration;
-    byteSeconds += integral;
   }
   return {
     queries,
     replies,
     ingestedTokens,
-    averageStoredBytes: seconds ? byteSeconds / seconds : 0,
     buckets,
   };
 }
