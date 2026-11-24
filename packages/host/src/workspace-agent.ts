@@ -214,7 +214,13 @@ export async function sendWorkspaceChatMessage(
       ],
     );
     await client.query("UPDATE chat_conversations SET updated_at = now() WHERE id = $1", [id]);
-    await recordWorkspaceOperation(client, input.workspaceId, "reply", assistantMessageId);
+    await recordWorkspaceOperation(
+      client,
+      input.workspaceId,
+      "reply",
+      assistantMessageId,
+      input.userId,
+    );
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

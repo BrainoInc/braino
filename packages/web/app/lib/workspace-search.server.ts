@@ -13,5 +13,6 @@ export async function searchAsWorkspaceMember(input: {
     () => withClient((client) => searchWorkspaceRecords(client, input)),
     () => true,
     input.workspaceId,
+    input.userId,
   );
 }

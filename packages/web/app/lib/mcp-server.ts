@@ -335,7 +335,7 @@ export async function handleMcpMessage(
       const name = string(params.name, "tool name");
       const invoke = () => callTool(name, params.arguments, principal);
       const result = ["doco_get", "doco_search", "doco_brief"].includes(name)
-        ? await measureWorkspaceQuery(invoke, () => true, principal.workspaceId)
+        ? await measureWorkspaceQuery(invoke, () => true, principal.workspaceId, principal.userId)
         : await invoke();
       return { jsonrpc: "2.0", id, result };
     } catch (error) {

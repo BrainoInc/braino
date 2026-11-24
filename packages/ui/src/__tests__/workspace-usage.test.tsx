@@ -8,12 +8,18 @@ import { WorkspaceUsagePage } from "../workspace-usage.js";
 const monthly = { queries: 12000, replies: 42, ingestedTokens: 700 };
 const recent = { queries: 0, replies: 2, ingestedTokens: 18 };
 const end = "2026-12-01T02:00:00.000Z";
+const changeMember = vi.fn();
 const page = (
   <WorkspaceUsagePage
     breadcrumb={<a href="/">Acme</a>}
+    onMemberChange={changeMember}
     locale="de"
     labels={{
       title: "Nutzung",
+      teamMember: "Teammitglied",
+      allMembers: "Alle Mitglieder",
+      workspaceStorage: "Speicher des Arbeitsbereichs",
+      attribution: "Nur zugeordnete Aktivitäten.",
       timeRange: "Zeitraum",
       daily: "Täglich",
       quarterHourly: "15-Minuten-Intervalle",
@@ -28,6 +34,8 @@ const page = (
       updated: "Stand",
     }}
     report={{
+      members: [{ id: "m1", name: "Sam" }],
+      memberId: null,
       month: {
         ...monthly,
         buckets: [{ ...monthly, storedBytes: 5000, start: "2026-12-01T00:00:00.000Z", end }],
@@ -73,6 +81,14 @@ it("changes every graph with one time filter and keeps current storage fixed", a
     );
     expect(month?.checked).toBe(true);
     expect(fiveHours?.checked).toBe(false);
+    const select = container.querySelector("select");
+    if (!select) throw new Error("Missing member filter");
+    expect(Array.from(select.options, (o) => o.textContent)).toEqual(["Alle Mitglieder", "Sam"]);
+    await act(async () => {
+      select.value = "m1";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(changeMember).toHaveBeenCalledWith("m1");
     const initial = totals();
     expect(initial[3]).toMatch(/5.*kB/i);
     expect(initial.slice(0, 3)).toEqual(["12.000", "42", "700"]);

@@ -194,6 +194,7 @@ export {
   readWorkspaceUsage,
   readWorkspaceUsageBuckets,
   recordWorkspaceOperation,
+  setWorkspaceUsageActor,
   workspaceUsageWindow,
   type WorkspaceUsage,
   type UsageWindow,

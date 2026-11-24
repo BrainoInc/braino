@@ -127,3 +127,74 @@ it("carries retained bytes across the window and lowers the balance when text is
   });
   expect(report?.storedBytes).toBe(60);
 });
+
+it("filters both windows by a current member while retaining the workspace storage balance", async () => {
+  const now = new Date("2026-12-02T07:00:00Z");
+  await db.exec(`INSERT INTO users (id, username, name, data) VALUES ('other','sam','Sam','{}'),('outside','eve',NULL,'{}');
+    INSERT INTO workspace_users(workspace_id,user_id,role) VALUES ('w1','other','reader'),('w2','outside','owner');
+    INSERT INTO workspace_operations(workspace_id,kind,operation_id,user_id,at) VALUES
+    ('w1','query','first','member','2026-12-01T00:00Z'),('w1','reply','second','other','2026-12-02T06:55Z'),
+    ('w1','reply','third','member','2026-12-02T06:55Z'),('w1','query','legacy',NULL,'2026-12-02T06:55Z');
+    INSERT INTO workspace_content_usage(workspace_id,collection_id,ingested_tokens,byte_delta,user_id,at)
+    VALUES ('w1','c',7,28,'member','2026-12-02T06:55Z'),('w1','c',10,40,NULL,'2026-12-02T06:55Z');`);
+  const report = await getWorkspaceUsageReport("one", "other", now, "member");
+  expect(report).toMatchObject({
+    memberId: "member",
+    storedBytes: 68,
+    month: { queries: 1, replies: 1, ingestedTokens: 7 },
+    fiveHours: { queries: 0, replies: 1, ingestedTokens: 7 },
+  });
+  expect(report?.fiveHours.buckets.at(-1)).toMatchObject({
+    queries: 0,
+    replies: 1,
+    ingestedTokens: 7,
+    storedBytes: 68,
+  });
+  expect(report?.members.map((m) => m.id).sort()).toEqual(["member", "other"]);
+  expect(await getWorkspaceUsageReport("one", "member", now, "outside")).toBeNull();
+  expect(await getWorkspaceUsageReport("one", "outside", now, "other")).toBeNull();
+  expect((await getWorkspaceUsageReport("one", "member", now))?.month).toMatchObject({
+    queries: 2,
+    replies: 2,
+    ingestedTokens: 17,
+  });
+});
+
+it("attributes a successful query once and only to its workspace member", async () => {
+  await measureWorkspaceQuery(
+    async () => {
+      includeQueryWorkspace("w1", "member");
+      includeQueryWorkspace("w1");
+      includeQueryWorkspace("w2", "member");
+    },
+    () => true,
+  );
+  expect(
+    (await db.query("SELECT workspace_id,user_id FROM workspace_operations ORDER BY workspace_id"))
+      .rows,
+  ).toEqual([
+    { workspace_id: "w1", user_id: "member" },
+    { workspace_id: "w2", user_id: null },
+  ]);
+});
+
+it("applies the page's member filter to the usage API and rejects IDs outside the workspace", async () => {
+  await measureWorkspaceQuery(
+    async () => true,
+    (x) => x,
+    "w1",
+    "member",
+  );
+  await measureWorkspaceQuery(
+    async () => true,
+    (x) => x,
+    "w1",
+  );
+  const url = new URL("https://braino.example/usage.json?member=member");
+  expect(await (await workspaceUsageResponse(url, "one", "member")).json()).toMatchObject({
+    memberId: "member",
+    queries: 1,
+  });
+  url.searchParams.set("member", "other-workspace-member");
+  expect((await workspaceUsageResponse(url, "one", "member")).status).toBe(404);
+});

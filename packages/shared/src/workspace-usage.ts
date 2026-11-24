@@ -9,6 +9,8 @@ export interface WorkspaceUsagePeriod extends UsagePeriodTotals {
 }
 
 export interface WorkspaceUsageReport {
+  members: { id: string; name: string }[];
+  memberId: string | null;
   asOf: string;
   storedBytes: number;
   month: WorkspaceUsagePeriod;
