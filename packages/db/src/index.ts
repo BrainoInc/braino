@@ -190,6 +190,7 @@ export {
 
 export {
   readWorkspaceUsage,
+  readWorkspaceUsageBuckets,
   recordWorkspaceOperation,
   workspaceUsageWindow,
   type WorkspaceUsage,

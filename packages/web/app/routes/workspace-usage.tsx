@@ -48,6 +48,8 @@ export default function Usage() {
         title: t("Workspace usage"),
         updated: t("Updated"),
         metric: t("Metric"),
+        daily: t("Daily"),
+        quarterHourly: t("15-minute intervals"),
         month: t("This month (UTC)"),
         fiveHours: t("Last 5 hours"),
         queries: t("Queries"),

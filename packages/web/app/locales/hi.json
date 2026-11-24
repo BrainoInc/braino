@@ -1,4 +1,5 @@
 {
+  "15-minute intervals": "15 मिनट के अंतराल",
   "24 hours": "24 घंटे",
   "30 days": "30 दिन",
   "7 days": "7 दिन",
@@ -116,6 +117,7 @@
   "Current storage": "वर्तमान स्टोरेज",
   "Current totals for this workspace.": "इस वर्कस्पेस के मौजूदा कुल आँकड़े।",
   "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEY में कम से कम 32 वर्ण होने चाहिए।",
+  "Daily": "प्रतिदिन",
   "Dark": "डार्क",
   "Decisions that stay aligned.": "निर्णय, जो तालमेल में बने रहें।",
   "Deployment": "डिप्लॉयमेंट",

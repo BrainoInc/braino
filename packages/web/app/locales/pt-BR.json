@@ -1,4 +1,5 @@
 {
+  "15-minute intervals": "Intervalos de 15 minutos",
   "24 hours": "24 horas",
   "30 days": "30 dias",
   "7 days": "7 dias",
@@ -116,6 +117,7 @@
   "Current storage": "Armazenamento atual",
   "Current totals for this workspace.": "Totais atuais deste workspace.",
   "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEY deve ter pelo menos 32 caracteres.",
+  "Daily": "Por dia",
   "Dark": "Escuro",
   "Decisions that stay aligned.": "Decisões que se mantêm alinhadas.",
   "Deployment": "Implantação",

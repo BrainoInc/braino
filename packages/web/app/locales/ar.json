@@ -1,4 +1,5 @@
 {
+  "15-minute intervals": "فترات من ١٥ دقيقة",
   "24 hours": "24 ساعة",
   "30 days": "30 يومًا",
   "7 days": "7 أيام",
@@ -116,6 +117,7 @@
   "Current storage": "مساحة التخزين الحالية",
   "Current totals for this workspace.": "الإجماليات الحالية لمساحة العمل هذه.",
   "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "يجب أن يحتوي DOCO_ENCRYPTION_KEY على 32 حرفًا على الأقل.",
+  "Daily": "يوميًا",
   "Dark": "داكن",
   "Decisions that stay aligned.": "قرارات تبقى متّسقة.",
   "Deployment": "بيئة النشر",

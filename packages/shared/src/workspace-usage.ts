@@ -5,9 +5,13 @@ export interface UsagePeriodTotals {
   averageStoredBytes: number;
 }
 
+export interface WorkspaceUsagePeriod extends UsagePeriodTotals {
+  buckets: (UsagePeriodTotals & { start: string; end: string })[];
+}
+
 export interface WorkspaceUsageReport {
   asOf: string;
   storedBytes: number;
-  month: UsagePeriodTotals;
-  fiveHours: UsagePeriodTotals;
+  month: WorkspaceUsagePeriod;
+  fiveHours: WorkspaceUsagePeriod;
 }

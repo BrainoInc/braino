@@ -1,4 +1,5 @@
 {
+  "15-minute intervals": "Интервалы по 15 минут",
   "24 hours": "24 часа",
   "30 days": "30 дней",
   "7 days": "7 дней",
@@ -116,6 +117,7 @@
   "Current storage": "Текущий объём хранения",
   "Current totals for this workspace.": "Текущие итоги по этому рабочему пространству.",
   "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEY должен содержать не менее 32 символов.",
+  "Daily": "По дням",
   "Dark": "Тёмная",
   "Decisions that stay aligned.": "Решения, которые остаются согласованными.",
   "Deployment": "Развертывание",
