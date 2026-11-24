@@ -5,15 +5,15 @@ import { PageHeader, PageMain } from "./page.js";
 
 interface UsageLabels {
   title: string;
-  metric: string;
+  timeRange: string;
   month: string;
   daily: string;
   quarterHourly: string;
   fiveHours: string;
   queries: string;
   replies: string;
-  tokens: string;
-  averageStorage: string;
+  ingestedTokens: string;
+  averageStoredBytes: string;
   currentStorage: string;
   updated: string;
 }
@@ -29,26 +29,18 @@ function formatBytes(value: number, locale: string): string {
   }).format(value / 1000 ** index);
 }
 
-const metrics = {
-  queries: "queries",
-  replies: "replies",
-  ingestedTokens: "tokens",
-  averageStoredBytes: "averageStorage",
-} as const;
-type Metric = keyof typeof metrics;
+const metrics = ["queries", "replies", "ingestedTokens", "averageStoredBytes"] as const;
+const timeRanges = ["month", "fiveHours"] as const;
+type Metric = (typeof metrics)[number];
 
 function UsageChart({
   period,
-  title,
-  cadence,
   daily,
   metric,
   metricName,
   locale,
 }: {
   period: WorkspaceUsagePeriod;
-  title: string;
-  cadence: string;
   daily: boolean;
   metric: Metric;
   metricName: string;
@@ -95,16 +87,10 @@ function UsageChart({
   return (
     <figure aria-labelledby={captionId} className="min-w-0 space-y-5">
       <figcaption id={captionId} className="space-y-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className="text-base font-semibold">{title}</h2>
-          <span className="text-xs text-muted-foreground">{cadence}</span>
-        </div>
-        <p className="flex flex-wrap items-baseline gap-x-2">
-          <strong className="font-mono text-3xl font-semibold tabular-nums">
-            {format(period[metric])}
-          </strong>
-          <span className="text-sm text-muted-foreground">{metricName}</span>
-        </p>
+        <h2 className="text-base font-semibold">{metricName}</h2>
+        <strong className="block font-mono text-3xl font-semibold tabular-nums">
+          {format(period[metric])}
+        </strong>
       </figcaption>
       <div
         dir="ltr"
@@ -199,7 +185,9 @@ export function WorkspaceUsagePage({
   locale: string;
   breadcrumb: ReactNode;
 }) {
-  const [metric, setMetric] = useState<Metric>("queries");
+  const [range, setRange] = useState<(typeof timeRanges)[number]>("month");
+  const rangeGroup = useId();
+  const daily = range === "month";
   const stamp = new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "short",
@@ -217,20 +205,33 @@ export function WorkspaceUsagePage({
         </p>
       </PageHeader>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          {labels.metric}
-          <select
-            className="rounded-md px-3 py-2 text-sm font-medium text-foreground"
-            value={metric}
-            onChange={(event) => setMetric(event.target.value as Metric)}
-          >
-            {Object.entries(metrics).map(([key, label]) => (
-              <option key={key} value={key}>
-                {labels[label]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <fieldset className="min-w-0">
+          <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
+            {labels.timeRange}
+          </legend>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div className="inline-flex max-w-full rounded-md border border-border p-0.5">
+              {timeRanges.map((option) => (
+                <label key={option} className="cursor-pointer">
+                  <input
+                    type="radio"
+                    name={rangeGroup}
+                    value={option}
+                    checked={range === option}
+                    onChange={() => setRange(option)}
+                    className="peer sr-only"
+                  />
+                  <span className="block rounded px-3 py-2 text-sm text-muted-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+                    {labels[option]}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {daily ? labels.daily : labels.quarterHourly}
+            </span>
+          </div>
+        </fieldset>
         <dl className="text-end">
           <dt className="text-xs text-muted-foreground">{labels.currentStorage}</dt>
           <dd className="font-mono font-semibold tabular-nums">
@@ -238,29 +239,21 @@ export function WorkspaceUsagePage({
           </dd>
         </dl>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-5">
-        <Card className="min-w-0 p-4 sm:p-6">
-          <UsageChart
-            period={report.month}
-            title={labels.month}
-            cadence={labels.daily}
-            daily
-            metric={metric}
-            metricName={labels[metrics[metric]]}
-            locale={locale}
-          />
-        </Card>
-        <Card className="min-w-0 p-4 sm:p-6">
-          <UsageChart
-            period={report.fiveHours}
-            title={labels.fiveHours}
-            cadence={labels.quarterHourly}
-            daily={false}
-            metric={metric}
-            metricName={labels[metrics[metric]]}
-            locale={locale}
-          />
-        </Card>
+      <div
+        key={range}
+        className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-5"
+      >
+        {metrics.map((metric) => (
+          <Card key={metric} className="min-w-0 p-4 sm:p-6">
+            <UsageChart
+              period={report[range]}
+              daily={daily}
+              metric={metric}
+              metricName={labels[metric]}
+              locale={locale}
+            />
+          </Card>
+        ))}
       </div>
     </PageMain>
   );
