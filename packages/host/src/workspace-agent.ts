@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import { type PoolClient, recordWorkspaceOperation } from "@doco/db";
 import type { ChatCompleteCapability, ChatMessage } from "@doco/plugin-runtime";
 import { generateUlid } from "@doco/shared";
 import { searchWorkspaceRecords } from "./workspace-search.js";
@@ -214,6 +214,7 @@ export async function sendWorkspaceChatMessage(
       ],
     );
     await client.query("UPDATE chat_conversations SET updated_at = now() WHERE id = $1", [id]);
+    await recordWorkspaceOperation(client, input.workspaceId, "reply", assistantMessageId);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

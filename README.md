@@ -230,3 +230,26 @@ green and are squash-merged into `main`.
 
 Source code in this repository is available under the Mozilla Public License
 2.0. See [LICENSE](LICENSE).
+
+## Workspace usage
+
+Signed-in workspace members can read `GET /api/v1/workspaces/{handle}/usage.json`.
+It reports the current UTC month to date. Pass ISO 8601 `start` and `end`
+to inspect a different window, such as the last five hours. Start is inclusive
+and end is exclusive.
+
+- `queries` counts completed external reads, searches and briefs per workspace.
+- `replies` counts completed workspace assistant replies, including team chat.
+  Searches made to compose a reply are included in that reply.
+- `ingestedTokens` estimates each newly saved or changed source body at one
+  token per four Unicode characters, rounded up per revision.
+  `lifetimeIngestedTokens` accumulates through the end of the window.
+- `storedBytes` measures retained UTF-8 text at the end of the window.
+  `storageByteSeconds` is the integral over the window, returned as a decimal
+  string. Divide by the window duration in seconds for average retained bytes.
+
+Content covers record prose, code file contents, mirrored Slack message text,
+and mirrored Notion and Drive Markdown. A soft-deleted collection still retains
+its data. Hard deletion releases its storage. Existing data opens with a
+storage balance on upgrade. Operation and ingestion history begins when
+tracking is installed. Each installation keeps its own measurements.

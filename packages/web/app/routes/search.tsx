@@ -1,5 +1,5 @@
 import { withClient } from "@doco/db";
-import { getSingleWorkspaceState, searchWorkspaceRecords } from "@doco/host";
+import { getSingleWorkspaceState, measureWorkspaceQuery, searchWorkspaceRecords } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
 import { Card, CardContent } from "@doco/ui";
 import { PageHeader } from "@doco/ui";
@@ -20,12 +20,17 @@ export async function loader({ request }: { request: Request }) {
   if (!state.initialized) throw redirect("/");
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 500) ?? "";
   const results = query
-    ? await withClient((client) =>
-        searchWorkspaceRecords(client, {
-          workspaceId: state.workspace.id,
-          userId: user.id,
-          query,
-        }),
+    ? await measureWorkspaceQuery(
+        () =>
+          withClient((client) =>
+            searchWorkspaceRecords(client, {
+              workspaceId: state.workspace.id,
+              userId: user.id,
+              query,
+            }),
+          ),
+        () => true,
+        state.workspace.id,
       )
     : [];
   return { query, results, workspace: state.workspace };

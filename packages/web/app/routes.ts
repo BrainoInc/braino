@@ -30,6 +30,7 @@ export default [
   route("healthz", "routes/healthz.ts"),
   route("search", "routes/search.tsx"),
   route("api/v1/search.json", "routes/api.v1.search[.]json.ts"),
+  route("api/v1/workspaces/:workspaceHandle/usage.json", "routes/api.workspace-usage.ts"),
   route("api/v1/workspaces.json", "routes/api.v1.workspaces[.]json.ts"),
   route("api/v1/collections.json", "routes/api.v1.collections[.]json.ts"),
   route("api/v1/webhooks/:token", "routes/api.v1.webhooks.$token.ts"),

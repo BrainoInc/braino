@@ -112,6 +112,10 @@ describe("Señor Braino workspace answer", () => {
       chat,
     });
 
+    expect((await db.query("SELECT kind FROM workspace_operations ORDER BY at")).rows).toEqual([
+      { kind: "reply" },
+      { kind: "reply" },
+    ]);
     const messages = await listWorkspaceChatMessages(client(), {
       workspaceId: setup.workspace.id,
       userId: setup.owner.id,
