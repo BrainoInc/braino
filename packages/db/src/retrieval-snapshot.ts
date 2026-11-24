@@ -855,19 +855,22 @@ export async function replaceRetrievalSnapshot(
   assertSnapshot(snapshot);
   await c.query("BEGIN");
   try {
-    const targetResult = await c.query<{ id: string }>(
-      `SELECT id FROM collections
+    const targetResult = await c.query<{ id: string; workspace_id: string }>(
+      `SELECT id, workspace_id FROM collections
         WHERE deleted_at IS NULL AND (id = $1 OR handle = $1)
         ORDER BY CASE WHEN id = $1 THEN 0 ELSE 1 END
         LIMIT 1
         FOR UPDATE`,
       [targetCollectionRef],
     );
-    const targetCollectionId = targetResult.rows[0]?.id;
-    if (!targetCollectionId) {
+    const target = targetResult.rows[0];
+    if (!target) {
       throw new Error(`Collection ${targetCollectionRef} was not found`);
     }
+    const targetCollectionId = target.id;
+    const targetWorkspaceId = target.workspace_id;
 
+    let importGroupChatRoot = false;
     if (
       snapshot.tables.group_chat_channels.length > 0 ||
       snapshot.tables.group_chat_members.length > 0 ||
@@ -877,12 +880,12 @@ export async function replaceRetrievalSnapshot(
         "SELECT EXISTS (SELECT 1 FROM group_chat_mirrors WHERE collection_id = $1) AS present",
         [targetCollectionId],
       );
-      if (!mirror.rows[0]?.present) {
-        throw new Error(
-          `target collection ${targetCollectionId} needs its own group chat connector before importing mirrored chat data`,
-        );
+      importGroupChatRoot = !mirror.rows[0]?.present;
+      if (importGroupChatRoot && snapshot.tables.group_chat_installations.length === 0) {
+        throw new Error("snapshot has mirrored chat data without a connector root");
       }
     }
+    let importNotionRoot = false;
     if (
       snapshot.tables.notion_pages.length > 0 ||
       snapshot.tables.notion_links.length > 0 ||
@@ -892,10 +895,9 @@ export async function replaceRetrievalSnapshot(
         "SELECT EXISTS (SELECT 1 FROM notion_mirrors WHERE collection_id = $1) AS present",
         [targetCollectionId],
       );
-      if (!mirror.rows[0]?.present) {
-        throw new Error(
-          `target collection ${targetCollectionId} needs its own Notion connector before importing mirrored Notion data`,
-        );
+      importNotionRoot = !mirror.rows[0]?.present;
+      if (importNotionRoot && snapshot.tables.notion_mirrors.length === 0) {
+        throw new Error("snapshot has mirrored Notion data without a connector root");
       }
     }
 
@@ -922,6 +924,33 @@ export async function replaceRetrievalSnapshot(
     await c.query("DELETE FROM policies WHERE collection_id = $1", [targetCollectionId]);
 
     let importedRows = 0;
+    if (importGroupChatRoot) {
+      const installationSpec = TABLE_SPECS.find(
+        (candidate) => candidate.name === "group_chat_installations",
+      );
+      const mirrorSpec = TABLE_SPECS.find((candidate) => candidate.name === "group_chat_mirrors");
+      if (!installationSpec || !mirrorSpec) {
+        throw new Error("group chat connector has no import specification");
+      }
+      const installations = snapshot.tables.group_chat_installations.map((row) => ({
+        ...row,
+        doco_workspace_id: targetWorkspaceId,
+      }));
+      const mirrors = rowsForTargetCollection(
+        snapshot.tables.group_chat_mirrors,
+        targetCollectionId,
+      );
+      await insertRows(c, installationSpec, installations);
+      await insertRows(c, mirrorSpec, mirrors);
+      importedRows += installations.length + mirrors.length;
+    }
+    if (importNotionRoot) {
+      const mirrorSpec = TABLE_SPECS.find((candidate) => candidate.name === "notion_mirrors");
+      if (!mirrorSpec) throw new Error("Notion connector has no import specification");
+      const mirrors = rowsForTargetCollection(snapshot.tables.notion_mirrors, targetCollectionId);
+      await insertRows(c, mirrorSpec, mirrors);
+      importedRows += mirrors.length;
+    }
     for (const name of REPLACE_TABLE_NAMES) {
       const spec = TABLE_SPECS.find((candidate) => candidate.name === name);
       if (!spec) throw new Error(`snapshot table ${name} has no import specification`);

@@ -269,4 +269,48 @@ describe("retrieval corpus snapshots", () => {
       await target.query("SELECT id FROM workspaces WHERE id = 'workspace_snapshot'"),
     ).toMatchObject({ rows: [] });
   });
+
+  it("imports credential-free connector roots when the target has none", async () => {
+    const source = await freshDb();
+    const target = await freshDb();
+    await seedSource(source);
+    const snapshot = await exportRetrievalSnapshot(source, COLLECTION_ID);
+
+    await target.exec(`
+      INSERT INTO workspaces (id, handle, name, constitution)
+        VALUES ('workspace_target', 'meta-braino', 'Meta Braino', 'Stay local.');
+      INSERT INTO collections
+        (id, handle, owner_id, workspace_id, visibility, data)
+        VALUES (
+          'collection_target', 'meta-braino-slack', 'workspace_target', 'workspace_target',
+          'private',
+          '{"github_integration":{"connections":[{"repo":"acme/solar"}],"installations":[]}}'::jsonb
+        );
+    `);
+
+    await replaceRetrievalSnapshot(target, snapshot, "collection_target");
+
+    const connector = await target.query<{
+      bot_access_token: string | null;
+      data: Record<string, unknown>;
+      doco_workspace_id: string;
+      collection_id: string;
+    }>(`
+      SELECT i.bot_access_token, i.data, i.doco_workspace_id, m.collection_id
+        FROM group_chat_installations i
+        JOIN group_chat_mirrors m ON m.installation_id = i.id
+    `);
+    expect(connector.rows).toEqual([
+      {
+        bot_access_token: null,
+        data: {},
+        doco_workspace_id: "workspace_target",
+        collection_id: "collection_target",
+      },
+    ]);
+    expect(await retrievalSignature(target, "collection_target")).toMatchObject({
+      slack: [{ id: "C-SOLAR:1700000000.000100" }],
+      notion: [{ id: "page-jdk" }],
+    });
+  });
 });
