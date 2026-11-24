@@ -127,7 +127,7 @@ dependencies = [
 
 [[package]]
 name = "braino-plugin-host"
-version = "0.1.55"
+version = "0.1.56"
 dependencies = [
  "axum",
  "base64 0.22.1",
