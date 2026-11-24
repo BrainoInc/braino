@@ -1,6 +1,6 @@
 {
   "name": "@doco/ui",
-  "version": "0.1.50",
+  "version": "0.1.51",
   "type": "module",
   "description": "Shared Braino application shell, design primitives, and plugin-management UI.",
   "license": "MPL-2.0",
