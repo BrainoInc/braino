@@ -1,4 +1,4 @@
-import { type PoolClient, recordWorkspaceOperation } from "@doco/db";
+import { type PoolClient, recordWorkspaceReply } from "@doco/db";
 import type { PluginEvent, TeamChatMessage, TeamChatSendResponse } from "@doco/plugin-runtime";
 import { generateUlid } from "@doco/shared";
 
@@ -150,10 +150,9 @@ export async function processNextTeamChatEvent(
         },
       });
       if (delivery.actor_user_id) {
-        await recordWorkspaceOperation(
+        await recordWorkspaceReply(
           client,
           delivery.workspace_id,
-          "reply",
           delivery.id,
           delivery.actor_user_id,
         );

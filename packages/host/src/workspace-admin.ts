@@ -148,16 +148,8 @@ export async function getWorkspaceAdminOverview(
         WHERE c.workspace_id = $1 AND cs.actor IS NOT NULL
           AND (cs.source = 'mcp' OR (cs.source = 'api' AND cs.metadata ? 'auth'))
      ), workspace_writes AS (
-       SELECT cs.recorded_at AS at, cs.source, cs.metadata
-         FROM changesets cs
-         JOIN collections c ON c.id = cs.collection_id
-        WHERE c.workspace_id = $1
-          AND cs.source <> 'import'
-          AND (cs.source <> 'api' OR coalesce(cs.metadata ? 'auth', false))
-          AND NOT EXISTS (
-            SELECT 1 FROM node_versions v
-             WHERE v.tx_id = cs.tx_id AND v.entity_type = 'policy'
-          )
+       SELECT e.at, e.source, e.metadata FROM activity_writes e
+         JOIN collections c ON c.id=e.collection_id WHERE c.workspace_id=$1
      ), workspace_imports AS (
        SELECT i.at
          FROM imported_items i

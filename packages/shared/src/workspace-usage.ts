@@ -1,5 +1,8 @@
 export interface UsagePeriodTotals {
   queries: number;
+  writes: number;
+  imports: number;
+  searchedTokens: number;
   replies: number;
   ingestedTokens: number;
 }

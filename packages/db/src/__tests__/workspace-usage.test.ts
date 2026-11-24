@@ -2,7 +2,8 @@ import type { PoolClient } from "pg";
 import { beforeEach, expect, it } from "vitest";
 import {
   readWorkspaceUsage,
-  recordWorkspaceOperation,
+  recordQueryEvent,
+  recordWorkspaceReply,
   setWorkspaceUsageActor,
 } from "../workspace-usage.js";
 import { freshDb } from "./fresh-db.js";
@@ -58,10 +59,9 @@ it("transfers retained bytes across workspaces without replaying ingestion", asy
 });
 
 it("isolates workspaces, deduplicates completed operations and integrates retained bytes over [start,end)", async () => {
-  for (const workspace of ["w1", "w1", "w2"]) {
-    await recordWorkspaceOperation(client(), workspace, "query", "request-1");
-  }
-  await recordWorkspaceOperation(client(), "w1", "reply", "turn-1");
+  await db.exec("INSERT INTO query_events(workspace_id,source) VALUES ('w1','ui'),('w2','ui')");
+  await recordWorkspaceReply(client(), "w1", "turn-1");
+  await recordWorkspaceReply(client(), "w1", "turn-1");
   expect(await readWorkspaceUsage(client(), "w1", window)).toMatchObject({
     queries: 1,
     replies: 1,
@@ -100,4 +100,50 @@ it("attributes revisions only inside the member's write transaction", async () =
     { user_id: "a", tokens: 1 },
     { user_id: null, tokens: 3 },
   ]);
+});
+
+it("reads the activity history once across editions and keeps imports workspace-wide", async () => {
+  await db.exec(`INSERT INTO query_events(workspace_id,actor,source,metadata,at) VALUES
+    ('w1','alice','mcp','{"searched_tokens":70}','2026-05-01T02:15Z'),
+    ('w1','bob','ui','{"searched_tokens":20}','2026-05-01T02:30Z'),
+    ('w1','alice','ui',null,'2026-05-01T03:00Z'),('w2','alice','ui',null,'2026-05-01T02:30Z');
+    INSERT INTO workspace_operations(workspace_id,kind,operation_id,at) VALUES ('w1','query','old-duplicate','2026-05-01T02:15Z');
+    INSERT INTO changesets(collection_id,actor,source,recorded_at) VALUES
+    ('c1','alice','ui','2026-05-01T02:10Z'),('c1','bob','mcp','2026-05-01T02:20Z'),
+    ('c1',null,'import','2026-05-01T02:22Z');
+    INSERT INTO nodes(id, collection_id,node_type,locator,updated_at)
+    VALUES ('ref_a','c1','reference','https://github.com/a/b/issues/1','2026-05-01T02:40Z');`);
+  const range = { start: new Date("2026-05-01T02:00Z"), end: new Date("2026-05-01T03:00Z") };
+  expect(await readWorkspaceUsage(client(), "w1", range)).toMatchObject({
+    queries: 2,
+    searchedTokens: 90,
+    writes: 2,
+    imports: 1,
+  });
+  expect(await readWorkspaceUsage(client(), "w1", range, "alice")).toMatchObject({
+    queries: 1,
+    searchedTokens: 70,
+    writes: 1,
+    imports: 1,
+  });
+});
+
+it("records the search corpus once using the collection token snapshot", async () => {
+  await db.exec(`INSERT INTO nodes(id,collection_id,node_type,prose) VALUES ('log_1','c1','log','abcdefgh');
+    SELECT refresh_collection_tokens();`);
+  await recordQueryEvent(client(), {
+    workspaceId: "w1",
+    actor: "alice",
+    source: "mcp",
+    metadata: { brief_id: "brief_1" },
+    searchedRecords: true,
+  });
+  const { rows } = await db.query("SELECT actor,source,metadata FROM query_events");
+  expect(rows).toEqual([
+    { actor: "alice", source: "mcp", metadata: { brief_id: "brief_1", searched_tokens: 2 } },
+  ]);
+  expect(await readWorkspaceUsage(client(), "w1", window)).toMatchObject({
+    queries: 1,
+    searchedTokens: 2,
+  });
 });

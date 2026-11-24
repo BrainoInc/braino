@@ -2,12 +2,7 @@ import type { PoolClient } from "@doco/db";
 import { installTestDatabaseClient } from "@doco/db/test-support";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
-import {
-  getWorkspaceUsageReport,
-  includeQueryWorkspace,
-  measureWorkspaceQuery,
-  workspaceUsageResponse,
-} from "../workspace-usage.js";
+import { getWorkspaceUsageReport, workspaceUsageResponse } from "../workspace-usage.js";
 
 let db: Awaited<ReturnType<typeof freshDb>>;
 let restore: () => void;
@@ -19,27 +14,6 @@ beforeEach(async () => {
     INSERT INTO workspace_users (workspace_id,user_id,role) VALUES ('w1','member','owner')`);
 });
 afterEach(() => restore());
-
-it("counts each participating workspace once only after the outer query succeeds", async () => {
-  async function query(status: number) {
-    includeQueryWorkspace("w1");
-    includeQueryWorkspace("w1");
-    includeQueryWorkspace("w2");
-    return new Response(null, { status });
-  }
-  const ok = (response: Response) => response.ok;
-  await measureWorkspaceQuery(() => query(404), ok);
-  await expect(
-    measureWorkspaceQuery(async () => {
-      await query(200);
-      throw Error("failed");
-    }, ok),
-  ).rejects.toThrow();
-  await measureWorkspaceQuery(() => query(200), ok);
-  expect(
-    (await db.query("SELECT workspace_id FROM workspace_operations ORDER BY workspace_id")).rows,
-  ).toEqual([{ workspace_id: "w1" }, { workspace_id: "w2" }]);
-});
 
 it("serves a member's window and hides other workspaces", async () => {
   const url = new URL("https://braino.example/api/v1/workspaces/one/usage.json");
@@ -56,12 +30,9 @@ it("serves a member's window and hides other workspaces", async () => {
 it("compares the UTC month and rolling five hours across midnight for workspace members", async () => {
   const now = new Date("2026-12-01T02:00:00Z");
   await db.exec(`
-    INSERT INTO workspace_operations(workspace_id,kind,operation_id,at) VALUES
-      ('w1','query','before','2026-11-30T20:59:59Z'),
-      ('w1','query','five','2026-11-30T21:00:00Z'),
-      ('w1','reply','month','2026-12-01T00:00:00Z'),
-      ('w1','query','end','2026-12-01T02:00:00Z'),
-      ('w2','query','other','2026-12-01T01:30:00Z');
+    INSERT INTO workspace_operations(workspace_id,kind,operation_id,at) VALUES ('w1','reply','month','2026-12-01T00:00:00Z');
+    INSERT INTO query_events(workspace_id,source,at) VALUES
+      ('w1','ui','2026-11-30T20:59:59Z'), ('w1','ui','2026-11-30T21:00:00Z'), ('w1','ui','2026-12-01T02:00:00Z'), ('w2','ui','2026-12-01T01:30:00Z');
     INSERT INTO workspace_content_usage(workspace_id,collection_id,at,ingested_tokens,byte_delta)
       VALUES ('w1','c1','2026-11-30T21:00:00Z',5,100),('w1','c1','2026-12-01T01:00:00Z',2,100);
     UPDATE workspace_users SET role='reader' WHERE user_id='member';
@@ -79,6 +50,9 @@ it("compares the UTC month and rolling five hours across midnight for workspace 
       start: "2026-12-01T00:00:00.000Z",
       end: now.toISOString(),
       queries: 0,
+      writes: 0,
+      imports: 0,
+      searchedTokens: 0,
       replies: 1,
       ingestedTokens: 2,
       storedBytes: 200,
@@ -133,8 +107,9 @@ it("filters both windows by a current member while retaining the workspace stora
   await db.exec(`INSERT INTO users (id, username, name, data) VALUES ('other','sam','Sam','{}'),('outside','eve',NULL,'{}');
     INSERT INTO workspace_users(workspace_id,user_id,role) VALUES ('w1','other','reader'),('w2','outside','owner');
     INSERT INTO workspace_operations(workspace_id,kind,operation_id,user_id,at) VALUES
-    ('w1','query','first','member','2026-12-01T00:00Z'),('w1','reply','second','other','2026-12-02T06:55Z'),
-    ('w1','reply','third','member','2026-12-02T06:55Z'),('w1','query','legacy',NULL,'2026-12-02T06:55Z');
+    ('w1','reply','second','other','2026-12-02T06:55Z'),('w1','reply','third','member','2026-12-02T06:55Z');
+    INSERT INTO query_events(workspace_id,source,actor,at) VALUES
+    ('w1','ui','member','2026-12-01T00:00Z'),('w1','ui',NULL,'2026-12-02T06:55Z');
     INSERT INTO workspace_content_usage(workspace_id,collection_id,ingested_tokens,byte_delta,user_id,at)
     VALUES ('w1','c',7,28,'member','2026-12-02T06:55Z'),('w1','c',10,40,NULL,'2026-12-02T06:55Z');`);
   const report = await getWorkspaceUsageReport("one", "other", now, "member");
@@ -160,35 +135,9 @@ it("filters both windows by a current member while retaining the workspace stora
   });
 });
 
-it("attributes a successful query once and only to its workspace member", async () => {
-  await measureWorkspaceQuery(
-    async () => {
-      includeQueryWorkspace("w1", "member");
-      includeQueryWorkspace("w1");
-      includeQueryWorkspace("w2", "member");
-    },
-    () => true,
-  );
-  expect(
-    (await db.query("SELECT workspace_id,user_id FROM workspace_operations ORDER BY workspace_id"))
-      .rows,
-  ).toEqual([
-    { workspace_id: "w1", user_id: "member" },
-    { workspace_id: "w2", user_id: null },
-  ]);
-});
-
 it("applies the page's member filter to the usage API and rejects IDs outside the workspace", async () => {
-  await measureWorkspaceQuery(
-    async () => true,
-    (x) => x,
-    "w1",
-    "member",
-  );
-  await measureWorkspaceQuery(
-    async () => true,
-    (x) => x,
-    "w1",
+  await db.exec(
+    "INSERT INTO query_events(workspace_id,source,actor) VALUES ('w1','ui','member'),('w1','ui',NULL)",
   );
   const url = new URL("https://braino.example/usage.json?member=member");
   expect(await (await workspaceUsageResponse(url, "one", "member")).json()).toMatchObject({

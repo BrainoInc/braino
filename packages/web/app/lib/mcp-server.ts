@@ -1,10 +1,9 @@
-import { withClient } from "@doco/db";
+import { recordQueryEvent, withClient, withTransaction } from "@doco/db";
 import {
   MCP_OAUTH_SCOPE,
   type McpPrincipal,
   applyChangeset,
   createWorkspaceBrief,
-  measureWorkspaceQuery,
   recordBriefFeedback,
   searchWorkspaceRecords,
 } from "@doco/host";
@@ -198,7 +197,7 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
     const touching = Array.isArray(args.touching)
       ? args.touching.filter((value): value is string => typeof value === "string")
       : [];
-    const brief = await withClient((client) =>
+    const brief = await withTransaction((client) =>
       createWorkspaceBrief(client, {
         workspaceId: principal.workspaceId,
         userId: principal.userId,
@@ -210,9 +209,9 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
     return toolResult(brief);
   }
   if (name === "doco_get") {
-    const record = await withClient(async (client) => {
+    const record = await withTransaction(async (client) => {
       const found = await client.query(
-        `SELECT n.id, c.handle AS collection_handle, n.node_type, n.lifecycle,
+        `SELECT n.collection_id,n.id, c.handle AS collection_handle, n.node_type, n.lifecycle,
                 n.prose, n.kind, n.locator, n.extra,
                 n.created_at::text, n.updated_at::text
            FROM nodes n
@@ -224,7 +223,17 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
             )`,
         [string(args.id, "id"), principal.workspaceId, principal.userId],
       );
-      return found.rows[0] ?? null;
+      const row = found.rows[0];
+      if (!row) return null;
+      const { collection_id, ...record } = row;
+      await recordQueryEvent(client, {
+        workspaceId: principal.workspaceId,
+        collectionId: collection_id,
+        actor: principal.userId,
+        source: "mcp",
+        metadata: { auth: "bearer", client: principal.label ?? "MCP client", tool: "doco_get" },
+      });
+      return record;
     });
     if (!record) throw new Error("Record not found.");
     return toolResult(record);
@@ -239,21 +248,19 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
         query,
         ...(requestedLimit === undefined ? {} : { limit: requestedLimit }),
       });
-      await client.query(
-        `INSERT INTO query_events (actor, workspace_id, source, metadata)
-         VALUES ($1, $2, 'mcp', $3::jsonb)`,
-        [
-          principal.userId,
-          principal.workspaceId,
-          JSON.stringify({
-            auth: "bearer",
-            client: principal.label ?? "MCP client",
-            tool: "doco_search",
-            query,
-            result_ids: searched.map((row) => row.id),
-          }),
-        ],
-      );
+      await recordQueryEvent(client, {
+        workspaceId: principal.workspaceId,
+        actor: principal.userId,
+        source: "mcp",
+        searchedRecords: true,
+        metadata: {
+          auth: "bearer",
+          client: principal.label ?? "MCP client",
+          tool: "doco_search",
+          query,
+          result_ids: searched.map((row) => row.id),
+        },
+      });
       return searched;
     });
     return toolResult({ query, results });
@@ -333,10 +340,7 @@ export async function handleMcpMessage(
     try {
       const params = object(message.params);
       const name = string(params.name, "tool name");
-      const invoke = () => callTool(name, params.arguments, principal);
-      const result = ["doco_get", "doco_search", "doco_brief"].includes(name)
-        ? await measureWorkspaceQuery(invoke, () => true, principal.workspaceId, principal.userId)
-        : await invoke();
+      const result = await callTool(name, params.arguments, principal);
       return { jsonrpc: "2.0", id, result };
     } catch (error) {
       return {

@@ -193,7 +193,8 @@ export {
 export {
   readWorkspaceUsage,
   readWorkspaceUsageBuckets,
-  recordWorkspaceOperation,
+  recordQueryEvent,
+  recordWorkspaceReply,
   setWorkspaceUsageActor,
   workspaceUsageWindow,
   type WorkspaceUsage,

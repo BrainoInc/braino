@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { PoolClient } from "@doco/db";
+import { type PoolClient, recordQueryEvent } from "@doco/db";
 import { generateUlid } from "@doco/shared";
 
 const MCP_CLIENT_ID = "doco_self_hosted_tokens";
@@ -301,20 +301,6 @@ export async function createWorkspaceBrief(
   const resultId = `result_${generateUlid()}`;
   const resultIds = [...policies.rows, ...found.rows].map((row) => row.id);
   await client.query(
-    `INSERT INTO query_events (actor, workspace_id, source, metadata)
-     VALUES ($1, $2, 'mcp', $3::jsonb)`,
-    [
-      input.userId,
-      input.workspaceId,
-      JSON.stringify({
-        auth: "bearer",
-        client: input.agentLabel?.trim() || "MCP client",
-        brief_id: briefId,
-        touching,
-      }),
-    ],
-  );
-  await client.query(
     `INSERT INTO agent_results
        (id, actor, tool, query, result_ids, source, metadata, context)
      VALUES ($1, $2, 'doco_brief', $3, $4, 'mcp', $5::jsonb, $6::jsonb)`,
@@ -327,6 +313,18 @@ export async function createWorkspaceBrief(
       JSON.stringify({ model: "none", workspace_id: input.workspaceId }),
     ],
   );
+  await recordQueryEvent(client, {
+    workspaceId: input.workspaceId,
+    actor: input.userId,
+    source: "mcp",
+    searchedRecords: true,
+    metadata: {
+      auth: "bearer",
+      client: input.agentLabel?.trim() || "MCP client",
+      brief_id: briefId,
+      touching,
+    },
+  });
   const summary = `${resultIds.length} records selected from ${workspaceRow.name}; deterministic PostgreSQL ranking, no model used.`;
   return {
     brief_id: briefId,

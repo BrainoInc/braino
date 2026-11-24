@@ -5,8 +5,22 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 import { WorkspaceUsagePage } from "../workspace-usage.js";
 
-const monthly = { queries: 12000, replies: 42, ingestedTokens: 700 };
-const recent = { queries: 0, replies: 2, ingestedTokens: 18 };
+const monthly = {
+  writes: 18,
+  imports: 7,
+  searchedTokens: 200,
+  queries: 12000,
+  replies: 42,
+  ingestedTokens: 700,
+};
+const recent = {
+  writes: 2,
+  imports: 1,
+  searchedTokens: 12,
+  queries: 0,
+  replies: 2,
+  ingestedTokens: 18,
+};
 const end = "2026-12-01T02:00:00.000Z";
 const changeMember = vi.fn();
 const page = (
@@ -26,9 +40,14 @@ const page = (
       month: "Dieser Monat (UTC)",
       fiveHours: "Letzte 5 Stunden",
       queries: "Abfragen",
+      writes: "Änderungen",
+      imports: "Importe",
+      workspaceImports: "Importe im Arbeitsbereich",
+      searchedTokens: "Durchsuchte Token",
       replies: "Antworten von Señor Braino",
       ingestedTokens: "Ingestierte Token",
       storedBytes: "Belegter Speicher",
+      searchDescription: "Durchsuchter Text.",
       ingestionDescription: "Ein Token pro vier Zeichen, pro Textrevision aufgerundet.",
       storageDescription: "Gespeicherter Quelltext am Ende jedes Intervalls.",
       updated: "Stand",
@@ -50,11 +69,14 @@ const page = (
   />
 );
 
-it("renders all four metrics for this month on the first response", () => {
+it("renders all seven metrics for this month on the first response", () => {
   const html = renderToStaticMarkup(page);
-  expect(html.match(/<figure\b/g)).toHaveLength(4);
+  expect(html.match(/<figure\b/g)).toHaveLength(7);
   for (const text of [
     "Abfragen",
+    "Änderungen",
+    "Importe",
+    "Durchsuchte Token",
     "Antworten von Señor Braino",
     "Ingestierte Token",
     "Belegter Speicher",
@@ -90,12 +112,12 @@ it("changes every graph with one time filter and keeps current storage fixed", a
     });
     expect(changeMember).toHaveBeenCalledWith("m1");
     const initial = totals();
-    expect(initial[3]).toMatch(/5.*kB/i);
-    expect(initial.slice(0, 3)).toEqual(["12.000", "42", "700"]);
+    expect(initial[6]).toMatch(/5.*kB/i);
+    expect(initial.slice(0, 6)).toEqual(["12.000", "200", "18", "7", "42", "700"]);
     await act(async () => fiveHours?.click());
     expect(fiveHours?.checked).toBe(true);
-    expect(totals().slice(0, 3)).toEqual(["0", "2", "18"]);
-    expect(totals()[3]).toBe(initial[3]);
+    expect(totals().slice(0, 6)).toEqual(["0", "12", "2", "1", "2", "18"]);
+    expect(totals()[6]).toBe(initial[6]);
     expect(container.textContent).toContain("15-Minuten-Intervalle");
     await act(async () => month?.click());
     expect(totals()).toEqual(initial);
