@@ -47,15 +47,15 @@ export default function Usage() {
       labels={{
         title: t("Workspace usage"),
         updated: t("Updated"),
-        metric: t("Metric"),
+        timeRange: t("Time range"),
         daily: t("Daily"),
         quarterHourly: t("15-minute intervals"),
         month: t("This month (UTC)"),
         fiveHours: t("Last 5 hours"),
         queries: t("Queries"),
         replies: t("Assistant replies"),
-        tokens: t("Estimated ingestion tokens"),
-        averageStorage: t("Average storage"),
+        ingestedTokens: t("Estimated ingestion tokens"),
+        averageStoredBytes: t("Average storage"),
         currentStorage: t("Current storage"),
       }}
     />

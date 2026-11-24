@@ -87,7 +87,7 @@ dependencies = [
 
 [[package]]
 name = "braino-codelinker"
-version = "0.1.54"
+version = "0.1.55"
 dependencies = [
  "axum",
  "http-body-util",
