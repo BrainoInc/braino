@@ -20,6 +20,7 @@
     "@doco/index": "workspace:*",
     "@doco/plugin-runtime": "workspace:*",
     "@doco/shared": "workspace:*",
+    "@doco/ui": "workspace:*",
     "@react-router/express": "7.18.5",
     "@react-router/node": "7.18.5",
     "country-flag-icons": "1.6.20",

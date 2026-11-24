@@ -1,4 +1,5 @@
 import { useT } from "@doco/shared/i18n/react";
+import { BrainoMark } from "@doco/ui";
 import {
   type CSSProperties,
   type FormEvent,
@@ -10,7 +11,6 @@ import {
   useState,
 } from "react";
 import { Link } from "react-router";
-import { BrainoMark } from "~/components/braino-mark";
 
 const API_PATH = "/api/v1/senor-braino.json";
 const COLLAPSE_KEY = "braino:senor-braino:collapsed";

@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { cn } from "../lib/cn";
+import { classes } from "./classes.js";
 
 const VIEWBOX_WIDTH = 720;
 const VIEWBOX_HEIGHT = 180;
@@ -38,7 +38,7 @@ export function BrainoMark({
       width={width}
       height={height}
       focusable="false"
-      className={cn(
+      className={classes(
         "braino-mark block",
         active && "braino-mark-active",
         raised && "braino-mark-raised",

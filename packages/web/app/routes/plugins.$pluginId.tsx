@@ -12,11 +12,11 @@ import {
   verifyWorkspaceModelPlugin,
 } from "@doco/host/model-plugins";
 import { useT } from "@doco/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
+import { PageHeader } from "@doco/ui";
+import { PageMain } from "@doco/ui";
+import { PluginLogo } from "@doco/ui";
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
-import { PageHeader } from "~/components/page-header";
-import { PageMain } from "~/components/page-main";
-import { PluginLogo } from "~/components/plugin-logo";
 import { bundledModelPlugin, bundledPlugin } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { MODEL_CAPABILITY } from "~/lib/model-plugin-catalog";

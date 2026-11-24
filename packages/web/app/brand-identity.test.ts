@@ -39,7 +39,7 @@ describe("Braino's public identity", () => {
   });
 
   it("uses the established Braino mark and release image", () => {
-    expect(read("packages/web/app/components/braino-mark.tsx")).toContain('ariaLabel = "Braino"');
+    expect(read("packages/ui/src/braino-mark.tsx")).toContain('ariaLabel = "Braino"');
     expect(read("packages/web/app/root.tsx")).toContain("<SiteHeader");
     expect(read("packages/web/app/components/site-header.tsx")).toContain(
       "<BrainoMark height={28}",

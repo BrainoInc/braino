@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { AgentSidebar } from "../agent-sidebar";
 
 const appCss = readFileSync(new URL("../../app.css", import.meta.url), "utf8");
+const sharedCss = readFileSync(new URL("../../../../ui/styles.css", import.meta.url), "utf8");
 
 function render(): string {
   return renderToStaticMarkup(createElement(MemoryRouter, null, createElement(AgentSidebar)));
@@ -22,8 +23,9 @@ describe("AgentSidebar", () => {
   });
 
   it("becomes the same overlay drawer as hosted Braino on narrow screens", () => {
-    expect(appCss).toContain('.senor-doco-rail:not([data-collapsed="true"])');
-    expect(appCss).toContain("@media (min-width: 640px)");
-    expect(appCss).toContain(".senor-doco-backdrop");
+    expect(appCss).toContain('@import "@doco/ui/styles.css"');
+    expect(sharedCss).toContain('.senor-doco-rail:not([data-collapsed="true"])');
+    expect(sharedCss).toContain("@media (min-width: 640px)");
+    expect(sharedCss).toContain(".senor-doco-backdrop");
   });
 });

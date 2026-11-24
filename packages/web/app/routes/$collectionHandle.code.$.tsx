@@ -1,10 +1,10 @@
 import { withClient } from "@doco/db";
 import { useT } from "@doco/shared/i18n/react";
+import { Card, CardContent, CardHeader, CardTitle } from "@doco/ui";
+import { PageHeader } from "@doco/ui";
+import { PageMain } from "@doco/ui";
 import { ExternalLink } from "lucide-react";
 import { Link, redirect, useLoaderData } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/card";
-import { PageHeader } from "~/components/page-header";
-import { PageMain } from "~/components/page-main";
 import { getCollectionForUser } from "~/lib/collection-access.server";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { metaTranslator } from "~/locales/catalog";

@@ -15,10 +15,10 @@ import {
 import { WRITABLE_TYPES } from "@doco/shared";
 import { msg } from "@doco/shared/i18n";
 import { useT } from "@doco/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
+import { PageHeader } from "@doco/ui";
+import { PageMain } from "@doco/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/card";
-import { PageHeader } from "~/components/page-header";
-import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
 import { publicOrigin } from "~/lib/public-origin.server";

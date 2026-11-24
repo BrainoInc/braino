@@ -1,10 +1,10 @@
 import { withClient } from "@doco/db";
 import { getSingleWorkspaceState, searchWorkspaceRecords } from "@doco/host";
 import { useT } from "@doco/shared/i18n/react";
+import { Card, CardContent } from "@doco/ui";
+import { PageHeader } from "@doco/ui";
+import { PageMain } from "@doco/ui";
 import { Form, Link, redirect, useLoaderData } from "react-router";
-import { Card, CardContent } from "~/components/card";
-import { PageHeader } from "~/components/page-header";
-import { PageMain } from "~/components/page-main";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { metaTranslator } from "~/locales/catalog";
 

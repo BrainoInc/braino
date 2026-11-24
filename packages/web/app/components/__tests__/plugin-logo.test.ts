@@ -1,8 +1,8 @@
+import { LOGOS } from "@doco/ui";
+import { PluginLogo } from "@doco/ui";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { LOGOS } from "~/lib/logos";
-import { PluginLogo } from "../plugin-logo";
 
 describe("PluginLogo", () => {
   it.each([

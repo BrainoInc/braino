@@ -1,8 +1,6 @@
 import { useT } from "@doco/shared/i18n/react";
-import { Menu } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { AppHeader, BrainoMark } from "@doco/ui";
 import { Form, NavLink } from "react-router";
-import { BrainoMark } from "~/components/braino-mark";
 import { LanguageMenu } from "~/components/language-menu";
 import { ThemeMenu } from "~/components/theme-menu";
 import { VersionPill } from "~/components/version-pill";
@@ -24,9 +22,9 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function SiteHeader({ user, isOwner = false, initialized = true }: SiteHeaderProps) {
   const t = useT();
   return (
-    <header className="h-14 border-b border-border bg-card">
-      <div className="flex h-full w-full items-center gap-6 px-6">
-        <h1 className="m-0 flex min-w-0 items-center gap-3 leading-none">
+    <AppHeader
+      home={
+        <h1 className="m-0 leading-none">
           <NavLink
             to="/"
             className="inline-flex items-center hover:opacity-80"
@@ -34,29 +32,35 @@ export function SiteHeader({ user, isOwner = false, initialized = true }: SiteHe
           >
             <BrainoMark height={28} />
           </NavLink>
-          <VersionPill />
         </h1>
-        <div className="ms-auto flex shrink-0 items-center gap-3 text-xs">
-          {user ? (
-            <>
-              <nav className="hidden items-center gap-2 xl:flex">
-                <NavButtons user={user} isOwner={isOwner} />
-              </nav>
-              <MobileNavMenu user={user} isOwner={isOwner} />
-            </>
-          ) : initialized ? (
-            <NavLink
-              to="/"
-              className="neu-button whitespace-nowrap rounded-md px-3 py-1.5 font-semibold"
-            >
-              {t("Sign in")}
-            </NavLink>
-          ) : null}
+      }
+      badges={<VersionPill />}
+      {...(user
+        ? {
+            navigation: ({ onNavigate }: { onNavigate?: () => void }) => (
+              <NavButtons user={user} isOwner={isOwner} onNavigate={onNavigate} />
+            ),
+          }
+        : {})}
+      signedOutAction={
+        !user && initialized ? (
+          <NavLink
+            to="/"
+            className="neu-button whitespace-nowrap rounded-md px-3 py-1.5 font-semibold"
+          >
+            {t("Sign in")}
+          </NavLink>
+        ) : null
+      }
+      utilities={
+        <>
           <ThemeMenu />
           <LanguageMenu />
-        </div>
-      </div>
-    </header>
+        </>
+      }
+      menuLabel={t("Open navigation menu")}
+      navigationLabel={t("Navigation")}
+    />
   );
 }
 
@@ -105,49 +109,5 @@ function NavButtons({
         </button>
       </Form>
     </>
-  );
-}
-
-function MobileNavMenu({ user, isOwner }: { user: CurrentUser; isOwner: boolean }) {
-  const t = useT();
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocumentClick(event: MouseEvent) {
-      if (!wrapperRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocumentClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocumentClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={wrapperRef} className="relative xl:hidden">
-      <button
-        type="button"
-        aria-label={t("Open navigation menu")}
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className="neu-button inline-flex h-9 w-9 items-center justify-center rounded-md"
-      >
-        <Menu className="h-4 w-4" aria-hidden="true" />
-      </button>
-      {open ? (
-        <div
-          aria-label={t("Navigation")}
-          className="neu-floating absolute end-0 top-full z-[130] mt-2 flex w-48 flex-col gap-2 rounded-md bg-card p-2"
-        >
-          <NavButtons user={user} isOwner={isOwner} onNavigate={() => setOpen(false)} />
-        </div>
-      ) : null}
-    </div>
   );
 }

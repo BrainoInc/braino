@@ -8,7 +8,7 @@
 // This file is what the server sends for it (lib/orbit.server.ts) and the rules
 // both sides share. The picture itself is components/orbit.tsx.
 
-import type { LogoId } from "./logos";
+import type { LogoId } from "@doco/ui";
 /** The periods the timeline bar offers, in milliseconds. Live is not replayed:
  *  its bar holds the last quarter of an hour and its playhead is now, so what
  *  happens in the workspace shows as it happens (Alexander, 2026-11-16: "Add a
