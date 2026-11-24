@@ -13,8 +13,9 @@ interface UsageLabels {
   queries: string;
   replies: string;
   ingestedTokens: string;
-  averageStoredBytes: string;
-  currentStorage: string;
+  storedBytes: string;
+  ingestionDescription: string;
+  storageDescription: string;
   updated: string;
 }
 
@@ -29,7 +30,7 @@ function formatBytes(value: number, locale: string): string {
   }).format(value / 1000 ** index);
 }
 
-const metrics = ["queries", "replies", "ingestedTokens", "averageStoredBytes"] as const;
+const metrics = ["queries", "replies", "ingestedTokens", "storedBytes"] as const;
 const timeRanges = ["month", "fiveHours"] as const;
 type Metric = (typeof metrics)[number];
 
@@ -38,12 +39,16 @@ function UsageChart({
   daily,
   metric,
   metricName,
+  total,
+  description,
   locale,
 }: {
   period: WorkspaceUsagePeriod;
   daily: boolean;
   metric: Metric;
   metricName: string;
+  total: number;
+  description: string | undefined;
   locale: string;
 }) {
   const captionId = useId();
@@ -54,9 +59,9 @@ function UsageChart({
   const count = new Intl.NumberFormat(locale);
   const compact = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 });
   const format = (v: number) =>
-    metric === "averageStoredBytes" ? formatBytes(v, locale) : count.format(v);
+    metric === "storedBytes" ? formatBytes(v, locale) : count.format(v);
   const formatAxis = (v: number) =>
-    metric === "averageStoredBytes" ? formatBytes(v, locale) : compact.format(v);
+    metric === "storedBytes" ? formatBytes(v, locale) : compact.format(v);
   const date = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" });
   const time = new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
@@ -89,8 +94,9 @@ function UsageChart({
       <figcaption id={captionId} className="space-y-1">
         <h2 className="text-base font-semibold">{metricName}</h2>
         <strong className="block font-mono text-3xl font-semibold tabular-nums">
-          {format(period[metric])}
+          {format(total)}
         </strong>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </figcaption>
       <div
         dir="ltr"
@@ -188,6 +194,10 @@ export function WorkspaceUsagePage({
   const [range, setRange] = useState<(typeof timeRanges)[number]>("month");
   const rangeGroup = useId();
   const daily = range === "month";
+  const descriptions: Partial<Record<Metric, string>> = {
+    ingestedTokens: labels.ingestionDescription,
+    storedBytes: labels.storageDescription,
+  };
   const stamp = new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "short",
@@ -204,41 +214,33 @@ export function WorkspaceUsagePage({
           {labels.updated} <time dateTime={report.asOf}>{stamp.format(new Date(report.asOf))}</time>
         </p>
       </PageHeader>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <fieldset className="min-w-0">
-          <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
-            {labels.timeRange}
-          </legend>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <div className="inline-flex max-w-full rounded-md border border-border p-0.5">
-              {timeRanges.map((option) => (
-                <label key={option} className="cursor-pointer">
-                  <input
-                    type="radio"
-                    name={rangeGroup}
-                    value={option}
-                    checked={range === option}
-                    onChange={() => setRange(option)}
-                    className="peer sr-only"
-                  />
-                  <span className="block rounded px-3 py-2 text-sm text-muted-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
-                    {labels[option]}
-                  </span>
-                </label>
-              ))}
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {daily ? labels.daily : labels.quarterHourly}
-            </span>
+      <fieldset className="min-w-0">
+        <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
+          {labels.timeRange}
+        </legend>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <div className="inline-flex max-w-full rounded-md border border-border p-0.5">
+            {timeRanges.map((option) => (
+              <label key={option} className="cursor-pointer">
+                <input
+                  type="radio"
+                  name={rangeGroup}
+                  value={option}
+                  checked={range === option}
+                  onChange={() => setRange(option)}
+                  className="peer sr-only"
+                />
+                <span className="block rounded px-3 py-2 text-sm text-muted-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+                  {labels[option]}
+                </span>
+              </label>
+            ))}
           </div>
-        </fieldset>
-        <dl className="text-end">
-          <dt className="text-xs text-muted-foreground">{labels.currentStorage}</dt>
-          <dd className="font-mono font-semibold tabular-nums">
-            {formatBytes(report.storedBytes, locale)}
-          </dd>
-        </dl>
-      </div>
+          <span className="text-xs text-muted-foreground">
+            {daily ? labels.daily : labels.quarterHourly}
+          </span>
+        </div>
+      </fieldset>
       <div
         key={range}
         className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-5"
@@ -250,6 +252,8 @@ export function WorkspaceUsagePage({
               daily={daily}
               metric={metric}
               metricName={labels[metric]}
+              total={metric === "storedBytes" ? report.storedBytes : report[range][metric]}
+              description={descriptions[metric]}
               locale={locale}
             />
           </Card>

@@ -70,8 +70,8 @@ it("compares the UTC month and rolling five hours across midnight for workspace 
   expect(await getWorkspaceUsageReport("one", "member", now)).toMatchObject({
     asOf: now.toISOString(),
     storedBytes: 200,
-    month: { queries: 0, replies: 1, ingestedTokens: 2, averageStoredBytes: 150 },
-    fiveHours: { queries: 1, replies: 1, ingestedTokens: 7, averageStoredBytes: 120 },
+    month: { queries: 0, replies: 1, ingestedTokens: 2 },
+    fiveHours: { queries: 1, replies: 1, ingestedTokens: 7 },
   });
   const report = await getWorkspaceUsageReport("one", "member", now);
   expect(report?.month.buckets).toEqual([
@@ -81,49 +81,49 @@ it("compares the UTC month and rolling five hours across midnight for workspace 
       queries: 0,
       replies: 1,
       ingestedTokens: 2,
-      averageStoredBytes: 150,
+      storedBytes: 200,
     },
   ]);
   expect(report?.fiveHours.buckets).toHaveLength(20);
   expect(report?.fiveHours.buckets[0]).toMatchObject({
     queries: 1,
     ingestedTokens: 5,
-    averageStoredBytes: 100,
+    storedBytes: 100,
   });
   expect(report?.fiveHours.buckets[1]).toMatchObject({
     queries: 0,
     replies: 0,
     ingestedTokens: 0,
-    averageStoredBytes: 100,
+    storedBytes: 100,
   });
   expect(report?.fiveHours.buckets[12]).toMatchObject({ replies: 1 });
   expect(report?.fiveHours.buckets[16]).toMatchObject({
-    averageStoredBytes: 200,
+    storedBytes: 200,
     ingestedTokens: 2,
   });
   const midnight = await getWorkspaceUsageReport("one", "member", new Date("2026-12-01T00:00:00Z"));
   expect(midnight?.month).toMatchObject({
     queries: 0,
     replies: 0,
-    averageStoredBytes: 0,
     buckets: [],
   });
 });
 
-it("weights storage by elapsed time in the partial UTC day and anchors rolling bars to the snapshot", async () => {
+it("carries retained bytes across the window and lowers the balance when text is removed", async () => {
   const now = new Date("2026-12-02T00:07:12.345Z");
   await db.exec(`INSERT INTO workspace_content_usage(workspace_id,collection_id,at,ingested_tokens,byte_delta)
      VALUES ('w1','c1','2026-11-01T00:00:00Z',50,100),('w1','c1','2026-12-02T00:02:12.345Z',3,-40);`);
   const report = await getWorkspaceUsageReport("one", "member", now);
   expect(report?.month.buckets).toHaveLength(2);
-  expect(report?.month.buckets[0]?.averageStoredBytes).toBe(100);
-  expect(report?.month.buckets[1]?.averageStoredBytes).toBeCloseTo(100 - (40 * 300) / 432.345, 7);
-  expect(report?.month.averageStoredBytes).toBeCloseTo(100 - (40 * 300) / (86400 + 432.345), 7);
+  expect(report?.month.buckets[0]?.storedBytes).toBe(100);
+  expect(report?.month.buckets[1]?.storedBytes).toBe(60);
+  expect(report?.fiveHours.buckets[0]?.storedBytes).toBe(100);
   expect(report?.fiveHours.buckets[0]?.start).toBe("2026-12-01T19:07:12.345Z");
   expect(report?.fiveHours.buckets.at(-1)).toMatchObject({
     start: "2026-12-01T23:52:12.345Z",
     end: now.toISOString(),
     ingestedTokens: 3,
+    storedBytes: 60,
   });
   expect(report?.storedBytes).toBe(60);
 });
