@@ -15,9 +15,14 @@ interface UsageLabels {
   quarterHourly: string;
   fiveHours: string;
   queries: string;
+  writes: string;
+  imports: string;
+  workspaceImports: string;
+  searchedTokens: string;
   replies: string;
   ingestedTokens: string;
   storedBytes: string;
+  searchDescription: string;
   ingestionDescription: string;
   storageDescription: string;
   updated: string;
@@ -34,7 +39,15 @@ function formatBytes(value: number, locale: string): string {
   }).format(value / 1000 ** index);
 }
 
-const metrics = ["queries", "replies", "ingestedTokens", "storedBytes"] as const;
+const metrics = [
+  "queries",
+  "searchedTokens",
+  "writes",
+  "imports",
+  "replies",
+  "ingestedTokens",
+  "storedBytes",
+] as const;
 const timeRanges = ["month", "fiveHours"] as const;
 type Metric = (typeof metrics)[number];
 
@@ -201,6 +214,7 @@ export function WorkspaceUsagePage({
   const rangeGroup = useId();
   const daily = range === "month";
   const descriptions: Partial<Record<Metric, string>> = {
+    searchedTokens: labels.searchDescription,
     ingestedTokens: labels.ingestionDescription,
     storedBytes: labels.storageDescription,
   };
@@ -276,9 +290,11 @@ export function WorkspaceUsagePage({
               daily={daily}
               metric={metric}
               metricName={
-                metric === "storedBytes" && report.memberId
-                  ? labels.workspaceStorage
-                  : labels[metric]
+                metric === "imports" && report.memberId
+                  ? labels.workspaceImports
+                  : metric === "storedBytes" && report.memberId
+                    ? labels.workspaceStorage
+                    : labels[metric]
               }
               total={metric === "storedBytes" ? report.storedBytes : report[range][metric]}
               description={descriptions[metric]}

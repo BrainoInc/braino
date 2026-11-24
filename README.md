@@ -236,14 +236,17 @@ Source code in this repository is available under the Mozilla Public License
 Signed-in workspace members can read `GET /api/v1/workspaces/{handle}/usage.json`.
 It reports the current UTC month to date. Pass ISO 8601 `start` and `end`
 to inspect a different window, such as the last five hours. Start is inclusive
-and end is exclusive. Pass `member=<user ID>` to filter queries, replies and
+and end is exclusive. Pass `member=<user ID>` to filter queries, searched tokens, writes, replies and
 ingested tokens to a current workspace member. The same filter is available on
 the workspace usage page. Workspace totals include historical and automated
-events without a recorded member. Storage always measures the whole workspace.
+events without a recorded member. Imports and storage always measure the whole workspace.
 
-- `queries` counts completed external reads, searches and briefs per workspace.
+- `queries` counts entries in the activity query log, including retained history.
+  `searchedTokens` sums the searchable corpus size recorded for those queries.
+- `writes` counts the changesets shown in workspace activity, excluding policy
+  revisions and import-generated writes. `imports` counts items by their source
+  timestamps, using the same definition as workspace activity.
 - `replies` counts completed workspace assistant replies, including team chat.
-  Searches made to compose a reply are included in that reply.
 - `ingestedTokens` estimates each newly saved or changed source body at one
   token per four Unicode characters, rounded up per revision.
   `lifetimeIngestedTokens` accumulates through the end of the window.
@@ -254,5 +257,5 @@ events without a recorded member. Storage always measures the whole workspace.
 Content covers record prose, code file contents, mirrored Slack message text,
 and mirrored Notion and Drive Markdown. A soft-deleted collection still retains
 its data. Hard deletion releases its storage. Existing data opens with a
-storage balance on upgrade. Operation and ingestion history begins when
+storage balance on upgrade. Reply and ingestion history begins when
 tracking is installed. Each installation keeps its own measurements.

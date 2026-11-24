@@ -21,6 +21,7 @@ export async function loader({ request }: { request: Request }) {
   if (!state.initialized) throw redirect("/");
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 500) ?? "";
   const results = await searchAsWorkspaceMember({
+    source: "ui",
     workspaceId: state.workspace.id,
     userId: user.id,
     query,

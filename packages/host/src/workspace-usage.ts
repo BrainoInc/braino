@@ -1,43 +1,12 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-import { randomUUID } from "node:crypto";
 import {
   type PoolClient,
   readWorkspaceUsage,
   readWorkspaceUsageBuckets,
-  recordWorkspaceOperation,
   withTransaction,
   workspaceUsageWindow,
 } from "@doco/db";
 
 import type { WorkspaceUsagePeriod, WorkspaceUsageReport } from "@doco/shared";
-
-const queryWorkspaces = new AsyncLocalStorage<Map<string, string | null>>();
-
-/** A read can discover its authorized workspace(s) below the transport boundary. */
-export function includeQueryWorkspace(workspaceId: string, userId?: string | null): void {
-  const workspaces = queryWorkspaces.getStore();
-  if (workspaces) workspaces.set(workspaceId, workspaces.get(workspaceId) ?? userId ?? null);
-}
-
-/** Meter an externally initiated read once per workspace, after its result is known. */
-export async function measureWorkspaceQuery<T>(
-  run: () => Promise<T>,
-  succeeded: (result: T) => boolean,
-  workspaceId?: string,
-  userId: string | null = null,
-): Promise<T> {
-  const workspaces = new Map<string, string | null>();
-  if (workspaceId) workspaces.set(workspaceId, userId);
-  const result = await queryWorkspaces.run(workspaces, run);
-  if (workspaces.size && succeeded(result)) {
-    const operationId = randomUUID();
-    await withTransaction(async (client) => {
-      for (const [id, memberId] of workspaces)
-        await recordWorkspaceOperation(client, id, "query", operationId, memberId ?? userId);
-    });
-  }
-  return result;
-}
 
 async function memberWorkspaceId(
   client: PoolClient,
@@ -58,30 +27,43 @@ async function memberWorkspaceId(
 function summarizePeriod(
   rows: Awaited<ReturnType<typeof readWorkspaceUsageBuckets>>,
 ): WorkspaceUsagePeriod {
-  let queries = 0;
-  let replies = 0;
-  let ingestedTokens = 0;
-  const buckets: WorkspaceUsagePeriod["buckets"] = [];
-  for (const row of rows) {
-    if (row.start === row.end) continue;
-    buckets.push({
-      start: row.start,
-      end: row.end,
-      queries: row.queries,
-      replies: row.replies,
-      ingestedTokens: row.ingestedTokens,
-      storedBytes: row.storedBytes,
-    });
-    queries += row.queries;
-    replies += row.replies;
-    ingestedTokens += row.ingestedTokens;
-  }
-  return {
-    queries,
-    replies,
-    ingestedTokens,
-    buckets,
+  const buckets = rows
+    .filter((row) => row.start !== row.end)
+    .map(
+      ({
+        start,
+        end,
+        queries,
+        writes,
+        imports,
+        searchedTokens,
+        replies,
+        ingestedTokens,
+        storedBytes,
+      }) => ({
+        start,
+        end,
+        queries,
+        writes,
+        imports,
+        searchedTokens,
+        replies,
+        ingestedTokens,
+        storedBytes,
+      }),
+    );
+  const totals = {
+    queries: 0,
+    writes: 0,
+    imports: 0,
+    searchedTokens: 0,
+    replies: 0,
+    ingestedTokens: 0,
   };
+  for (const bucket of buckets) {
+    for (const key of Object.keys(totals) as (keyof typeof totals)[]) totals[key] += bucket[key];
+  }
+  return { ...totals, buckets };
 }
 
 /** The membership check and both windows see the same committed usage. */

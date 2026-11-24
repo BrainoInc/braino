@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { withClient } from "@doco/db";
 import { createRequestHandler } from "@react-router/express";
 import express from "express";
 
@@ -35,8 +36,24 @@ async function run() {
     console.log(`[braino] http://${host || "localhost"}:${port}`);
   });
 
+  async function refreshCorpus() {
+    try {
+      await withClient((client) =>
+        client.query(`SELECT refresh_collection_tokens()
+        WHERE pg_try_advisory_xact_lock(hashtext('refresh_collection_tokens'))`),
+      );
+    } catch (error) {
+      console.error("[braino] refreshing collection token counts failed", error);
+    }
+  }
+  await refreshCorpus();
+  const refreshTimer = setInterval(refreshCorpus, 60 * 60 * 1000);
+  refreshTimer.unref();
   for (const signal of ["SIGTERM", "SIGINT"]) {
-    process.once(signal, () => server.close());
+    process.once(signal, () => {
+      clearInterval(refreshTimer);
+      server.close();
+    });
   }
 }
 

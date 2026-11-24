@@ -14,6 +14,7 @@ export async function loader({ request }: { request: Request }) {
   const requestedLimit = Number(url.searchParams.get("limit"));
   const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : undefined;
   const results = await searchAsWorkspaceMember({
+    source: "api",
     workspaceId: state.workspace.id,
     userId: user.id,
     query,

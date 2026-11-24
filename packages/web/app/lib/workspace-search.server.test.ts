@@ -1,13 +1,17 @@
 import { expect, it, vi } from "vitest";
 import { searchAsWorkspaceMember } from "./workspace-search.server";
 
-vi.mock("@doco/db", () => ({ getWorkspaceRole: async () => null }));
-const meter = vi.hoisted(() => vi.fn());
-vi.mock("@doco/host", () => ({ measureWorkspaceQuery: meter }));
+const record = vi.hoisted(() => vi.fn());
+vi.mock("@doco/db", () => ({ getWorkspaceRole: async () => null, recordQueryEvent: record }));
 
 it("a valid session without workspace membership cannot consume the workspace's query allowance", async () => {
   expect(
-    await searchAsWorkspaceMember({ workspaceId: "one", userId: "former-member", query: "docs" }),
+    await searchAsWorkspaceMember({
+      source: "ui",
+      workspaceId: "one",
+      userId: "former-member",
+      query: "docs",
+    }),
   ).toEqual([]);
-  expect(meter).not.toHaveBeenCalled();
+  expect(record).not.toHaveBeenCalled();
 });
