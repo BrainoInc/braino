@@ -72,6 +72,24 @@ describe("the model plugin catalogue", () => {
       requiredSecrets: ["api_key"],
       defaultModel: "text-embedding-3-small",
     });
+    expect(modelPluginEntry(manifest("anthropic-chat"))).toMatchObject({
+      id: "braino.anthropic-chat",
+      name: "Anthropic chat",
+      kind: "chat",
+      networkHosts: ["api.anthropic.com"],
+      local: false,
+      requiredSecrets: ["api_key"],
+      defaultModel: "claude-sonnet-4-6",
+    });
+    expect(modelPluginEntry(manifest("voyage-embedding"))).toMatchObject({
+      id: "braino.voyage-embedding",
+      name: "Voyage embeddings",
+      kind: "embedding",
+      networkHosts: ["api.voyageai.com"],
+      local: false,
+      requiredSecrets: ["api_key"],
+      defaultModel: "voyage-4",
+    });
   });
 
   it("offers each plugin's default model first among its suggestions", () => {
@@ -118,8 +136,10 @@ describe("the model plugin catalogue", () => {
     expect(catalog.map((entry) => [entry.id, includedWithBraino(entry)])).toEqual([
       ["braino.ollama-chat", true],
       ["braino.ollama-embedding", true],
+      ["braino.anthropic-chat", false],
       ["braino.openai-chat", false],
       ["braino.openai-embedding", false],
+      ["braino.voyage-embedding", false],
     ]);
     expect(preselectedPlugin(catalog, "chat")?.id).toBe("braino.ollama-chat");
     expect(preselectedPlugin(catalog, "embedding")?.id).toBe("braino.ollama-embedding");

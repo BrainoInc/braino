@@ -74,6 +74,12 @@ export async function loader({ request }: { request: Request }) {
 
 function pluginCopy(t: ReturnType<typeof useT>, id: PluginPageId) {
   switch (id) {
+    case "anthropic-chat":
+      return {
+        name: "Anthropic Chat",
+        description: t("Use Claude for answers and summaries."),
+        capability: t("Chat"),
+      };
     case "ollama-chat":
       return {
         name: "Ollama Chat",
@@ -96,6 +102,12 @@ function pluginCopy(t: ReturnType<typeof useT>, id: PluginPageId) {
       return {
         name: "OpenAI Embeddings",
         description: t("Use an OpenAI embedding model for semantic search."),
+        capability: t("Embeddings"),
+      };
+    case "voyage-embedding":
+      return {
+        name: "Voyage Embeddings",
+        description: t("Use Voyage embeddings for semantic search."),
         capability: t("Embeddings"),
       };
     case "slack":
@@ -122,11 +134,11 @@ export default function PluginsPage() {
   }> = [
     {
       title: t("Chat"),
-      ids: ["ollama-chat", "openai-chat"] as const,
+      ids: ["ollama-chat", "anthropic-chat", "openai-chat"] as const,
     },
     {
       title: t("Embeddings"),
-      ids: ["ollama-embedding", "openai-embedding"] as const,
+      ids: ["ollama-embedding", "openai-embedding", "voyage-embedding"] as const,
     },
     {
       title: t("Connections"),
