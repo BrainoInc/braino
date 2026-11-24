@@ -1,0 +1,27 @@
+{
+  "protocolVersion": 2,
+  "id": "braino.voyage-embedding",
+  "name": "Voyage embeddings",
+  "version": "0.1.0",
+  "capabilities": { "embedding.embed": 1 },
+  "permissions": { "network": ["api.voyageai.com"] },
+  "configurationSchema": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string",
+        "default": "voyage-4",
+        "examples": ["voyage-4", "voyage-4-large", "voyage-4-lite"]
+      }
+    },
+    "additionalProperties": false
+  },
+  "secretSchema": {
+    "type": "object",
+    "properties": {
+      "api_key": { "type": "string" }
+    },
+    "required": ["api_key"],
+    "additionalProperties": false
+  }
+}

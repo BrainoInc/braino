@@ -69,6 +69,13 @@ export interface RestoreRetrievalSnapshotResult {
   rowCounts: Record<SnapshotTableName, number>;
 }
 
+export interface ReplaceRetrievalSnapshotResult {
+  collectionId: string;
+  sourceDigest: string;
+  importedRows: number;
+  reindexRequired: true;
+}
+
 interface TableSpec {
   name: SnapshotTableName;
   columns: readonly string[];
@@ -805,6 +812,135 @@ export async function restoreRetrievalSnapshot(
       collectionId: snapshot.manifest.collectionId,
       digest: restored.manifest.digest,
       rowCounts: restored.manifest.rowCounts,
+    };
+  } catch (error) {
+    await c.query("ROLLBACK");
+    throw error;
+  }
+}
+
+const REPLACE_TABLE_NAMES = [
+  "policies",
+  "nodes",
+  "edges",
+  "node_ranks",
+  "entity_fts_nodes",
+  "node_touches",
+  "group_chat_channels",
+  "group_chat_members",
+  "group_chat_messages",
+  "notion_pages",
+  "notion_links",
+  "notion_users",
+  "code_files",
+] as const satisfies readonly SnapshotTableName[];
+
+function rowsForTargetCollection(rows: SnapshotRow[], targetCollectionId: string): SnapshotRow[] {
+  return rows.map((row) =>
+    Object.hasOwn(row, "collection_id") ? { ...row, collection_id: targetCollectionId } : row,
+  );
+}
+
+/**
+ * Replace one existing collection's knowledge with a verified snapshot while
+ * retaining the target deployment's workspace, collection, users, plugins,
+ * connector installations, and connector credentials. Embeddings are never
+ * copied between model installations; the target scheduler rebuilds them.
+ */
+export async function replaceRetrievalSnapshot(
+  c: QueryClient,
+  snapshot: RetrievalSnapshot,
+  targetCollectionRef: string,
+): Promise<ReplaceRetrievalSnapshotResult> {
+  assertSnapshot(snapshot);
+  await c.query("BEGIN");
+  try {
+    const targetResult = await c.query<{ id: string }>(
+      `SELECT id FROM collections
+        WHERE deleted_at IS NULL AND (id = $1 OR handle = $1)
+        ORDER BY CASE WHEN id = $1 THEN 0 ELSE 1 END
+        LIMIT 1
+        FOR UPDATE`,
+      [targetCollectionRef],
+    );
+    const targetCollectionId = targetResult.rows[0]?.id;
+    if (!targetCollectionId) {
+      throw new Error(`Collection ${targetCollectionRef} was not found`);
+    }
+
+    if (
+      snapshot.tables.group_chat_channels.length > 0 ||
+      snapshot.tables.group_chat_members.length > 0 ||
+      snapshot.tables.group_chat_messages.length > 0
+    ) {
+      const mirror = await c.query<{ present: boolean }>(
+        "SELECT EXISTS (SELECT 1 FROM group_chat_mirrors WHERE collection_id = $1) AS present",
+        [targetCollectionId],
+      );
+      if (!mirror.rows[0]?.present) {
+        throw new Error(
+          `target collection ${targetCollectionId} needs its own group chat connector before importing mirrored chat data`,
+        );
+      }
+    }
+    if (
+      snapshot.tables.notion_pages.length > 0 ||
+      snapshot.tables.notion_links.length > 0 ||
+      snapshot.tables.notion_users.length > 0
+    ) {
+      const mirror = await c.query<{ present: boolean }>(
+        "SELECT EXISTS (SELECT 1 FROM notion_mirrors WHERE collection_id = $1) AS present",
+        [targetCollectionId],
+      );
+      if (!mirror.rows[0]?.present) {
+        throw new Error(
+          `target collection ${targetCollectionId} needs its own Notion connector before importing mirrored Notion data`,
+        );
+      }
+    }
+
+    // Clear every read-side projection owned by this collection. Connector
+    // roots stay in place so their local credentials and sync cursors survive.
+    await c.query("DELETE FROM retrieval_documents WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM retrieval_entities WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM embeddings WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM code_files WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM notion_links WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM notion_pages WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM notion_users WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM group_chat_messages WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM group_chat_channels WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM group_chat_members WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM entity_fts_nodes WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM node_touches WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM edges WHERE collection_id = $1", [targetCollectionId]);
+    await c.query(
+      "DELETE FROM node_ranks WHERE node_id IN (SELECT id FROM nodes WHERE collection_id = $1)",
+      [targetCollectionId],
+    );
+    await c.query("DELETE FROM nodes WHERE collection_id = $1", [targetCollectionId]);
+    await c.query("DELETE FROM policies WHERE collection_id = $1", [targetCollectionId]);
+
+    let importedRows = 0;
+    for (const name of REPLACE_TABLE_NAMES) {
+      const spec = TABLE_SPECS.find((candidate) => candidate.name === name);
+      if (!spec) throw new Error(`snapshot table ${name} has no import specification`);
+      if (name === "node_touches") {
+        // Node inserts regenerate touches. Replace them with the source state.
+        await c.query("DELETE FROM node_touches WHERE collection_id = $1", [targetCollectionId]);
+      }
+      const rows = rowsForTargetCollection(snapshot.tables[name], targetCollectionId);
+      await insertRows(c, spec, rows);
+      importedRows += rows.length;
+    }
+    await c.query("DELETE FROM node_ranks_stale WHERE collection_id = $1", [targetCollectionId]);
+
+    await c.query("COMMIT");
+    return {
+      collectionId: targetCollectionId,
+      sourceDigest: snapshot.manifest.digest,
+      importedRows,
+      reindexRequired: true,
     };
   } catch (error) {
     await c.query("ROLLBACK");

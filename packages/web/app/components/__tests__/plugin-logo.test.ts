@@ -10,6 +10,8 @@ describe("PluginLogo", () => {
     ["ollama-embedding", LOGOS.ollama],
     ["openai-chat", LOGOS.openai],
     ["openai-embedding", LOGOS.openai],
+    ["anthropic-chat", LOGOS.claude],
+    ["voyage-embedding", LOGOS.voyage],
     ["slack", LOGOS.slack],
     ["resend", LOGOS.resend],
   ] as const)("draws the provider mark for %s", (pluginId, logo) => {

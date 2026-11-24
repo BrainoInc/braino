@@ -1,0 +1,27 @@
+{
+  "protocolVersion": 2,
+  "id": "braino.anthropic-chat",
+  "name": "Anthropic chat",
+  "version": "0.1.0",
+  "capabilities": { "chat.complete": 1 },
+  "permissions": { "network": ["api.anthropic.com"] },
+  "configurationSchema": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string",
+        "default": "claude-sonnet-4-6",
+        "examples": ["claude-sonnet-4-6", "claude-haiku-4-5"]
+      }
+    },
+    "additionalProperties": false
+  },
+  "secretSchema": {
+    "type": "object",
+    "properties": {
+      "api_key": { "type": "string" }
+    },
+    "required": ["api_key"],
+    "additionalProperties": false
+  }
+}

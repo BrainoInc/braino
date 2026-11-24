@@ -5,6 +5,7 @@ FROM rust:1.100-bookworm AS plugin-build
 RUN rustup target add wasm32-wasip2
 WORKDIR /source
 COPY packages/plugin-runtime/wit packages/plugin-runtime/wit
+COPY plugins/anthropic-chat plugins/anthropic-chat
 COPY plugins/ollama-chat plugins/ollama-chat
 COPY plugins/ollama-embedding plugins/ollama-embedding
 COPY plugins/openai-chat plugins/openai-chat
@@ -12,6 +13,9 @@ COPY plugins/openai-embedding plugins/openai-embedding
 COPY plugins/slack plugins/slack
 COPY plugins/github plugins/github
 COPY plugins/resend plugins/resend
+COPY plugins/voyage-embedding plugins/voyage-embedding
+RUN cargo build --locked --release --target wasm32-wasip2 \
+  --manifest-path plugins/anthropic-chat/Cargo.toml
 RUN cargo build --locked --release --target wasm32-wasip2 \
   --manifest-path plugins/ollama-chat/Cargo.toml
 RUN cargo build --locked --release --target wasm32-wasip2 \
@@ -26,6 +30,8 @@ RUN cargo build --locked --release --target wasm32-wasip2 \
   --manifest-path plugins/github/Cargo.toml
 RUN cargo build --locked --release --target wasm32-wasip2 \
   --manifest-path plugins/resend/Cargo.toml
+RUN cargo build --locked --release --target wasm32-wasip2 \
+  --manifest-path plugins/voyage-embedding/Cargo.toml
 
 FROM node:22-bookworm-slim AS build
 
@@ -61,6 +67,12 @@ ENV PORT=3000
 WORKDIR /app
 COPY --from=build --chown=node:node /opt/doco ./
 COPY --from=build --chown=node:node /source/runtime ./runtime
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/anthropic-chat/target/wasm32-wasip2/release/braino_anthropic_chat.wasm \
+  /app/plugins/braino_anthropic_chat.wasm
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/anthropic-chat/manifest.json \
+  /app/plugins/braino_anthropic_chat.manifest.json
 COPY --from=plugin-build --chown=node:node \
   /source/plugins/ollama-chat/target/wasm32-wasip2/release/braino_ollama_chat.wasm \
   /app/plugins/braino_ollama_chat.wasm
@@ -103,6 +115,12 @@ COPY --from=plugin-build --chown=node:node \
 COPY --from=plugin-build --chown=node:node \
   /source/plugins/resend/manifest.json \
   /app/plugins/braino_resend.manifest.json
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/voyage-embedding/target/wasm32-wasip2/release/braino_voyage_embedding.wasm \
+  /app/plugins/braino_voyage_embedding.wasm
+COPY --from=plugin-build --chown=node:node \
+  /source/plugins/voyage-embedding/manifest.json \
+  /app/plugins/braino_voyage_embedding.manifest.json
 
 USER node
 EXPOSE 3000

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { embeddingLiteral, rankEmbeddings } from "../embeddings.js";
 import {
   exportRetrievalSnapshot,
+  replaceRetrievalSnapshot,
   restoreRetrievalSnapshot,
   retrievalSnapshotDigest,
 } from "../retrieval-snapshot.js";
@@ -86,35 +87,38 @@ async function seedSource(db: PGlite): Promise<void> {
   );
 }
 
-async function retrievalSignature(db: PGlite): Promise<Record<string, unknown>> {
+async function retrievalSignature(
+  db: PGlite,
+  collectionId = COLLECTION_ID,
+): Promise<Record<string, unknown>> {
   const [graph, slack, notion, code, semantic, ranks] = await Promise.all([
     db.query<{ id: string }>(
       `SELECT entity_id AS id FROM entity_fts_nodes
         WHERE collection_id = $1 AND search_tsv @@ websearch_to_tsquery('english', 'Solar JDK')
         ORDER BY ts_rank_cd(search_tsv, websearch_to_tsquery('english', 'Solar JDK')) DESC,
                  entity_id`,
-      [COLLECTION_ID],
+      [collectionId],
     ),
     db.query<{ id: string }>(
       `SELECT channel_id || ':' || ts AS id FROM group_chat_messages
         WHERE collection_id = $1 AND search_tsv @@ websearch_to_tsquery('simple', 'Solar JDK')
         ORDER BY posted_at DESC, channel_id, ts`,
-      [COLLECTION_ID],
+      [collectionId],
     ),
     db.query<{ id: string }>(
       `SELECT page_id AS id FROM notion_pages
         WHERE collection_id = $1 AND search_tsv @@ websearch_to_tsquery('simple', 'production JDK')
         ORDER BY last_edited_time DESC NULLS LAST, page_id`,
-      [COLLECTION_ID],
+      [collectionId],
     ),
     db.query<{ id: string }>(
       `SELECT repo || ':' || path AS id FROM code_files
         WHERE collection_id = $1 AND search_tsv @@ websearch_to_tsquery('simple', 'java')
         ORDER BY repo, path`,
-      [COLLECTION_ID],
+      [collectionId],
     ),
     rankEmbeddings(db, {
-      collectionIds: [COLLECTION_ID],
+      collectionIds: [collectionId],
       source: "node",
       modelId: "text-embedding-3-small",
       queryEmbedding: [1, 0, 0],
@@ -124,7 +128,7 @@ async function retrievalSignature(db: PGlite): Promise<Record<string, unknown>> 
       `SELECT r.node_id AS id, r.rank FROM node_ranks r
         JOIN nodes n ON n.id = r.node_id
        WHERE n.collection_id = $1 ORDER BY r.rank DESC, r.node_id`,
-      [COLLECTION_ID],
+      [collectionId],
     ),
   ]);
   return {
@@ -170,5 +174,99 @@ describe("retrieval corpus snapshots", () => {
     await expect(restoreRetrievalSnapshot(target, snapshot)).rejects.toThrow(
       /already contains collection collection_snapshot/,
     );
+  });
+
+  it("replaces an existing collection corpus while preserving its deployment configuration", async () => {
+    const source = await freshDb();
+    const target = await freshDb();
+    await seedSource(source);
+    const snapshot = await exportRetrievalSnapshot(source, COLLECTION_ID);
+
+    await target.exec(`
+      INSERT INTO workspaces (id, handle, name, constitution)
+        VALUES ('workspace_target', 'meta-braino', 'Meta Braino', 'Stay local.');
+      INSERT INTO collections
+        (id, handle, owner_id, workspace_id, visibility, goal, data)
+        VALUES (
+          'collection_target', 'meta-braino-decisions', 'workspace_target', 'workspace_target',
+          'private', 'Keep the self-hosted collection.',
+          '{"local_plugin_configuration":true,"github_integration":{"connections":[{"repo":"acme/solar"}],"installations":[]}}'::jsonb
+        );
+      INSERT INTO nodes (id, collection_id, node_type, lifecycle, prose)
+        VALUES ('decision_stale', 'collection_target', 'decision', 'active', 'Stale local copy.');
+      INSERT INTO embeddings
+        (collection_id, source, entity_id, chunk_index, model_id, content_hash, chunk_text, embedding)
+        VALUES (
+          'collection_target', 'node', 'decision_stale', 0, 'ollama:embeddinggemma',
+          'stale-hash', 'Stale local copy.', ARRAY[1, 0, 0]::real[]
+        );
+
+      INSERT INTO group_chat_installations
+        (id, provider, workspace_id, workspace_name, bot_access_token, data, doco_workspace_id)
+        VALUES (
+          'installation_target', 'slack', 'T-TARGET', 'Meta Slack', 'local-slack-secret',
+          '{"signing_secret":"local-signing-secret"}'::jsonb, 'workspace_target'
+        );
+      INSERT INTO group_chat_mirrors
+        (collection_id, installation_id, team_domain, history_since, consented_at, created_at)
+        VALUES (
+          'collection_target', 'installation_target', 'meta', '2025-01-01T00:00:00Z',
+          '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z'
+        );
+      INSERT INTO notion_mirrors
+        (collection_id, workspace_id, workspace_name, bot_id, access_token, refresh_token,
+         authorized_by, consented_at, created_at)
+        VALUES (
+          'collection_target', 'notion-target', 'Meta Notion', 'notion-target-bot',
+          'local-notion-secret', 'local-notion-refresh', 'Owner',
+          '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z'
+        );
+    `);
+
+    const result = await replaceRetrievalSnapshot(target, snapshot, "collection_target");
+
+    expect(result).toMatchObject({
+      collectionId: "collection_target",
+      sourceDigest: snapshot.manifest.digest,
+      reindexRequired: true,
+    });
+    expect(await retrievalSignature(target, "collection_target")).toMatchObject({
+      graph: [{ id: "decision_jdk" }],
+      slack: [{ id: "C-SOLAR:1700000000.000100" }],
+      notion: [{ id: "page-jdk" }],
+      code: [{ id: "acme/solar:.sdkmanrc" }],
+      semantic: [],
+      ranks: [{ id: "decision_jdk", rank: 1.75 }],
+    });
+
+    const preserved = await target.query<{
+      workspace_id: string;
+      handle: string;
+      data: { local_plugin_configuration?: boolean };
+      bot_access_token: string;
+      notion_access_token: string;
+    }>(`
+      SELECT c.workspace_id, c.handle, c.data,
+             i.bot_access_token,
+             nm.access_token AS notion_access_token
+        FROM collections c
+        JOIN group_chat_mirrors gm ON gm.collection_id = c.id
+        JOIN group_chat_installations i ON i.id = gm.installation_id
+        JOIN notion_mirrors nm ON nm.collection_id = c.id
+       WHERE c.id = 'collection_target'
+    `);
+    expect(preserved.rows[0]).toMatchObject({
+      workspace_id: "workspace_target",
+      handle: "meta-braino-decisions",
+      data: { local_plugin_configuration: true },
+      bot_access_token: "local-slack-secret",
+      notion_access_token: "local-notion-secret",
+    });
+    expect(await target.query("SELECT id FROM nodes WHERE id = 'decision_stale'")).toMatchObject({
+      rows: [],
+    });
+    expect(
+      await target.query("SELECT id FROM workspaces WHERE id = 'workspace_snapshot'"),
+    ).toMatchObject({ rows: [] });
   });
 });

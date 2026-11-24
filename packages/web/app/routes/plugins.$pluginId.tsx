@@ -48,10 +48,12 @@ function text(form: FormData, name: string): string {
 }
 
 function nameOf(id: PluginPageId): string {
+  if (id === "anthropic-chat") return "Anthropic Chat";
   if (id === "openai-chat") return "OpenAI Chat";
   if (id === "openai-embedding") return "OpenAI Embeddings";
   if (id === "ollama-chat") return "Ollama Chat";
   if (id === "ollama-embedding") return "Ollama Embeddings";
+  if (id === "voyage-embedding") return "Voyage Embeddings";
   if (id === "slack") return "Slack";
   return "Resend";
 }
@@ -200,7 +202,7 @@ async function saveModelPlugin(
     const installed = context.setup.installed.find((item) => item.pluginId === manifestId);
     const needsKey = bundled.entry.requiredSecrets.includes("api_key");
     if (needsKey && !apiKey && !installed?.secretNames.includes("api_key")) {
-      return { error: t("Enter this plugin's OpenAI API key.") };
+      return { error: t("Enter this plugin's API key.") };
     }
     const installation = await withClient((client) =>
       installWorkspaceModelPlugin(client, {

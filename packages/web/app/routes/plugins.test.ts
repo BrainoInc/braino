@@ -187,10 +187,12 @@ describe("Plugins", () => {
     const installed = await pluginsLoader({ request: request("/plugins?view=installed") });
 
     expect(browse.plugins.map((plugin) => plugin.id)).toEqual([
+      "anthropic-chat",
       "ollama-chat",
       "ollama-embedding",
       "openai-chat",
       "openai-embedding",
+      "voyage-embedding",
       "slack",
       "resend",
     ]);

@@ -257,6 +257,45 @@ describe("the supported self-hosted stack", () => {
     expect(workflow).toContain("plugins/openai-embedding/Cargo.toml");
   });
 
+  it("bundles hosted Braino's Anthropic chat and Voyage embedding providers as separate plugins", () => {
+    const chatManifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/anthropic-chat/manifest.json"), "utf8"),
+    ) as {
+      capabilities: Record<string, number>;
+      permissions: { network: string[] };
+      configurationSchema: { properties: { model: { default: string } } };
+      secretSchema: { required: string[] };
+    };
+    const embeddingManifest = JSON.parse(
+      readFileSync(resolve(root, "plugins/voyage-embedding/manifest.json"), "utf8"),
+    ) as typeof chatManifest;
+    const dockerfile = readFileSync(resolve(root, "Dockerfile"), "utf8");
+    const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+    const chatSource = readFileSync(resolve(root, "plugins/anthropic-chat/src/lib.rs"), "utf8");
+    const embeddingSource = readFileSync(
+      resolve(root, "plugins/voyage-embedding/src/lib.rs"),
+      "utf8",
+    );
+
+    expect(chatManifest.capabilities).toEqual({ "chat.complete": 1 });
+    expect(chatManifest.permissions.network).toEqual(["api.anthropic.com"]);
+    expect(chatManifest.configurationSchema.properties.model.default).toBe("claude-sonnet-4-6");
+    expect(chatManifest.secretSchema.required).toEqual(["api_key"]);
+    expect(embeddingManifest.capabilities).toEqual({ "embedding.embed": 1 });
+    expect(embeddingManifest.permissions.network).toEqual(["api.voyageai.com"]);
+    expect(embeddingManifest.configurationSchema.properties.model.default).toBe("voyage-4");
+    expect(embeddingManifest.secretSchema.required).toEqual(["api_key"]);
+    expect(chatSource).toContain("https://api.anthropic.com/v1/messages");
+    expect(chatSource).toContain('"anthropic-version"');
+    expect(chatSource).toContain('"x-api-key"');
+    expect(embeddingSource).toContain("https://api.voyageai.com/v1/embeddings");
+    expect(embeddingSource).toContain("input_type: input.input_type.as_deref()");
+    expect(dockerfile).toContain("plugins/anthropic-chat");
+    expect(dockerfile).toContain("plugins/voyage-embedding");
+    expect(workflow).toContain("plugins/anthropic-chat/Cargo.toml");
+    expect(workflow).toContain("plugins/voyage-embedding/Cargo.toml");
+  });
+
   it("bundles the shared-gateway Slack app plugin and builds it in CI", () => {
     const manifest = JSON.parse(
       readFileSync(resolve(root, "plugins/slack/manifest.json"), "utf8"),

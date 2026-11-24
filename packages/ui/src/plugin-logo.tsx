@@ -3,10 +3,12 @@ import { LOGOS, type LogoId } from "./logos.js";
 export type { LogoId } from "./logos.js";
 
 export const BUILT_IN_PLUGIN_BRANDS = {
+  "anthropic-chat": "claude",
   "ollama-chat": "ollama",
   "ollama-embedding": "ollama",
   "openai-chat": "openai",
   "openai-embedding": "openai",
+  "voyage-embedding": "voyage",
   slack: "slack",
   resend: "resend",
 } as const satisfies Record<string, LogoId>;
