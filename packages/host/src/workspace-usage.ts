@@ -3,13 +3,14 @@ import { randomUUID } from "node:crypto";
 import {
   type PoolClient,
   readWorkspaceUsage,
+  readWorkspaceUsageBuckets,
   recordWorkspaceOperation,
   withClient,
   withTransaction,
   workspaceUsageWindow,
 } from "@doco/db";
 
-import type { UsagePeriodTotals, WorkspaceUsageReport } from "@doco/shared";
+import type { WorkspaceUsagePeriod, WorkspaceUsageReport } from "@doco/shared";
 
 const queryWorkspaces = new AsyncLocalStorage<Set<string>>();
 
@@ -44,13 +45,39 @@ async function memberWorkspaceId(client: PoolClient, handle: string, userId: str
   return rows[0]?.id;
 }
 
-function periodTotals(usage: Awaited<ReturnType<typeof readWorkspaceUsage>>): UsagePeriodTotals {
-  const seconds = (Date.parse(usage.end) - Date.parse(usage.start)) / 1000;
+function summarizePeriod(
+  rows: Awaited<ReturnType<typeof readWorkspaceUsageBuckets>>,
+): WorkspaceUsagePeriod {
+  let queries = 0;
+  let replies = 0;
+  let ingestedTokens = 0;
+  let seconds = 0;
+  let byteSeconds = 0;
+  const buckets: WorkspaceUsagePeriod["buckets"] = [];
+  for (const row of rows) {
+    const duration = (Date.parse(row.end) - Date.parse(row.start)) / 1000;
+    if (duration === 0) continue;
+    const integral = Number(row.storageByteSeconds);
+    buckets.push({
+      start: row.start,
+      end: row.end,
+      queries: row.queries,
+      replies: row.replies,
+      ingestedTokens: row.ingestedTokens,
+      averageStoredBytes: integral / duration,
+    });
+    queries += row.queries;
+    replies += row.replies;
+    ingestedTokens += row.ingestedTokens;
+    seconds += duration;
+    byteSeconds += integral;
+  }
   return {
-    queries: usage.queries,
-    replies: usage.replies,
-    ingestedTokens: usage.ingestedTokens,
-    averageStoredBytes: seconds > 0 ? Number(usage.storageByteSeconds) / seconds : 0,
+    queries,
+    replies,
+    ingestedTokens,
+    averageStoredBytes: seconds ? byteSeconds / seconds : 0,
+    buckets,
   };
 }
 
@@ -64,19 +91,29 @@ export async function getWorkspaceUsageReport(
     await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
     const workspaceId = await memberWorkspaceId(client, handle, userId);
     if (!workspaceId) return null;
-    const month = await readWorkspaceUsage(client, workspaceId, {
-      start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
-      end: now,
-    });
-    const fiveHours = await readWorkspaceUsage(client, workspaceId, {
-      start: new Date(now.getTime() - 5 * 60 * 60 * 1000),
-      end: now,
-    });
+    const month = await readWorkspaceUsageBuckets(
+      client,
+      workspaceId,
+      {
+        start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+        end: now,
+      },
+      "24 hours",
+    );
+    const fiveHours = await readWorkspaceUsageBuckets(
+      client,
+      workspaceId,
+      {
+        start: new Date(now.getTime() - 5 * 60 * 60 * 1000),
+        end: now,
+      },
+      "15 minutes",
+    );
     return {
-      asOf: month.end,
-      storedBytes: month.storedBytes,
-      month: periodTotals(month),
-      fiveHours: periodTotals(fiveHours),
+      asOf: now.toISOString(),
+      storedBytes: fiveHours.at(-1)?.storedBytes ?? 0,
+      month: summarizePeriod(month),
+      fiveHours: summarizePeriod(fiveHours),
     };
   });
 }

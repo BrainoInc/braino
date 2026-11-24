@@ -1,4 +1,5 @@
 {
+  "15-minute intervals": "每 15 分钟",
   "24 hours": "24 小时",
   "30 days": "30 天",
   "7 days": "7 天",
@@ -116,6 +117,7 @@
   "Current storage": "当前存储用量",
   "Current totals for this workspace.": "此工作区的当前总计。",
   "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEY 必须至少包含 32 个字符。",
+  "Daily": "按天",
   "Dark": "深色",
   "Decisions that stay aligned.": "让决策始终保持一致。",
   "Deployment": "部署",

@@ -1,4 +1,5 @@
 {
+  "15-minute intervals": "15분 간격",
   "24 hours": "24시간",
   "30 days": "30일",
   "7 days": "7일",
@@ -116,6 +117,7 @@
   "Current storage": "현재 저장 공간 사용량",
   "Current totals for this workspace.": "이 워크스페이스의 현재 합계입니다.",
   "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEY는 32자 이상이어야 합니다.",
+  "Daily": "일별",
   "Dark": "다크",
   "Decisions that stay aligned.": "서로 어긋나지 않는 결정.",
   "Deployment": "배포",
