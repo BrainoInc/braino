@@ -109,6 +109,10 @@ importers:
         version: 19.3.1(react@19.3.1)
 
   packages/ui:
+    dependencies:
+      '@doco/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@types/react':
         specifier: ^19.0.1

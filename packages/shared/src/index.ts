@@ -8,6 +8,7 @@ export * from "./constitution.js";
 export * from "./history.js";
 export * from "./ulid.js";
 export * from "./time.js";
+export * from "./workspace-usage.js";
 export * from "./entities.js";
 export * from "./public-url.js";
 export * from "./url-conventions.js";

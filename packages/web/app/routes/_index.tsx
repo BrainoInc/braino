@@ -401,6 +401,12 @@ function WorkspaceHome({ data }: { data: Extract<LoaderData, { screen: "dashboar
             <Link to="/times" className={workspaceActionClass}>
               {t("Times")}
             </Link>
+            <Link
+              to={`/workspaces/${data.workspace.handle}/usage`}
+              className={workspaceActionClass}
+            >
+              {t("Usage")}
+            </Link>
             <Link to="/admin" className={workspaceActionClass}>
               {t("Settings")}
             </Link>
