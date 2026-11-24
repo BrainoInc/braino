@@ -37,6 +37,22 @@ it("meters committed source changes once and preserves usage after collection de
   });
 });
 
+it("transfers retained bytes across workspaces without replaying ingestion", async () => {
+  await db.exec(`
+    INSERT INTO nodes (id, collection_id, node_type, prose) VALUES ('log_a','c1','log','abcd');
+    UPDATE collections SET workspace_id='w2' WHERE id='c1';
+    UPDATE nodes SET prose='efgh' WHERE id='log_a';
+  `);
+  expect(await readWorkspaceUsage(client(), "w1", window)).toMatchObject({
+    storedBytes: 0,
+    ingestedTokens: 1,
+  });
+  expect(await readWorkspaceUsage(client(), "w2", window)).toMatchObject({
+    storedBytes: 4,
+    ingestedTokens: 1,
+  });
+});
+
 it("isolates workspaces, deduplicates completed operations and integrates retained bytes over [start,end)", async () => {
   for (const workspace of ["w1", "w1", "w2"]) {
     await recordWorkspaceOperation(client(), workspace, "query", "request-1");

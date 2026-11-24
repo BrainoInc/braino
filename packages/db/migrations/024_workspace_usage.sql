@@ -21,7 +21,8 @@ CREATE INDEX IF NOT EXISTS workspace_content_usage_time_idx ON workspace_content
 CREATE INDEX IF NOT EXISTS workspace_content_usage_collection_idx ON workspace_content_usage (collection_id, workspace_id);
 
 -- One definition of the retained body per source, used for inserts, edits,
--- moves and deletes. PostgreSQL rolls usage back with the source write.
+-- moves and deletes. Shared collection locks serialize attribution with a
+-- concurrent transfer or deletion while allowing parallel source writes.
 CREATE OR REPLACE FUNCTION meter_source_text() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   before_text text;
@@ -50,19 +51,19 @@ BEGIN
       INSERT INTO workspace_content_usage (workspace_id, collection_id, ingested_tokens, byte_delta)
       SELECT workspace_id, id, (length(after_text)::bigint + 3) / 4,
              octet_length(after_text)::bigint - octet_length(before_text)
-        FROM collections WHERE id = NEW.collection_id;
+        FROM collections WHERE id = NEW.collection_id FOR SHARE;
     END IF;
     RETURN NULL;
   END IF;
   IF coalesce(before_text, '') <> '' THEN
     INSERT INTO workspace_content_usage (workspace_id, collection_id, ingested_tokens, byte_delta)
     SELECT workspace_id, id, 0, -octet_length(before_text)::bigint
-      FROM collections WHERE id = OLD.collection_id;
+      FROM collections WHERE id = OLD.collection_id FOR SHARE;
   END IF;
   IF coalesce(after_text, '') <> '' THEN
     INSERT INTO workspace_content_usage (workspace_id, collection_id, ingested_tokens, byte_delta)
     SELECT workspace_id, id, (length(after_text)::bigint + 3) / 4, octet_length(after_text)
-      FROM collections WHERE id = NEW.collection_id;
+      FROM collections WHERE id = NEW.collection_id FOR SHARE;
   END IF;
   RETURN NULL;
 END $$;
