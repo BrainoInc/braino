@@ -165,7 +165,11 @@ impl Guest for AnthropicChatPlugin {
             model: &model,
             max_tokens: 4096,
             messages: &messages,
-            system: if system.is_empty() { None } else { Some(system) },
+            system: if system.is_empty() {
+                None
+            } else {
+                Some(system)
+            },
         })
         .map_err(|_| "chat request could not be encoded".to_string())?;
         let response = braino::plugin::host::request(&braino::plugin::host::HttpRequest {
