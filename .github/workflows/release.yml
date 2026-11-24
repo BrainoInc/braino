@@ -10,6 +10,7 @@ on:
 
 concurrency:
   group: release
+  queue: max
   cancel-in-progress: false
 
 permissions:

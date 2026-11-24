@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link } from "react-router";
+import { Link, useMatch } from "react-router";
 
 const API_PATH = "/api/v1/senor-braino.json";
 const COLLAPSE_KEY = "braino:senor-braino:collapsed";
@@ -135,7 +135,11 @@ function Message({ message }: { message: ChatMessage }) {
 
 export function AgentSidebar() {
   const t = useT();
-  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const viewingUsage = Boolean(useMatch("/workspaces/:workspaceHandle/usage"));
+  const [collapsed, setCollapsed] = useState(() => viewingUsage || readCollapsed());
+  useEffect(() => {
+    setCollapsed(viewingUsage || readCollapsed());
+  }, [viewingUsage]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [workspace, setWorkspace] = useState<string | null>(null);
   const [question, setQuestion] = useState("");

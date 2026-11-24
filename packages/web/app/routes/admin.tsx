@@ -272,6 +272,14 @@ export default function AdminPage() {
       <PageHeader
         breadcrumb={<Breadcrumb handle={overview.workspace.handle} />}
         title={t("Workspace administration")}
+        actions={
+          <Link
+            to={`/workspaces/${overview.workspace.handle}/usage`}
+            className="neu-button rounded-md px-3 py-1.5 text-xs font-semibold"
+          >
+            {t("Usage")}
+          </Link>
+        }
       >
         <p className="text-xs text-muted-foreground">
           {t("Operate this Braino deployment and its one workspace.")}

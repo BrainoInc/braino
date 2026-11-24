@@ -8,8 +8,10 @@ import { AgentSidebar } from "../agent-sidebar";
 const appCss = readFileSync(new URL("../../app.css", import.meta.url), "utf8");
 const sharedCss = readFileSync(new URL("../../../../ui/styles.css", import.meta.url), "utf8");
 
-function render(): string {
-  return renderToStaticMarkup(createElement(MemoryRouter, null, createElement(AgentSidebar)));
+function render(path = "/"): string {
+  return renderToStaticMarkup(
+    createElement(MemoryRouter, { initialEntries: [path] }, createElement(AgentSidebar)),
+  );
 }
 
 describe("AgentSidebar", () => {
@@ -20,6 +22,10 @@ describe("AgentSidebar", () => {
     expect(html).toContain("--senor-doco-current-width:320px");
     expect(html).toContain('id="senor-braino-question"');
     expect(html).not.toContain('href="/senor-braino"');
+  });
+
+  it("opens the rail collapsed on the workspace usage page", () => {
+    expect(render("/workspaces/studio/usage")).toContain('data-collapsed="true"');
   });
 
   it("becomes the same overlay drawer as hosted Braino on narrow screens", () => {

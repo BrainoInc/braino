@@ -4,5 +4,6 @@ export * from "./card.js";
 export * from "./classes.js";
 export * from "./logos.js";
 export * from "./page.js";
+export * from "./workspace-usage.js";
 export * from "./plugin-logo.js";
 export * from "./plugin-manager.js";

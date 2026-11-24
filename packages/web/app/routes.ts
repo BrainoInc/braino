@@ -2,6 +2,7 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 
 export default [
   index("routes/_index.tsx"),
+  route("workspaces/:workspaceHandle/usage", "routes/workspace-usage.tsx"),
   route("admin", "routes/admin.tsx"),
   route("plugins", "routes/plugins.tsx"),
   route("plugins/slack/callback", "routes/plugins.slack.callback.ts"),
