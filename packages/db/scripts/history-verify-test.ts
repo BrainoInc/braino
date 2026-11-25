@@ -1,12 +1,12 @@
 // Validates the Merkle tamper-evidence chain on edge/node history.
-//   BRAINO_DATABASE_URL=postgres://postgres:braino@127.0.0.1:5433/braino \
+//   DOCO_DATABASE_URL=postgres://postgres:braino@127.0.0.1:5433/braino \
 //     pnpm exec tsx packages/db/scripts/history-verify-test.ts
 
 import { generateUlid, makeEntityId } from "@braino/shared";
 import pg from "pg";
 import { createChangeset, createEdge, updateEdge, verifyHistory } from "../src/index.js";
 
-const URL = process.env.BRAINO_DATABASE_URL ?? "postgres://postgres:braino@127.0.0.1:5433/braino";
+const URL = process.env.DOCO_DATABASE_URL ?? "postgres://postgres:braino@127.0.0.1:5433/braino";
 const pool = new pg.Pool({ connectionString: URL, max: 4 });
 let passed = 0;
 function check(label: string, cond: boolean): void {

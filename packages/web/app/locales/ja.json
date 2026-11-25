@@ -115,7 +115,7 @@
   "Create your Braino": "Brainoを作成",
   "Create your account for {email}.": "{email} のアカウントを作成してください。",
   "Current totals for this workspace.": "このワークスペースの現在の合計です。",
-  "BRAINO_ENCRYPTION_KEY must contain at least 32 characters.": "BRAINO_ENCRYPTION_KEYは32文字以上である必要があります。",
+  "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEYは32文字以上である必要があります。",
   "Daily": "日別",
   "Dark": "ダーク",
   "Decisions that stay aligned.": "足並みの揃った決定を、いつまでも。",

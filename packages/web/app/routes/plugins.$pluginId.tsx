@@ -189,7 +189,7 @@ async function saveModelPlugin(
   const encryptionKey = pluginSecretsKey();
   const host = pluginHostConnection();
   if (!encryptionKey)
-    return { error: t("BRAINO_ENCRYPTION_KEY must contain at least 32 characters.") };
+    return { error: t("DOCO_ENCRYPTION_KEY must contain at least 32 characters.") };
   if (!host) return { error: t("The plugin service is not configured.") };
 
   try {

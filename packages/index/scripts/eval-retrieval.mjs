@@ -235,14 +235,14 @@ async function rankWithVectorStore(store, provider, documents, queries) {
 
 function requireLocalDatabase() {
   const databaseUrl =
-    process.env.BRAINO_DATABASE_URL ??
+    process.env.DOCO_DATABASE_URL ??
     process.env.DATABASE_URL ??
     "postgresql://braino:braino-local@127.0.0.1:55432/braino";
   const host = new URL(databaseUrl).hostname;
   if (!["localhost", "127.0.0.1", "[::1]", "::1"].includes(host)) {
     throw new Error("Database-backed retrieval evals accept only a localhost DATABASE_URL.");
   }
-  process.env.BRAINO_DATABASE_URL = databaseUrl;
+  process.env.DOCO_DATABASE_URL = databaseUrl;
 }
 
 async function rankThroughPostgresThenQdrant(provider, documents, queries, qdrantStore) {

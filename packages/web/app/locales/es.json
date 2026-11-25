@@ -115,7 +115,7 @@
   "Create your Braino": "Crea tu Braino",
   "Create your account for {email}.": "Crea tu cuenta para {email}.",
   "Current totals for this workspace.": "Totales actuales de este espacio de trabajo.",
-  "BRAINO_ENCRYPTION_KEY must contain at least 32 characters.": "BRAINO_ENCRYPTION_KEY debe tener al menos 32 caracteres.",
+  "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEY debe tener al menos 32 caracteres.",
   "Daily": "Por día",
   "Dark": "Oscuro",
   "Decisions that stay aligned.": "Decisiones que se mantienen alineadas.",

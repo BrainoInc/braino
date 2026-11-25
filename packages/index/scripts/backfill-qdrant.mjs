@@ -26,13 +26,13 @@ function localOnly(name, value) {
 }
 
 const databaseUrl =
-  process.env.BRAINO_DATABASE_URL ??
+  process.env.DOCO_DATABASE_URL ??
   process.env.DATABASE_URL ??
   "postgresql://braino:braino-local@127.0.0.1:55432/braino";
 const qdrantUrl = process.env.QDRANT_URL ?? "http://127.0.0.1:6333";
 localOnly("DATABASE_URL", databaseUrl);
 localOnly("QDRANT_URL", qdrantUrl);
-process.env.BRAINO_DATABASE_URL = databaseUrl;
+process.env.DOCO_DATABASE_URL = databaseUrl;
 
 const collectionIds = process.argv.flatMap((arg, index, args) =>
   arg === "--collection" && args[index + 1] ? [args[index + 1]] : [],

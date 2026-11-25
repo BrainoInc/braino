@@ -115,7 +115,7 @@
   "Create your Braino": "أنشئ Braino الخاص بك",
   "Create your account for {email}.": "أنشئ حسابك للبريد {email}.",
   "Current totals for this workspace.": "الإجماليات الحالية لمساحة العمل هذه.",
-  "BRAINO_ENCRYPTION_KEY must contain at least 32 characters.": "يجب أن يحتوي BRAINO_ENCRYPTION_KEY على 32 حرفًا على الأقل.",
+  "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "يجب أن يحتوي DOCO_ENCRYPTION_KEY على 32 حرفًا على الأقل.",
   "Daily": "يوميًا",
   "Dark": "داكن",
   "Decisions that stay aligned.": "قرارات تبقى متّسقة.",

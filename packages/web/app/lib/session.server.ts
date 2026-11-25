@@ -4,7 +4,7 @@ const COOKIE_NAME = "braino_session";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 
 interface SessionEnvironment {
-  BRAINO_ENCRYPTION_KEY?: string;
+  DOCO_ENCRYPTION_KEY?: string;
   BRAINO_PUBLIC_HOST?: string;
 }
 
@@ -20,9 +20,9 @@ export interface SessionIdentity {
 }
 
 function key(env: SessionEnvironment): string {
-  const value = env.BRAINO_ENCRYPTION_KEY?.trim();
+  const value = env.DOCO_ENCRYPTION_KEY?.trim();
   if (!value || value.length < 32) {
-    throw new Error("BRAINO_ENCRYPTION_KEY must contain at least 32 characters.");
+    throw new Error("DOCO_ENCRYPTION_KEY must contain at least 32 characters.");
   }
   return value;
 }

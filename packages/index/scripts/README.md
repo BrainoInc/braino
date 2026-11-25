@@ -62,7 +62,7 @@ evaluator also needs its configured judge-model API key.
 
 ```sh
 BRAINO_BENCHMARK_DATABASE_URL='postgresql://localhost/braino_enterpriserag_bench' \
-VOYAGE_API_KEY='…' BRAINO_EMBEDDING_PROVIDER=voyage \
+VOYAGE_API_KEY='…' DOCO_EMBEDDING_PROVIDER=voyage \
 pnpm --filter @braino/index eval:enterprise-rag -- \
   --archive /path/to/all_documents.zip \
   --questions /path/to/questions.jsonl \
@@ -101,7 +101,7 @@ search, answers, and judgments from its persisted database and output files.
 
 ```sh
 BRAINO_BENCHMARK_DATABASE_URL='postgresql://localhost/braino_locomo_benchmark' \
-OPENROUTER_API_KEY='…' VOYAGE_API_KEY='…' BRAINO_EMBEDDING_PROVIDER=voyage \
+OPENROUTER_API_KEY='…' VOYAGE_API_KEY='…' DOCO_EMBEDDING_PROVIDER=voyage \
 pnpm --filter @braino/index eval:locomo -- \
   --dataset /path/to/locomo10.json \
   --output /path/to/locomo-pilot-results \

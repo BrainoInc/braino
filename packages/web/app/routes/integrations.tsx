@@ -73,9 +73,9 @@ function text(form: FormData, name: string) {
 }
 
 function encryptionKey(): string {
-  const value = process.env.BRAINO_ENCRYPTION_KEY?.trim();
+  const value = process.env.DOCO_ENCRYPTION_KEY?.trim();
   if (!value || value.length < 32) {
-    throw new Error(msg("BRAINO_ENCRYPTION_KEY must contain at least 32 characters."));
+    throw new Error(msg("DOCO_ENCRYPTION_KEY must contain at least 32 characters."));
   }
   return value;
 }

@@ -65,4 +65,13 @@ describe("Braino's public identity", () => {
     expect(read("compose.yml")).toContain("braino-postgres:");
     expect(read(".env.example")).toContain("BRAINO_IMAGE=");
   });
+
+  it("keeps the existing deployment environment-variable contract", () => {
+    expect(read("packages/db/src/client.ts")).toContain("DOCO_DATABASE_URL");
+    expect(read("packages/db/src/client.ts")).not.toContain("BRAINO_DATABASE_URL");
+    expect(read("packages/index/src/embedding-provider.ts")).toContain("DOCO_EMBEDDING_PROVIDER");
+    expect(read("packages/index/src/embedding-provider.ts")).not.toContain(
+      "BRAINO_EMBEDDING_PROVIDER",
+    );
+  });
 });

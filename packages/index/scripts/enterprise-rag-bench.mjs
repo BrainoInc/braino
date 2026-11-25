@@ -27,7 +27,7 @@ const ACCESS_SCOPES = ["workspace"];
 const DEFAULT_ANSWER_MODEL = "claude-sonnet-4-6";
 
 const opts = parseBenchmarkArgs(process.argv.slice(2));
-process.env.BRAINO_DATABASE_URL = opts.databaseUrl;
+process.env.DOCO_DATABASE_URL = opts.databaseUrl;
 
 const index = await import(INDEX_DIST);
 const db = await import(DB_DIST);

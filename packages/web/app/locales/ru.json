@@ -115,7 +115,7 @@
   "Create your Braino": "Создайте свой Braino",
   "Create your account for {email}.": "Создайте учётную запись для {email}.",
   "Current totals for this workspace.": "Текущие итоги по этому рабочему пространству.",
-  "BRAINO_ENCRYPTION_KEY must contain at least 32 characters.": "BRAINO_ENCRYPTION_KEY должен содержать не менее 32 символов.",
+  "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEY должен содержать не менее 32 символов.",
   "Daily": "По дням",
   "Dark": "Тёмная",
   "Decisions that stay aligned.": "Решения, которые остаются согласованными.",

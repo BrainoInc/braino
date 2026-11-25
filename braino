@@ -67,9 +67,9 @@ backup() {
 
   if [[ -f .env ]]; then
     cp .env "$working_directory/braino.env"
-  elif [[ -n "${BRAINO_ENCRYPTION_KEY:-}" && -n "${BRAINO_POSTGRES_PASSWORD:-}" && -n "${BRAINO_SETUP_TOKEN:-}" && -n "${BRAINO_CODELINKER_API_TOKEN:-}" && -n "${BRAINO_PLUGIN_HOST_API_TOKEN:-}" ]]; then
+  elif [[ -n "${DOCO_ENCRYPTION_KEY:-}" && -n "${BRAINO_POSTGRES_PASSWORD:-}" && -n "${BRAINO_SETUP_TOKEN:-}" && -n "${BRAINO_CODELINKER_API_TOKEN:-}" && -n "${BRAINO_PLUGIN_HOST_API_TOKEN:-}" ]]; then
     {
-      printf 'BRAINO_ENCRYPTION_KEY=%s\n' "$BRAINO_ENCRYPTION_KEY"
+      printf 'DOCO_ENCRYPTION_KEY=%s\n' "$DOCO_ENCRYPTION_KEY"
       printf 'BRAINO_POSTGRES_PASSWORD=%s\n' "$BRAINO_POSTGRES_PASSWORD"
       printf 'BRAINO_SETUP_TOKEN=%s\n' "$BRAINO_SETUP_TOKEN"
       printf 'BRAINO_CODELINKER_API_TOKEN=%s\n' "$BRAINO_CODELINKER_API_TOKEN"

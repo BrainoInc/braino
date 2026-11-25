@@ -64,7 +64,7 @@ function deploymentStatus(
     /\/$/,
     "",
   );
-  const embeddingProvider = process.env.BRAINO_EMBEDDING_PROVIDER?.trim().toLowerCase();
+  const embeddingProvider = process.env.DOCO_EMBEDDING_PROVIDER?.trim().toLowerCase();
   const hasEmbeddingKey = Boolean(
     process.env.OPENAI_API_KEY || process.env.VOYAGE_API_KEY || process.env.COHERE_API_KEY,
   );

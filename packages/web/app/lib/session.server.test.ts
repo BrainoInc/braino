@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createSessionCookie, readSessionIdentity } from "./session.server.js";
 
 const env = {
-  BRAINO_ENCRYPTION_KEY: "this-is-a-test-key-with-at-least-thirty-two-characters",
+  DOCO_ENCRYPTION_KEY: "this-is-a-test-key-with-at-least-thirty-two-characters",
   BRAINO_PUBLIC_HOST: "https://braino.example",
 };
 

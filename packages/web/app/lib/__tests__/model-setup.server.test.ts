@@ -109,9 +109,9 @@ describe("the state every model setup screen starts from", () => {
   });
 
   it("offers a key for sealing secrets only when the deployment has a usable one", () => {
-    vi.stubEnv("BRAINO_ENCRYPTION_KEY", "short");
+    vi.stubEnv("DOCO_ENCRYPTION_KEY", "short");
     expect(pluginSecretsKey()).toBeNull();
-    vi.stubEnv("BRAINO_ENCRYPTION_KEY", "test-encryption-key-with-more-than-thirty-two-characters");
+    vi.stubEnv("DOCO_ENCRYPTION_KEY", "test-encryption-key-with-more-than-thirty-two-characters");
     expect(pluginSecretsKey()).toBe("test-encryption-key-with-more-than-thirty-two-characters");
   });
 
