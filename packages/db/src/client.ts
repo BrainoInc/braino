@@ -189,6 +189,13 @@ export async function applyMigrations(c: QueryClient): Promise<string[]> {
     const appliedVersions = new Set(rows.map((row) => row.version));
     for (const migration of MIGRATIONS) {
       if (appliedVersions.has(migration.version)) continue;
+      // v27 performs the one controlled rewrite of legacy product metadata in
+      // append-only history. Its SQL replaces this trigger before committing;
+      // disabling it here keeps the released migration immutable while making
+      // that data migration possible. A rollback restores the old trigger.
+      if (migration.name === "027_braino_machine_contracts") {
+        await c.query("ALTER TABLE changesets DISABLE TRIGGER changesets_append_only_row");
+      }
       await c.query(migration.sql);
       await c.query("INSERT INTO schema_migrations (version, name, checksum) VALUES ($1, $2, $3)", [
         migration.version,

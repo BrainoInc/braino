@@ -1,6 +1,6 @@
 {
   "name": "@braino/db",
-  "version": "0.1.61",
+  "version": "0.1.62",
   "type": "module",
   "description": "Postgres adapter for Braino source-of-truth storage.",
   "license": "MPL-2.0",
