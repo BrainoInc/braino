@@ -35,7 +35,7 @@ import { action } from "./integrations";
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.stubEnv("BRAINO_ENCRYPTION_KEY", "integration-key-with-more-than-thirty-two-characters");
+  vi.stubEnv("DOCO_ENCRYPTION_KEY", "integration-key-with-more-than-thirty-two-characters");
   mocks.getCurrentUser.mockResolvedValue({ id: "user_owner" });
   mocks.getSingleWorkspaceState.mockResolvedValue({
     initialized: true,

@@ -153,7 +153,7 @@ expires after one hour, rate-limits repeated requests, and ends every earlier
 session when the password changes.
 
 Each external source is bound to this Braino workspace, its credential is encrypted with
-`BRAINO_ENCRYPTION_KEY`, and its read-only records land in a private collection
+`DOCO_ENCRYPTION_KEY`, and its read-only records land in a private collection
 with ordinary search, history, and audit behavior. For Slack, create a bot
 token with `channels:read`, `channels:history`, and `users:read`; only public,
 non-shared channels are copied. For Notion, create an internal integration with

@@ -9,8 +9,8 @@ x-braino-app: &braino-app
       BRAINO_VERSION: ${BRAINO_VERSION:-local}
   restart: unless-stopped
   environment:
-    BRAINO_DATABASE_URL: postgresql://braino:${BRAINO_POSTGRES_PASSWORD:?set BRAINO_POSTGRES_PASSWORD in .env}@postgres:5432/braino
-    BRAINO_ENCRYPTION_KEY: ${BRAINO_ENCRYPTION_KEY:?set BRAINO_ENCRYPTION_KEY in .env}
+    DOCO_DATABASE_URL: postgresql://braino:${BRAINO_POSTGRES_PASSWORD:?set BRAINO_POSTGRES_PASSWORD in .env}@postgres:5432/braino
+    DOCO_ENCRYPTION_KEY: ${DOCO_ENCRYPTION_KEY:?set DOCO_ENCRYPTION_KEY in .env}
     BRAINO_SETUP_TOKEN: ${BRAINO_SETUP_TOKEN:?set BRAINO_SETUP_TOKEN in .env}
     BRAINO_PUBLIC_HOST: ${BRAINO_PUBLIC_HOST:-http://localhost:3000}
     QDRANT_URL: http://qdrant:6333

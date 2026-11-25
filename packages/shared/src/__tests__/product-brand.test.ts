@@ -5,6 +5,20 @@ import { describe, expect, it } from "vitest";
 
 const REPOSITORY_ROOT = resolve(import.meta.dirname, "../../../../");
 const LEGACY_NAME = String.fromCharCode(100, 111, 99, 111);
+const DEPLOYMENT_ENV_SUFFIXES = [
+  "DATABASE_CA",
+  "DATABASE_CERT",
+  "DATABASE_KEY",
+  "DATABASE_POOL_MAX",
+  "DATABASE_URL",
+  "EMBEDDING_PROVIDER",
+  "ENCRYPTION_KEY",
+  "VOYAGE_EMBEDDING_MODEL",
+] as const;
+const DEPLOYMENT_ENVIRONMENT_VARIABLE = new RegExp(
+  `\\b${LEGACY_NAME.toUpperCase()}_(?:${DEPLOYMENT_ENV_SUFFIXES.join("|")})\\b`,
+  "g",
+);
 const IMMUTABLE_MIGRATIONS = new Set([
   "packages/db/migrations/002_braino_product_identity.sql",
   "packages/db/migrations/026_activity_writes.sql",
@@ -32,7 +46,9 @@ describe("product branding", () => {
     const failures = trackedTextFiles().flatMap(({ path, text }) => {
       const matches = [];
       if (pattern.test(path)) matches.push(`${path}: path`);
-      if (pattern.test(text)) matches.push(`${path}: contents`);
+      if (pattern.test(text.replace(DEPLOYMENT_ENVIRONMENT_VARIABLE, ""))) {
+        matches.push(`${path}: contents`);
+      }
       return matches;
     });
 

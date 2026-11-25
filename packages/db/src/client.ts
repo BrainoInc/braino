@@ -32,23 +32,21 @@ function pem(value: string | undefined): string | undefined {
 
 export function databasePoolConfig(env: NodeJS.ProcessEnv = process.env): pg.PoolConfig {
   const connectionString =
-    env.BRAINO_DATABASE_URL ??
-    env.DATABASE_URL ??
-    "postgres://postgres:braino@127.0.0.1:5433/braino";
-  const configuredMax = env.BRAINO_DATABASE_POOL_MAX?.trim();
+    env.DOCO_DATABASE_URL ?? env.DATABASE_URL ?? "postgres://postgres:braino@127.0.0.1:5433/braino";
+  const configuredMax = env.DOCO_DATABASE_POOL_MAX?.trim();
   const max = configuredMax ? Number(configuredMax) : 10;
   if (!Number.isInteger(max) || max < 1 || max > 100) {
-    throw new Error("BRAINO_DATABASE_POOL_MAX must be between 1 and 100");
+    throw new Error("DOCO_DATABASE_POOL_MAX must be between 1 and 100");
   }
 
-  const ca = pem(env.BRAINO_DATABASE_CA);
-  const cert = pem(env.BRAINO_DATABASE_CERT);
-  const key = pem(env.BRAINO_DATABASE_KEY);
+  const ca = pem(env.DOCO_DATABASE_CA);
+  const cert = pem(env.DOCO_DATABASE_CERT);
+  const key = pem(env.DOCO_DATABASE_KEY);
   if (Boolean(cert) !== Boolean(key)) {
-    throw new Error("BRAINO_DATABASE_CERT and BRAINO_DATABASE_KEY must be configured together");
+    throw new Error("DOCO_DATABASE_CERT and DOCO_DATABASE_KEY must be configured together");
   }
   if ((cert || key) && !ca) {
-    throw new Error("BRAINO_DATABASE_CA is required with TLS client credentials");
+    throw new Error("DOCO_DATABASE_CA is required with TLS client credentials");
   }
 
   return {

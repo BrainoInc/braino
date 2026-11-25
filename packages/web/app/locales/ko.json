@@ -115,7 +115,7 @@
   "Create your Braino": "나만의 Braino 만들기",
   "Create your account for {email}.": "{email} 계정을 만드세요.",
   "Current totals for this workspace.": "이 워크스페이스의 현재 합계입니다.",
-  "BRAINO_ENCRYPTION_KEY must contain at least 32 characters.": "BRAINO_ENCRYPTION_KEY는 32자 이상이어야 합니다.",
+  "DOCO_ENCRYPTION_KEY must contain at least 32 characters.": "DOCO_ENCRYPTION_KEY는 32자 이상이어야 합니다.",
   "Daily": "일별",
   "Dark": "다크",
   "Decisions that stay aligned.": "서로 어긋나지 않는 결정.",

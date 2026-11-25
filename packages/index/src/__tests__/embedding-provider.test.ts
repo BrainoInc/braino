@@ -131,34 +131,34 @@ describe("getDefaultEmbeddingProvider", () => {
     expect(getDefaultEmbeddingProvider()).toBeInstanceOf(VoyageEmbeddingProvider);
   });
 
-  it("honors an explicit BRAINO_EMBEDDING_PROVIDER selector", () => {
+  it("honors an explicit DOCO_EMBEDDING_PROVIDER selector", () => {
     vi.stubEnv("OPENAI_API_KEY", "sk-test");
     vi.stubEnv("VOYAGE_API_KEY", "va-test");
-    vi.stubEnv("BRAINO_EMBEDDING_PROVIDER", "voyage");
+    vi.stubEnv("DOCO_EMBEDDING_PROVIDER", "voyage");
     expect(getDefaultEmbeddingProvider()).toBeInstanceOf(VoyageEmbeddingProvider);
   });
 
   it("lets an operator select Voyage 4 without changing the safe default", () => {
     vi.stubEnv("VOYAGE_API_KEY", "va-test");
-    vi.stubEnv("BRAINO_EMBEDDING_PROVIDER", "voyage");
-    vi.stubEnv("BRAINO_VOYAGE_EMBEDDING_MODEL", "voyage-4");
+    vi.stubEnv("DOCO_EMBEDDING_PROVIDER", "voyage");
+    vi.stubEnv("DOCO_VOYAGE_EMBEDDING_MODEL", "voyage-4");
     expect(getDefaultEmbeddingProvider().modelId).toBe("voyage:voyage-4");
   });
 
   it("forces Cohere when selected", () => {
     vi.stubEnv("COHERE_API_KEY", "co-test");
-    vi.stubEnv("BRAINO_EMBEDDING_PROVIDER", "cohere");
+    vi.stubEnv("DOCO_EMBEDDING_PROVIDER", "cohere");
     expect(getDefaultEmbeddingProvider()).toBeInstanceOf(CohereEmbeddingProvider);
   });
 
   it("falls back to Noop when the selected provider's key is missing", () => {
-    vi.stubEnv("BRAINO_EMBEDDING_PROVIDER", "voyage");
+    vi.stubEnv("DOCO_EMBEDDING_PROVIDER", "voyage");
     expect(getDefaultEmbeddingProvider()).toBeInstanceOf(NoopEmbeddingProvider);
   });
 
   it("'none' disables embeddings even with a key present", () => {
     vi.stubEnv("OPENAI_API_KEY", "sk-test");
-    vi.stubEnv("BRAINO_EMBEDDING_PROVIDER", "none");
+    vi.stubEnv("DOCO_EMBEDDING_PROVIDER", "none");
     expect(getDefaultEmbeddingProvider()).toBeInstanceOf(NoopEmbeddingProvider);
   });
 

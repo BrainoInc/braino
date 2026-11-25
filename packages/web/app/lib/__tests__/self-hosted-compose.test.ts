@@ -62,7 +62,7 @@ fi
         FAKE_APP_IMAGE: appImage,
         FAKE_CODELINKER_IMAGE: codeLinkerImage,
         FAKE_PLUGIN_HOST_IMAGE: pluginHostImage,
-        BRAINO_ENCRYPTION_KEY: "test-encryption-key-with-thirty-two-characters",
+        DOCO_ENCRYPTION_KEY: "test-encryption-key-with-thirty-two-characters",
         BRAINO_POSTGRES_PASSWORD: "test-postgres-password",
         BRAINO_SETUP_TOKEN: "test-setup-token",
         BRAINO_CODELINKER_API_TOKEN: "test-codelinker-token-with-thirty-two-characters",
@@ -177,7 +177,7 @@ describe("the supported self-hosted stack", () => {
     const dockerignore = readFileSync(resolve(root, ".dockerignore"), "utf8");
     const runtimeStage = dockerfile.split(" AS runtime")[1] ?? "";
 
-    expect(env).toContain("BRAINO_ENCRYPTION_KEY=");
+    expect(env).toContain("DOCO_ENCRYPTION_KEY=");
     expect(env).toContain("BRAINO_POSTGRES_PASSWORD=");
     expect(env).toContain("BRAINO_SETUP_TOKEN=");
     expect(env).toContain("BRAINO_CODELINKER_API_TOKEN=");
@@ -346,7 +346,7 @@ describe("the supported self-hosted stack", () => {
     expect(scheduler).toContain("syncRetrievalSourceBatch");
     expect(scheduler).toContain("syncQueuedEmbeddings");
     expect(scheduler).toContain("pluginHostConnectionFromEnv(process.env)");
-    expect(scheduler).toContain("BRAINO_ENCRYPTION_KEY");
+    expect(scheduler).toContain("DOCO_ENCRYPTION_KEY");
   });
 
   it("drains workspace-scoped team-chat events through the installed providers", () => {

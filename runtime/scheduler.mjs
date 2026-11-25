@@ -84,7 +84,7 @@ async function indexRetrieval() {
     const report = await withClient(async (client) => {
       const provider = await resolveWorkspaceEmbeddingProvider(client, {
         workspaceId: state.workspace.id,
-        encryptionKey: required("BRAINO_ENCRYPTION_KEY"),
+        encryptionKey: required("DOCO_ENCRYPTION_KEY"),
         host: pluginHostConnection(),
       });
       if (!provider) return null;
@@ -128,7 +128,7 @@ async function drainTeamChat() {
     await withClient(async (client) => {
       const connection = {
         workspaceId: state.workspace.id,
-        encryptionKey: required("BRAINO_ENCRYPTION_KEY"),
+        encryptionKey: required("DOCO_ENCRYPTION_KEY"),
         host: pluginHostConnection(),
       };
       const [chat, teamChat] = await Promise.all([

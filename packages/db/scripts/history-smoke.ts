@@ -1,7 +1,7 @@
 // Smoke test for the append-only edge runtime, run against a
 // real local Postgres (the schema must already be applied).
 //
-//   LC_ALL=C BRAINO_DATABASE_URL=postgres://postgres:braino@127.0.0.1:5433/braino \
+//   LC_ALL=C DOCO_DATABASE_URL=postgres://postgres:braino@127.0.0.1:5433/braino \
 //     pnpm exec tsx packages/db/scripts/history-smoke.ts
 //
 // Uses a raw pg Pool (NOT @braino/db's getPool) so we validate the
@@ -19,7 +19,7 @@ import {
   updateEdge,
 } from "../src/history.js";
 
-const URL = process.env.BRAINO_DATABASE_URL ?? "postgres://postgres:braino@127.0.0.1:5433/braino";
+const URL = process.env.DOCO_DATABASE_URL ?? "postgres://postgres:braino@127.0.0.1:5433/braino";
 const pool = new pg.Pool({ connectionString: URL, max: 4 });
 
 let passed = 0;
