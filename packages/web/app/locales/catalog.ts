@@ -1,4 +1,4 @@
-import { catalogStore } from "@doco/shared/i18n";
+import { catalogStore } from "@braino/shared/i18n";
 
 // One catalog per language beside this file, each fetched only when a reader asks for it.
 export const catalogs = catalogStore(import.meta.glob("./*.json", { import: "default" }));

@@ -253,7 +253,7 @@ describe("access requests", () => {
   });
 
   // A person whose project names a workspace they are not in asks to join it
-  // (Loop 1 of "Making Doco viral": .doco/workspace as a spore).
+  // (Loop 1 of "Making Braino viral": .braino/workspace as a spore).
   describe("workspace requests", () => {
     it("asks to join a workspace, one live request per person", async () => {
       const a = await createAccessRequest({

@@ -95,7 +95,7 @@ describe("QdrantVectorStore", () => {
 
     const create = requests.find(
       (request) =>
-        request.url.endsWith("/collections/doco_embeddings") && request.init?.method === "PUT",
+        request.url.endsWith("/collections/braino_embeddings") && request.init?.method === "PUT",
     );
     expect(JSON.parse(String(create?.init?.body))).toMatchObject({
       vectors: { size: 4, distance: "Cosine", on_disk: true },
@@ -263,7 +263,7 @@ describe("QdrantVectorStore", () => {
     });
 
     const textIndex = requests.find((request) => {
-      if (!request.url.endsWith("/collections/doco_embeddings/index?wait=true")) return false;
+      if (!request.url.endsWith("/collections/braino_embeddings/index?wait=true")) return false;
       return JSON.parse(String(request.init?.body)).field_name === "chunk_text";
     });
     expect(JSON.parse(String(textIndex?.init?.body))).toEqual({

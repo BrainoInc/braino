@@ -1,9 +1,9 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import {
   resetNodeSearchProjection,
   syncNodeSearchProjection,
-} from "@doco/index/qdrant-record-projection";
-import { QdrantVectorStore, type RetrievalStore } from "@doco/index/qdrant-vector-store";
+} from "@braino/index/qdrant-record-projection";
+import { QdrantVectorStore, type RetrievalStore } from "@braino/index/qdrant-vector-store";
 
 export interface WorkspaceSearchResult {
   id: string;
@@ -34,7 +34,7 @@ function configuredRetrievalStore(): RetrievalStore | null {
       store: new QdrantVectorStore({
         url,
         ...(apiKey ? { apiKey } : {}),
-        collection: "doco_records",
+        collection: "braino_records",
         dimensions: 1,
         timeoutMs: 3_000,
       }),

@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import type { PGlite } from "@electric-sql/pglite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
@@ -14,7 +14,7 @@ import { initializeSingleWorkspace } from "../single-workspace.js";
 let db: PGlite;
 
 beforeEach(async () => {
-  vi.stubEnv("DOCO_PUBLIC_HOST", "https://meta.braino.dev");
+  vi.stubEnv("BRAINO_PUBLIC_HOST", "https://meta.braino.dev");
   db = await freshDb();
 });
 
@@ -202,7 +202,7 @@ describe("GitHub gateway enforcement deliveries", () => {
           pull_request: {
             state: "open",
             title: "Keep the gateway safe",
-            body: "Doco-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
+            body: "Braino-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
             html_url: "https://github.com/acme/widgets/pull/23",
             head: { sha: "def456" },
           },
@@ -210,7 +210,7 @@ describe("GitHub gateway enforcement deliveries", () => {
       },
     ];
     plugin.pullRequestCommits = async () => [
-      "Late evidence\n\nDoco-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
+      "Late evidence\n\nBraino-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
     ];
     await deliver(plugin);
 
@@ -241,7 +241,7 @@ describe("GitHub gateway enforcement deliveries", () => {
     const publishPullRequestComment = vi.fn().mockResolvedValue({ id: 101 });
     const { legacy, plugin } = await connectedPlugin({
       commitMessages: [
-        "Went through Braino\n\nDoco-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
+        "Went through Braino\n\nBraino-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
       ],
       publishCheck,
       rejectPullRequest,
@@ -275,7 +275,7 @@ describe("GitHub gateway enforcement deliveries", () => {
           pull_request: {
             state: "open",
             title: "Keep the gateway safe",
-            body: "Doco-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
+            body: "Braino-Brief: https://meta.braino.dev/workspaces/acme/brief?id=brief_01M84AAAAAAAAAAAAAAAAAAAAAA",
             html_url: "https://github.com/acme/widgets/pull/23",
             head: { sha: "def456" },
           },

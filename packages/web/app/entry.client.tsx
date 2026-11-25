@@ -1,4 +1,4 @@
-import { LOCALE_PARAM, type Locale, localeCookie } from "@doco/shared/i18n";
+import { LOCALE_PARAM, type Locale, localeCookie } from "@braino/shared/i18n";
 import { StrictMode, startTransition } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { HydratedRouter } from "react-router/dom";

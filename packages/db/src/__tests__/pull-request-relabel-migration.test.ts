@@ -1,15 +1,15 @@
-// Alexander, 2026-10-30, "Spot agents committing without Doco": relabel the
+// Alexander, 2026-10-30, "Spot agents committing without Braino": relabel the
 // older pull requests of every workspace once. Applying schema.sql queues
 // each collection that brings pull requests from GitHub, last imported before
 // they carried labels, for the background re-import "Re-import all" starts;
 // once that import ran, a later boot queues nothing. Alexander, 2026-11-02,
-// "Find why no alert for Oki skipping Doco": once more when a brief or record
-// of another workspace stopped counting as going through Doco, which ran
+// "Find why no alert for Oki skipping Braino": once more when a brief or record
+// of another workspace stopped counting as going through Braino, which ran
 // under the code the deploy replaced, as the build applies schema.sql before
 // its code serves; and again when each pull request came to carry who opened
 // it, with the marker's cursor ahead, so the sweep starts the import ten
 // minutes on; when only its author's records came to count as logging it;
-// and when Doco came to look in every workspace that tracks the repository.
+// and when Braino came to look in every workspace that tracks the repository.
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "./fresh-db.js";
@@ -68,7 +68,7 @@ beforeEach(async () => {
       backfill: { status: "running", cursor_at: "2026-10-20T00:00:00Z" },
     },
   });
-  // Relabeled at 22:02, before Doco looked in other workspaces that track
+  // Relabeled at 22:02, before Braino looked in other workspaces that track
   // the repository.
   await collection("labeled_before", {
     template_handle: "github-pull-requests",

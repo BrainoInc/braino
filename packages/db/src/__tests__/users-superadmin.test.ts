@@ -1,4 +1,4 @@
-// Doco's admin pages answer one person, the host superadmin. They used to know
+// Braino's admin pages answer one person, the host superadmin. They used to know
 // that person by username, torrenegra; once people choose their usernames,
 // whoever took that name would be let in, so users.superadmin marks the person
 // instead. The boot that adds the column marks whoever is named torrenegra

@@ -52,7 +52,7 @@ describe("Qdrant record projection", () => {
         source: "node",
         entity_id: "reference_1",
         chunk_index: 0,
-        model_id: "doco:record-search:v1",
+        model_id: "braino:record-search:v1",
         chunk_text: expect.stringContaining("Incident response handbook"),
         embedding: [1],
       }),

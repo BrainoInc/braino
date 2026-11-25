@@ -1,9 +1,9 @@
-import { withClient } from "@doco/db";
-import { getSingleWorkspaceState } from "@doco/host";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+import { withClient } from "@braino/db";
+import { getSingleWorkspaceState } from "@braino/host";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { Form, Link, redirect, useLoaderData } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { searchAsWorkspaceMember } from "~/lib/workspace-search.server";

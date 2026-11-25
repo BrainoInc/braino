@@ -10,7 +10,7 @@
 // provenance, and history, mutated ONLY here (never wiped by the indexer).
 
 import { createHash } from "node:crypto";
-import { type EntityId, type Lifecycle, generateUlid, makeEntityId } from "@doco/shared";
+import { type EntityId, type Lifecycle, generateUlid, makeEntityId } from "@braino/shared";
 import type pg from "pg";
 
 export type CommitSource = "api" | "mcp" | "ui" | "slack" | "import" | "reset" | "system";

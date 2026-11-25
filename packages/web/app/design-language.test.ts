@@ -33,10 +33,10 @@ describe("Braino's design language", () => {
   it("uses Braino's real mark, site header, and workspace page primitives", () => {
     expect(root).toContain('from "~/components/site-header"');
     expect(root).toContain("<SiteHeader");
-    expect(siteHeader).toContain('from "@doco/ui"');
+    expect(siteHeader).toContain('from "@braino/ui"');
     expect(siteHeader).toContain("<BrainoMark height={28}");
     expect(appHeader).toContain("h-14 border-b border-border bg-card");
-    expect(appCss).toContain('@import "@doco/ui/styles.css"');
+    expect(appCss).toContain('@import "@braino/ui/styles.css"');
     expect(mark).toContain("braino-mark-glyph-motion");
     expect(mark).toContain("braino-mark-spark-lg");
     expect(mark).toContain('className="fill-primary"');

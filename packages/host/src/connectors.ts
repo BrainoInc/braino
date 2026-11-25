@@ -5,14 +5,14 @@ import {
   createChangeset,
   nodeRowFromFields,
   upsertNode,
-} from "@doco/db";
+} from "@braino/db";
 import {
   type ConnectorAdapter,
   type ConnectorDocument,
   ConnectorError,
   type ConnectorFetcher,
-} from "@doco/plugin-runtime";
-import { generateUlid, makeEntityId } from "@doco/shared";
+} from "@braino/plugin-runtime";
+import { generateUlid, makeEntityId } from "@braino/shared";
 import type { ClientScope } from "./client-scope.js";
 import { createCollectionInWorkspace } from "./host.js";
 import { openSecret, sealSecret } from "./secret-box.js";
@@ -23,7 +23,7 @@ export {
   type ConnectorDocument,
   type ConnectorFetcher,
   type ConnectorSource,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 const CONNECTOR_PROVIDER_PATTERN = /^[a-z][a-z0-9_]{0,49}$/;
 const CONNECTOR_REQUEST_TIMEOUT_MS = 30_000;
 const MAX_CONNECTOR_DOCUMENTS = 10_000;

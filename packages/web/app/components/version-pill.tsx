@@ -1,4 +1,4 @@
-import { useT } from "@doco/shared/i18n/react";
+import { useT } from "@braino/shared/i18n/react";
 import { useEffect, useState } from "react";
 import { cn } from "~/lib/cn";
 import { TAGLINE } from "~/lib/tagline";
@@ -8,7 +8,7 @@ const MINUTE = 60_000;
 
 export function VersionPill({ className }: { className?: string }) {
   const t = useT();
-  const releasedAt = new Date(__DOCO_RELEASE_AT__).getTime();
+  const releasedAt = new Date(__BRAINO_RELEASE_AT__).getTime();
   const [now, setNow] = useState(releasedAt);
   useEffect(() => {
     const tick = () => setNow(Date.now());
@@ -26,7 +26,7 @@ export function VersionPill({ className }: { className?: string }) {
       suppressHydrationWarning
     >
       <span className="truncate opacity-50">
-        {t("Private beta {version} · {ago}", { version: __DOCO_VERSION__, ago })}
+        {t("Private beta {version} · {ago}", { version: __BRAINO_VERSION__, ago })}
       </span>
       <span className="hidden text-balance sm:line-clamp-2">{t(TAGLINE)}</span>
     </span>

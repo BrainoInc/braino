@@ -591,7 +591,7 @@ CREATE INDEX IF NOT EXISTS query_events_by_agent_idx ON query_events (workspace_
 CREATE TABLE IF NOT EXISTS agent_results (
   id                    text PRIMARY KEY,       -- result_<ulid>, returned to the agent
   actor                 text NOT NULL,          -- user_<ulid> whose credential asked
-  tool                  text NOT NULL CHECK (tool IN ('doco_brief', 'doco_search')),
+  tool                  text NOT NULL CHECK (tool IN ('braino_brief', 'braino_search')),
   query                 text NOT NULL,
   result_ids            text[] NOT NULL DEFAULT '{}',
   source                text NOT NULL
@@ -1229,7 +1229,7 @@ CREATE TABLE IF NOT EXISTS tokens_blob (
 -- ──────────────────────────────────────────────────────────────────────────
 -- OAuth 2.1 server (decision_01KS14CW9ZN23FF5CGG0Z7TH4G).
 --
--- Replaces the DOCO_ACCESS-bearer-in-.env transport with a standard
+-- Replaces the BRAINO_ACCESS-bearer-in-.env transport with a standard
 -- MCP-OAuth handshake. The MCP server at /mcp returns
 -- WWW-Authenticate: Bearer + resource_metadata pointer on 401; the
 -- runtime discovers our /.well-known/oauth-authorization-server +
@@ -1393,10 +1393,10 @@ CREATE INDEX IF NOT EXISTS oauth_refresh_tokens_expires_idx
 -- working, since validation hashes what is presented.
 UPDATE oauth_access_tokens
    SET token = encode(sha256(convert_to(token, 'UTF8')), 'hex')
- WHERE token LIKE 'doco\_at\_%';
+ WHERE token LIKE 'braino\_at\_%';
 UPDATE oauth_refresh_tokens
    SET token = encode(sha256(convert_to(token, 'UTF8')), 'hex')
- WHERE token LIKE 'doco\_rt\_%';
+ WHERE token LIKE 'braino\_rt\_%';
 
 -- Device Authorization Grant (RFC 8628). Designed for agents that
 -- cannot drive a localhost-redirect OAuth flow (no port-binding,
@@ -1450,7 +1450,7 @@ CREATE INDEX IF NOT EXISTS oauth_device_authorizations_expires_idx
 -- takes effect on the requester's next call with no re-auth.
 -- Access requests: someone asks the owners of a collection, or of a whole
 -- workspace, for a role. Exactly one of collection_id and workspace_id is set.
--- A workspace request is how a person whose project's .doco/workspace names a
+-- A workspace request is how a person whose project's .braino/workspace names a
 -- workspace they are not in asks to join it; approving writes workspace_users.
 CREATE TABLE IF NOT EXISTS access_requests (
   id             text PRIMARY KEY,                  -- accreq_<opaque>
@@ -1513,12 +1513,12 @@ CREATE TABLE IF NOT EXISTS times_editions (
 -- Hook tokens: a person's read-only credential for one workspace, reading
 -- what its maker can read there (decision_01M4C2J610DPD028P55Q8X6VG2), with
 -- no expiry; revoking is the only kill switch. Any member mints their own; an
--- agent gets its person's with the MCP tool doco_hook_token and saves it in
--- .doco/hook-tokens.json, out of git, where the Braino hook reads it. `token`
+-- agent gets its person's with the MCP tool braino_hook_token and saves it in
+-- .braino/hook-tokens.json, out of git, where the Braino hook reads it. `token`
 -- holds the token's SHA-256 (hex), matched against the digest of the bearer
 -- presented; `token_sealed` its sealed copy (lib/secret-box.server.ts), which
--- doco_hook_token reads to hand the same token out again. They were
--- project tokens (doco_pt_…) until they were named for the hook: a guarded,
+-- braino_hook_token reads to hand the same token out again. They were
+-- project tokens (braino_pt_…) until they were named for the hook: a guarded,
 -- self-removing block renames the table, its index and each token's prefix
 -- on the first boot that still has project_tokens.
 DO $$
@@ -1526,8 +1526,9 @@ BEGIN
   IF to_regclass('public.project_tokens') IS NOT NULL THEN
     ALTER TABLE project_tokens RENAME TO hook_tokens;
     ALTER INDEX project_tokens_workspace_idx RENAME TO hook_tokens_workspace_idx;
-    UPDATE hook_tokens SET token = 'doco_ht_' || substr(token, 9)
-     WHERE token LIKE 'doco\_pt\_%';
+    UPDATE hook_tokens
+       SET token = 'braino_ht_' || split_part(token, '_pt_', 2)
+     WHERE token LIKE '%\_pt\_%';
   END IF;
 END $$;
 CREATE TABLE IF NOT EXISTS hook_tokens (
@@ -1544,11 +1545,11 @@ CREATE INDEX IF NOT EXISTS hook_tokens_workspace_idx
   ON hook_tokens (workspace_id) WHERE NOT revoked;
 -- Tokens minted before the database held digests (2026-10-28) are hashed in
 -- place, once, with no sealed copy to read them back from: they keep reading,
--- and doco_hook_token mints its person a new one the next time it asks.
+-- and braino_hook_token mints its person a new one the next time it asks.
 ALTER TABLE hook_tokens ADD COLUMN IF NOT EXISTS token_sealed text;
 UPDATE hook_tokens
    SET token = encode(sha256(convert_to(token, 'UTF8')), 'hex')
- WHERE token LIKE 'doco\_ht\_%';
+ WHERE token LIKE 'braino\_ht\_%';
 
 -- Generic incoming webhooks. The secret URL carries a random token; only its
 -- SHA-256 digest is stored. Every delivery is an ordinary policy-checked
@@ -1969,10 +1970,10 @@ CREATE TABLE IF NOT EXISTS group_chat_installations (
   -- assistant reaches at most this one workspace; null = unbound = no collection
   -- access (fail closed). This is what stops a linked user's account-wide
   -- permissions from leaking into chat.
-  doco_workspace_id           text,
+  braino_workspace_id           text,
   -- The channel Señor speaks in unasked (lib/slack-conversations.server.ts):
   -- where he introduces himself, answers every message and posts the
-  -- workspace's Times, picked by the owner at install, #doco unless they pick
+  -- workspace's Times, picked by the owner at install, #braino unless they pick
   -- another, and changed in the team's Slack settings. He creates it when the
   -- team has none by that name and adds the team to it. Its name only labels it.
   default_channel_id          text,
@@ -2716,9 +2717,9 @@ CREATE INDEX IF NOT EXISTS nps_surveys_answered_idx
 -- bypass. Inserts are allowed; "removal" is a retire VERSION, never a delete.
 -- Idempotent (CREATE OR REPLACE + DROP IF EXISTS), so it re-asserts on every
 -- cold start.
-CREATE OR REPLACE FUNCTION doco_allow_history_delete_for_collection() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION braino_allow_history_delete_for_collection() RETURNS trigger AS $$
 BEGIN
-  PERFORM set_config('doco.allow_history_delete', 'on', true);
+  PERFORM set_config('braino.allow_history_delete', 'on', true);
   RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;
@@ -2727,12 +2728,12 @@ DROP TRIGGER IF EXISTS collections_allow_history_delete ON collections;
 CREATE TRIGGER collections_allow_history_delete
   BEFORE DELETE ON collections
   FOR EACH ROW
-  EXECUTE FUNCTION doco_allow_history_delete_for_collection();
+  EXECUTE FUNCTION braino_allow_history_delete_for_collection();
 
-CREATE OR REPLACE FUNCTION doco_block_history_mutation() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION braino_block_history_mutation() RETURNS trigger AS $$
 BEGIN
   IF TG_OP = 'DELETE'
-    AND current_setting('doco.allow_history_delete', true) = 'on'
+    AND current_setting('braino.allow_history_delete', true) = 'on'
     AND pg_trigger_depth() > 1
   THEN
     RETURN OLD;
@@ -2746,9 +2747,9 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['changesets','node_versions','edge_versions'] LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS %I_append_only_row ON %I', t, t);
-    EXECUTE format('CREATE TRIGGER %I_append_only_row BEFORE UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION doco_block_history_mutation()', t, t);
+    EXECUTE format('CREATE TRIGGER %I_append_only_row BEFORE UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION braino_block_history_mutation()', t, t);
     EXECUTE format('DROP TRIGGER IF EXISTS %I_append_only_stmt ON %I', t, t);
-    EXECUTE format('CREATE TRIGGER %I_append_only_stmt BEFORE TRUNCATE ON %I FOR EACH STATEMENT EXECUTE FUNCTION doco_block_history_mutation()', t, t);
+    EXECUTE format('CREATE TRIGGER %I_append_only_stmt BEFORE TRUNCATE ON %I FOR EACH STATEMENT EXECUTE FUNCTION braino_block_history_mutation()', t, t);
   END LOOP;
 END $$;
 
@@ -2961,7 +2962,7 @@ ALTER TABLE group_chat_mirrors ADD COLUMN IF NOT EXISTS replies_next_at timestam
 ALTER TABLE group_chat_channels ADD COLUMN IF NOT EXISTS history_oldest_ts text;
 ALTER TABLE group_chat_channels ADD COLUMN IF NOT EXISTS decision_offers boolean NOT NULL DEFAULT false;
 -- Quieting Señor from Slack is gone: Manage under what he posts unasked
--- opens the team's Slack settings on doco.to (Alexander, 2026-11-03: "No
+-- opens the team's Slack settings on braino.to (Alexander, 2026-11-03: "No
 -- management options in Slack other than the button to go to Braino."). A
 -- channel someone quieted stays quiet through the switches there: the Times
 -- off where it was his channel, and no watching for decisions in it. What was
@@ -3178,7 +3179,7 @@ CREATE INDEX IF NOT EXISTS silence_alerts_collections_idx ON silence_alerts USIN
 -- per workspace, person, agent and project. A copy names itself and its
 -- project on the standing orders it reads with its person's credential, at a
 -- session's start and when an environment's install script runs it (web:
--- hook/doco-hook.mjs). The silence check alerts on a copy that stays old
+-- hook/braino-hook.mjs). The silence check alerts on a copy that stays old
 -- while it is still seen, and on an environment Braino never heard from
 -- (silence_alerts.setup).
 CREATE TABLE IF NOT EXISTS hook_copies (
@@ -3497,7 +3498,7 @@ UPDATE workspaces w
   FROM (SELECT id,
                btrim(regexp_replace(
                  regexp_replace(constitution,
-                   '(This is a spec-driven development project\.|Follow the policies of every (Doco|collection) in this workspace\. They are binding|Document anything a future collaborator,|Three duties are not optional\.).*',
+                   '(This is a spec-driven development project\.|Follow the policies of every (Braino|collection) in this workspace\. They are binding|Document anything a future collaborator,|Three duties are not optional\.).*',
                    '', 'gn'),
                  '\n{3,}', E'\n\n', 'g'), E' \n') AS kept,
                $constitution$Follow the policies of every collection in this workspace. They bind: when two seem to conflict, say so rather than picking one.
@@ -3826,7 +3827,7 @@ SELECT cs.collection_id, cs.actor, cs.source, cs.metadata, cs.recorded_at AS at
 FROM changesets cs
 WHERE (cs.source NOT IN ('import','api')
        OR cs.metadata->>'surface' IN ('website','slack','mcp')
-       OR (cs.metadata->>'surface' = 'senor_doco' AND cs.metadata->>'client' = 'website')
+       OR (cs.metadata->>'surface' = 'senor_braino' AND cs.metadata->>'client' = 'website')
        OR (cs.source = 'api' AND (nullif(cs.metadata->>'auth','') IS NOT NULL
            OR nullif(trim(cs.metadata->>'token_name'),'') IS NOT NULL
            OR nullif(trim(cs.metadata->>'client_name'),'') IS NOT NULL

@@ -31,7 +31,7 @@ describe("oauth actor_role column backfill", () => {
     db = await freshDb();
     await db.query("INSERT INTO users (id, data) VALUES ('user_a', '{}')");
     await db.query(
-      "INSERT INTO oauth_clients (client_id, client_name, redirect_uris) VALUES ('doco_client_x', 'x', ARRAY['urn:ietf:wg:oauth:2.0:oob'])",
+      "INSERT INTO oauth_clients (client_id, client_name, redirect_uris) VALUES ('braino_client_x', 'x', ARRAY['urn:ietf:wg:oauth:2.0:oob'])",
     );
   });
 
@@ -57,13 +57,13 @@ describe("oauth actor_role column backfill", () => {
     await db.exec(
       `INSERT INTO oauth_refresh_tokens
          (token, client_id, user_id, granted_collection_ids, grant_type, actor_role, expires_at)
-       VALUES ('rt_ok', 'doco_client_x', 'user_a', ARRAY[]::text[], 'actor', 'reader', now() + interval '60 days')`,
+       VALUES ('rt_ok', 'braino_client_x', 'user_a', ARRAY[]::text[], 'actor', 'reader', now() + interval '60 days')`,
     );
     await expect(
       db.exec(
         `INSERT INTO oauth_refresh_tokens
            (token, client_id, user_id, granted_collection_ids, grant_type, actor_role, expires_at)
-         VALUES ('rt_bad', 'doco_client_x', 'user_a', ARRAY[]::text[], 'actor', 'superuser', now() + interval '60 days')`,
+         VALUES ('rt_bad', 'braino_client_x', 'user_a', ARRAY[]::text[], 'actor', 'superuser', now() + interval '60 days')`,
       ),
     ).rejects.toThrow();
   });

@@ -1,5 +1,5 @@
-import { withClient } from "@doco/db";
-import { ChangesetError, applyChangeset } from "@doco/host";
+import { withClient } from "@braino/db";
+import { ChangesetError, applyChangeset } from "@braino/host";
 import { getCurrentUser } from "~/lib/current-user.server.js";
 import {
   MAX_JSON_BODY_BYTES,

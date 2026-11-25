@@ -95,7 +95,7 @@ describe("LoCoMo pilot adapter", () => {
       "--dataset",
       "/tmp/locomo10.json",
       "--database-url",
-      "postgres://localhost/doco_locomo_benchmark",
+      "postgres://localhost/braino_locomo_benchmark",
     ];
     expect(() => parseBenchmarkArgs(common, {})).toThrow("--accept-noncommercial-license");
     expect(
@@ -103,14 +103,14 @@ describe("LoCoMo pilot adapter", () => {
         OPEN_ROUTER_API_KEY: "test",
         VOYAGE_API_KEY: "test",
       }),
-    ).toMatchObject({ sampleRate: 0.1, seed: "doco-locomo-pilot-v1", topK: 20 });
+    ).toMatchObject({ sampleRate: 0.1, seed: "braino-locomo-pilot-v1", topK: 20 });
     expect(() =>
       parseBenchmarkArgs(
         [
           "--dataset",
           "/tmp/locomo10.json",
           "--database-url",
-          "postgres://localhost/doco",
+          "postgres://localhost/braino",
           "--accept-noncommercial-license",
         ],
         { OPENROUTER_API_KEY: "test", VOYAGE_API_KEY: "test" },

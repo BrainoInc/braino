@@ -25,19 +25,25 @@ function git(command: string): string | null {
 }
 
 const version =
-  clean(process.env.DOCO_VERSION) ?? git("git rev-parse --short=7 HEAD") ?? rootPackage.version;
+  clean(process.env.BRAINO_VERSION) ?? git("git rev-parse --short=7 HEAD") ?? rootPackage.version;
 const releaseAt = git("git log -1 --format=%cI") ?? new Date().toISOString();
 
 export default defineConfig({
   define: {
-    __DOCO_VERSION__: JSON.stringify(version),
-    __DOCO_RELEASE_AT__: JSON.stringify(releaseAt),
+    __BRAINO_VERSION__: JSON.stringify(version),
+    __BRAINO_RELEASE_AT__: JSON.stringify(releaseAt),
   },
   plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
   server: { host: "127.0.0.1", port: 5173 },
   resolve: { dedupe: ["react", "react-dom"] },
   ssr: {
     external: ["pg"],
-    noExternal: ["@react-router/node", "@doco/db", "@doco/host", "@doco/shared", "react-router"],
+    noExternal: [
+      "@react-router/node",
+      "@braino/db",
+      "@braino/host",
+      "@braino/shared",
+      "react-router",
+    ],
   },
 });

@@ -1,5 +1,5 @@
-import { LOGOS } from "@doco/ui";
-import { PluginLogo } from "@doco/ui";
+import { LOGOS } from "@braino/ui";
+import { PluginLogo } from "@braino/ui";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";

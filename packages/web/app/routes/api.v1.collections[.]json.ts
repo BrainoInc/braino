@@ -1,4 +1,4 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import { getCurrentUser } from "~/lib/current-user.server.js";
 
 export async function loader({ request }: { request: Request }) {

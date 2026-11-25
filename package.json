@@ -1,6 +1,6 @@
 {
-  "name": "@doco/core",
-  "version": "0.1.59",
+  "name": "@braino/core",
+  "version": "0.1.60",
   "private": true,
   "type": "module",
   "description": "The open-source core of Braino.",
@@ -10,8 +10,8 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "pnpm run build:packages && pnpm --filter @doco/web build",
-    "build:packages": "pnpm --workspace-concurrency=1 --filter='./packages/*' --filter='!@doco/web' build",
+    "build": "pnpm run build:packages && pnpm --filter @braino/web build",
+    "build:packages": "pnpm --workspace-concurrency=1 --filter='./packages/*' --filter='!@braino/web' build",
     "audit": "pnpm audit --prod --audit-level high",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",

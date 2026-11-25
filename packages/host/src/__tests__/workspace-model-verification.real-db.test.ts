@@ -1,5 +1,5 @@
-import type { PoolClient } from "@doco/db";
-import type { PluginCapabilityName, PluginManifest } from "@doco/plugin-runtime";
+import type { PoolClient } from "@braino/db";
+import type { PluginCapabilityName, PluginManifest } from "@braino/plugin-runtime";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";

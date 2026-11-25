@@ -7,7 +7,7 @@ import {
 
 describe("bounded request bodies", () => {
   it("parses JSON below the byte limit", async () => {
-    const request = new Request("https://doco.example/hook", {
+    const request = new Request("https://braino.example/hook", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ok: true }),
@@ -16,7 +16,7 @@ describe("bounded request bodies", () => {
   });
 
   it("stops reading chunked bodies once the byte limit is crossed", async () => {
-    const request = new Request("https://doco.example/hook", {
+    const request = new Request("https://braino.example/hook", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: new ReadableStream({
@@ -34,7 +34,7 @@ describe("bounded request bodies", () => {
   });
 
   it("rejects an oversized declared content length before reading", async () => {
-    const request = new Request("https://doco.example/hook", {
+    const request = new Request("https://braino.example/hook", {
       method: "POST",
       headers: { "content-length": "100" },
       body: "{}",
@@ -46,7 +46,7 @@ describe("bounded request bodies", () => {
 
   it("parses bounded browser forms and rejects other media types", async () => {
     const form = await readBoundedUrlEncodedForm(
-      new Request("https://doco.example", {
+      new Request("https://braino.example", {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: "intent=setup&owner_name=Ada",
@@ -56,7 +56,7 @@ describe("bounded request bodies", () => {
     expect(form.get("intent")).toBe("setup");
     await expect(
       readBoundedUrlEncodedForm(
-        new Request("https://doco.example", {
+        new Request("https://braino.example", {
           method: "POST",
           headers: { "content-type": "multipart/form-data" },
           body: "ignored",

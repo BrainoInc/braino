@@ -1,11 +1,11 @@
-import { withClient } from "@doco/db";
-import { GithubConnectionError, deliverGithubWebhook } from "@doco/host";
+import { withClient } from "@braino/db";
+import { GithubConnectionError, deliverGithubWebhook } from "@braino/host";
 import { MAX_JSON_BODY_BYTES, RequestBodyError, readBoundedText } from "~/lib/request-body.server";
 
 function encryptionKey(): string {
-  const value = process.env.DOCO_ENCRYPTION_KEY?.trim();
+  const value = process.env.BRAINO_ENCRYPTION_KEY?.trim();
   if (!value || value.length < 32) {
-    throw new Error("DOCO_ENCRYPTION_KEY must contain at least 32 characters.");
+    throw new Error("BRAINO_ENCRYPTION_KEY must contain at least 32 characters.");
   }
   return value;
 }

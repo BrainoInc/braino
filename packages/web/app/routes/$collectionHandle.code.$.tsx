@@ -1,8 +1,8 @@
-import { withClient } from "@doco/db";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+import { withClient } from "@braino/db";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardHeader, CardTitle } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { ExternalLink } from "lucide-react";
 import { Link, redirect, useLoaderData } from "react-router";
 import { getCollectionForUser } from "~/lib/collection-access.server";

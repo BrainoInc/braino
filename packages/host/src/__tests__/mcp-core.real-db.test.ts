@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
@@ -67,7 +67,7 @@ describe("self-hosted MCP core", () => {
       label: "Claude Code",
     });
 
-    expect(token.accessToken).toMatch(/^doco_at_/);
+    expect(token.accessToken).toMatch(/^braino_at_/);
     expect(await authenticateMcpToken(client(), token.accessToken)).toMatchObject({
       workspaceId: setup.workspace.id,
       userId: setup.owner.id,

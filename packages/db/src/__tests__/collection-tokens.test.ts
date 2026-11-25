@@ -43,7 +43,7 @@ beforeEach(async () => {
       ('reference_4', 'collection_beta', 'reference', 'active', ${text(11)}, '2026-10-01T10:00:00Z');
 
     -- A Slack copy consented to on 3 October, with a year of history.
-    INSERT INTO group_chat_installations (id, provider, workspace_id, doco_workspace_id)
+    INSERT INTO group_chat_installations (id, provider, workspace_id, braino_workspace_id)
       VALUES ('gci_1', 'slack', 'T1', 'workspace_acme');
     INSERT INTO group_chat_mirrors (collection_id, installation_id, team_domain, history_since, consented_at)
       VALUES ('collection_notes', 'gci_1', 'acme', '2025-01-01', '2026-10-03T09:00:00Z');

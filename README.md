@@ -5,16 +5,16 @@ their relationships. This repository is the sole upstream for the open product.
 
 This tree contains the supported single-workspace, self-hosted product:
 
-- `@doco/shared` — entity types, identifiers, policies, and URL conventions
-- `@doco/ui` — application shell, design primitives, provider logos, and plugin-management UI
-- `@doco/plugin-runtime` — versioned manifests and capability contracts for plugins
-- `@doco/db` — PostgreSQL schema and source-of-truth storage
-- `@doco/host` — workspace, collection, person, and template services
-- `@doco/index` — retrieval, ranking, embeddings, and Qdrant integration
-- `@doco/web` — first-run setup, owner sign-in, workspace home, collection reader, and record authoring
+- `@braino/shared` — entity types, identifiers, policies, and URL conventions
+- `@braino/ui` — application shell, design primitives, provider logos, and plugin-management UI
+- `@braino/plugin-runtime` — versioned manifests and capability contracts for plugins
+- `@braino/db` — PostgreSQL schema and source-of-truth storage
+- `@braino/host` — workspace, collection, person, and template services
+- `@braino/index` — retrieval, ranking, embeddings, and Qdrant integration
+- `@braino/web` — first-run setup, owner sign-in, workspace home, collection reader, and record authoring
 
 A release is cut when a version bump merges to main. Each one publishes the
-reusable packages above except `@doco/web`, plus `@doco/connector-plugins` as immutable tarball
+reusable packages above except `@braino/web`, plus `@braino/connector-plugins` as immutable tarball
 assets beside the application image. Hosted Braino consumes those assets instead of carrying a second copy of
 the core implementation.
 
@@ -103,7 +103,7 @@ and remain bound to their creator's live workspace membership.
 
 PostgreSQL and Qdrant use named volumes and are not exposed on host ports. Plain
 HTTP on port 3000 is the default. For a public DNS name with automatic HTTPS,
-set `DOCO_HOST` and `DOCO_PUBLIC_HOST`, then start with
+set `BRAINO_HOST` and `BRAINO_PUBLIC_HOST`, then start with
 `docker compose --profile tls up -d --build`.
 
 Workspace owners can create generic incoming webhooks from **Integrations**.
@@ -133,7 +133,7 @@ versioned `chat.complete` and `embedding.embed` contracts; model names,
 credentials, endpoints, and provider-specific request formats belong to the
 installed plugin. The application validates canonical inputs and outputs on
 both sides of every invocation, and resolves exactly one active provider for
-each capability. The public `@doco/host/model-plugins` module owns installation,
+each capability. The public `@braino/host/model-plugins` module owns installation,
 verification, selection, readiness, and removal rules so self-hosted and Hosted
 Braino use the same contract. Adding another provider therefore requires a
 conforming plugin, not a provider branch in Braino.
@@ -153,7 +153,7 @@ expires after one hour, rate-limits repeated requests, and ends every earlier
 session when the password changes.
 
 Each external source is bound to this Braino workspace, its credential is encrypted with
-`DOCO_ENCRYPTION_KEY`, and its read-only records land in a private collection
+`BRAINO_ENCRYPTION_KEY`, and its read-only records land in a private collection
 with ordinary search, history, and audit behavior. For Slack, create a bot
 token with `channels:read`, `channels:history`, and `users:read`; only public,
 non-shared channels are copied. For Notion, create an internal integration with
@@ -168,7 +168,7 @@ Marketplace app. The independently deployed Braino plugin gateway owns Slack's
 OAuth client, signing secret, and bot token; this instance receives only a
 revocable credential scoped to its one installation. The gateway verifies Slack,
 normalizes the event, and signs delivery to this deployment's public HTTPS
-`DOCO_PUBLIC_HOST`. Braino durably queues that event before acknowledgement and
+`BRAINO_PUBLIC_HOST`. Braino durably queues that event before acknowledgement and
 returns replies through the same gateway contract. The gateway cannot access
 this instance's PostgreSQL, Qdrant, model credentials, retrieval state, or agent
 tools, and no Braino instance can access another installation.
@@ -179,7 +179,7 @@ Braino plugin gateway owns the App private key, webhook secret, installation
 tokens, and provider delivery ledger. This instance stores only a revocable
 credential scoped to its one installation, invokes the gateway through the
 bundled `braino.github` WASI plugin, and receives signed normalized deliveries
-at `/api/v1/plugins/github/events`. Set `DOCO_PUBLIC_HOST` to this deployment's
+at `/api/v1/plugins/github/events`. Set `BRAINO_PUBLIC_HOST` to this deployment's
 public HTTPS origin before installing.
 
 Braino imports code, issues, and pull requests into dedicated collections and
@@ -199,10 +199,10 @@ The supported deployment includes preflight, backup, restore, and controlled
 upgrade commands:
 
 ```sh
-./doco doctor
-./doco backup
-./doco restore backups/doco-2026-11-08.tar.gz
-./doco upgrade
+./braino doctor
+./braino backup
+./braino restore backups/braino-2026-11-08.tar.gz
+./braino upgrade
 ```
 
 PostgreSQL is the source of truth; Qdrant is cleared and rebuilt after a

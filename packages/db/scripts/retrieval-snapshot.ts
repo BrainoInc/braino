@@ -15,12 +15,12 @@ const gunzipAsync = promisify(gunzip);
 
 function usage(): never {
   throw new Error(`Usage:
-  pnpm eval:corpus export --collection <id-or-handle> [--out .doco/snapshots/name.json.gz] [--app-revision <sha>]
+  pnpm eval:corpus export --collection <id-or-handle> [--out .braino/snapshots/name.json.gz] [--app-revision <sha>]
   pnpm eval:corpus restore --in <snapshot.json.gz> [--grant-user <local-username>]
 
 Environment:
-  export reads DOCO_SNAPSHOT_SOURCE_DATABASE_URL
-  restore reads DOCO_SNAPSHOT_TARGET_DATABASE_URL (loopback/local targets only)`);
+  export reads BRAINO_SNAPSHOT_SOURCE_DATABASE_URL
+  restore reads BRAINO_SNAPSHOT_TARGET_DATABASE_URL (loopback/local targets only)`);
 }
 
 function option(args: string[], name: string): string | undefined {
@@ -42,7 +42,7 @@ function assertLocalTarget(connectionString: string): void {
   try {
     url = new URL(connectionString);
   } catch {
-    throw new Error("DOCO_SNAPSHOT_TARGET_DATABASE_URL must be a PostgreSQL URL");
+    throw new Error("BRAINO_SNAPSHOT_TARGET_DATABASE_URL must be a PostgreSQL URL");
   }
   const localHosts = new Set(["", "localhost", "127.0.0.1", "[::1]", "::1"]);
   if (!localHosts.has(url.hostname)) {
@@ -73,7 +73,7 @@ async function exportCommand(args: string[]): Promise<void> {
   const collection = option(args, "--collection");
   if (!collection) usage();
   const pool = new pg.Pool({
-    connectionString: requiredEnv("DOCO_SNAPSHOT_SOURCE_DATABASE_URL"),
+    connectionString: requiredEnv("BRAINO_SNAPSHOT_SOURCE_DATABASE_URL"),
     max: 1,
   });
   const client = await pool.connect();
@@ -86,7 +86,7 @@ async function exportCommand(args: string[]): Promise<void> {
         null,
     });
     const defaultName = `${safeFilename(snapshot.manifest.collectionHandle)}-${snapshot.manifest.digest.slice(0, 12)}.json.gz`;
-    const output = resolve(option(args, "--out") ?? `.doco/snapshots/${defaultName}`);
+    const output = resolve(option(args, "--out") ?? `.braino/snapshots/${defaultName}`);
     await writeSnapshot(output, snapshot);
     process.stdout.write(
       `${JSON.stringify(
@@ -137,7 +137,7 @@ async function restoreCommand(args: string[]): Promise<void> {
   const inputArg = option(args, "--in");
   if (!inputArg) usage();
   const input = resolve(inputArg);
-  const connectionString = requiredEnv("DOCO_SNAPSHOT_TARGET_DATABASE_URL");
+  const connectionString = requiredEnv("BRAINO_SNAPSHOT_TARGET_DATABASE_URL");
   assertLocalTarget(connectionString);
   const snapshot = await readSnapshot(input);
   const pool = new pg.Pool({ connectionString, max: 1 });

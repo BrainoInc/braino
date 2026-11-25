@@ -1,5 +1,5 @@
-import type { CollectionRole, PoolClient } from "@doco/db";
-import { WRITE_ALL, normalizeWriteTypes } from "@doco/shared";
+import type { CollectionRole, PoolClient } from "@braino/db";
+import { WRITE_ALL, normalizeWriteTypes } from "@braino/shared";
 
 const ROLES = new Set<CollectionRole>(["owner", "writer", "reader"]);
 

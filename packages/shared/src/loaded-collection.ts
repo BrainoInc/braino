@@ -1,5 +1,5 @@
 // Types for a loaded collection — produced by the Postgres loader
-// (@doco/index/loadCollection).
+// (@braino/index/loadCollection).
 
 import type { EntityId, EntityType } from "./branded.js";
 import type { Collection, Entity } from "./entities.js";

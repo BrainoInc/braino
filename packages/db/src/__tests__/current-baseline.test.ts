@@ -54,6 +54,7 @@ describe("current database baseline", () => {
       "024_workspace_usage.sql",
       "025_workspace_usage_members.sql",
       "026_activity_writes.sql",
+      "027_braino_machine_contracts.sql",
     ]);
     expect(schemaSql).not.toMatch(/\bapplied_migrations\b/);
     expect(schemaSql).not.toMatch(/\bschema_applied\b/);

@@ -1,4 +1,4 @@
-{$DOCO_HOST} {
+{$BRAINO_HOST} {
 	encode zstd gzip
 	header {
 		X-Frame-Options "DENY"

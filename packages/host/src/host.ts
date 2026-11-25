@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import {
   DEFAULT_WORKSPACE_CONSTITUTION,
   type EntityId,
@@ -7,7 +7,7 @@ import {
   makeEntityId,
   nowIso,
   validateRequestedCollectionHandle,
-} from "@doco/shared";
+} from "@braino/shared";
 import {
   type CollectionTemplate,
   findCollectionTemplateByName,
@@ -79,7 +79,7 @@ export async function findAvailableWorkspaceHandle(
   const base = requested.trim().toLowerCase();
   if (!base) throw new Error("Workspace handle is required.");
   assertWorkspaceHandleAllowed(base);
-  const { withClient } = await import("@doco/db");
+  const { withClient } = await import("@braino/db");
   const find = async (c: PoolClient) => {
     let candidate = base;
     let n = 2;
@@ -100,7 +100,7 @@ export async function findAvailableCollectionHandle(requestedHandle: string): Pr
   const base = requestedHandle.trim().toLowerCase();
   const handleError = validateRequestedCollectionHandle(base);
   if (handleError) throw new Error(handleError);
-  const { withClient } = await import("@doco/db");
+  const { withClient } = await import("@braino/db");
   return withClient(async (c) => {
     let candidate = base;
     let n = 2;
@@ -170,7 +170,7 @@ async function insertWorkspace(
   client?: PoolClient,
 ): Promise<{ id: EntityId<"workspace">; handle: string }> {
   assertWorkspaceHandleAllowed(opts.handle);
-  const { withClient } = await import("@doco/db");
+  const { withClient } = await import("@braino/db");
   const finalHandle = opts.autoSuffix
     ? await findAvailableWorkspaceHandle(opts.handle, client)
     : opts.handle;
@@ -230,7 +230,7 @@ export async function createCollectionInWorkspace(
   const template = findCollectionTemplateByName(opts.templateHandle);
   if (!template) throw new Error(`Unknown template "${opts.templateHandle}".`);
 
-  const { withClient } = await import("@doco/db");
+  const { withClient } = await import("@braino/db");
   const create = async (c: PoolClient) => {
     const workspaceRow = await c.query<{ id: string; handle: string }>(
       "SELECT id, handle FROM workspaces WHERE id = $1",
@@ -407,7 +407,7 @@ export async function updateCollectionMeta(opts: UpdateCollectionOptions): Promi
   ) {
     throw new Error(`visibility must be "private" or "public", got: ${opts.visibility}`);
   }
-  const { withClient } = await import("@doco/db");
+  const { withClient } = await import("@braino/db");
   await withClient(async (c) => {
     const cur = await c.query("SELECT 1 FROM collections WHERE handle = $1 LIMIT 1", [opts.handle]);
     if (cur.rows.length === 0) throw new Error(`Collection "${opts.handle}" not found.`);
@@ -435,7 +435,7 @@ export async function renameCollectionHandle(opts: {
   if (handleError) throw new Error(handleError);
   if (oldHandle === newHandle) return;
 
-  const { withClient } = await import("@doco/db");
+  const { withClient } = await import("@braino/db");
   await withClient(async (c) => {
     const cur = await c.query<{ data: Record<string, unknown> | null }>(
       "SELECT data FROM collections WHERE handle = $1 LIMIT 1",
@@ -473,7 +473,7 @@ export async function softDeleteCollection(opts: {
   collectionId?: string;
 }): Promise<{ deletedPath: string }> {
   if (!opts.collectionId && !opts.handle) throw new Error("Collection id or handle is required.");
-  const { markCollectionDeleted } = await import("@doco/db");
+  const { markCollectionDeleted } = await import("@braino/db");
   const deleted = await markCollectionDeleted(opts);
   if (!deleted) {
     throw new Error(`Collection "${opts.collectionId ?? opts.handle}" not found.`);

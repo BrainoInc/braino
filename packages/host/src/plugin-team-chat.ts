@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import type {
   EventReceiveCapability,
   PluginEventRequest,
@@ -8,7 +8,7 @@ import type {
   TeamChatConnectResponse,
   TeamChatMessage,
   TeamChatSendCapability,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 import {
   type PluginInstallation,
   PluginInstallationError,

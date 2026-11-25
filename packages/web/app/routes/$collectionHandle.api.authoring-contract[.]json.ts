@@ -1,4 +1,4 @@
-import { CAPTURE_SCHEMAS, RELATION_CATALOG } from "@doco/shared";
+import { CAPTURE_SCHEMAS, RELATION_CATALOG } from "@braino/shared";
 import { getCollectionForUser } from "~/lib/collection-access.server.js";
 import { getCurrentUser } from "~/lib/current-user.server.js";
 

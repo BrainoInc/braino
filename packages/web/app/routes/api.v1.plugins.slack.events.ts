@@ -1,11 +1,11 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   PluginInvocationError,
   enqueueTeamChatEvents,
   getSingleWorkspaceState,
   resolveWorkspaceTeamChatPlugin,
-} from "@doco/host";
-import type { PluginEvent } from "@doco/plugin-runtime";
+} from "@braino/host";
+import type { PluginEvent } from "@braino/plugin-runtime";
 import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
 import { MAX_JSON_BODY_BYTES, RequestBodyError, readBoundedText } from "~/lib/request-body.server";
 

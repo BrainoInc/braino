@@ -1,5 +1,5 @@
-import type { PoolClient } from "@doco/db";
-import { type ModelCapabilityName, parsePluginManifest } from "@doco/plugin-runtime";
+import type { PoolClient } from "@braino/db";
+import { type ModelCapabilityName, parsePluginManifest } from "@braino/plugin-runtime";
 import { PluginInvocationError } from "./plugin-invocation.js";
 
 interface InstallationRow {

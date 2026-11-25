@@ -1,5 +1,5 @@
-import { getWorkspaceRole, recordQueryEvent, withClient } from "@doco/db";
-import { searchWorkspaceRecords } from "@doco/host";
+import { getWorkspaceRole, recordQueryEvent, withClient } from "@braino/db";
+import { searchWorkspaceRecords } from "@braino/host";
 
 /** A signed-in user may have lost membership since their session was issued. */
 export async function searchAsWorkspaceMember(input: {

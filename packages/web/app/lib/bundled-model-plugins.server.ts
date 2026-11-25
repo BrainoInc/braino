@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { type PluginManifest, parsePluginManifest } from "@doco/plugin-runtime";
+import { type PluginManifest, parsePluginManifest } from "@braino/plugin-runtime";
 import {
   type ModelPluginEntry,
   includedWithBraino,

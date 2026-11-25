@@ -4,7 +4,7 @@ import {
   type ConnectorFetcher,
   type ConnectorSource,
   type SourcePullCapability,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 
 const API = "https://slack.com/api";
 
@@ -51,7 +51,7 @@ async function slackJson<T extends SlackResponse>(
   const url = new URL(`${API}/${method}`);
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
   const response = await fetcher(url, {
-    headers: { Authorization: `Bearer ${credential}`, "User-Agent": "doco-self-hosted" },
+    headers: { Authorization: `Bearer ${credential}`, "User-Agent": "braino-self-hosted" },
   });
   if (!response.ok) {
     throw new ConnectorError(

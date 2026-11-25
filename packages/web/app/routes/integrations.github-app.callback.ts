@@ -1,10 +1,10 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   PluginInstallationError,
   connectWorkspaceGithubPlugin,
   getSingleWorkspaceState,
   getWorkspaceRole,
-} from "@doco/host";
+} from "@braino/host";
 import { redirect } from "react-router";
 import { bundledPlugin } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";

@@ -1,4 +1,4 @@
-import type { ReactTranslator } from "@doco/shared/i18n/react";
+import type { ReactTranslator } from "@braino/shared/i18n/react";
 
 const ITEMS: Record<string, [string, string]> = {
   "agents-chats": ["chat", "chats"],

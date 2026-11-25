@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import type {
   PluginEvent,
   PluginEventRequest,
@@ -7,7 +7,7 @@ import type {
   ScmRequestInput,
   ScmRequestOutput,
   ScmReviewRejectInput,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 import {
   type PluginInstallation,
   PluginInstallationError,

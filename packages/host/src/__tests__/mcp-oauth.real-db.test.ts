@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
@@ -64,8 +64,8 @@ describe("instance-local MCP OAuth", () => {
     });
 
     expect(tokens).toMatchObject({
-      access_token: expect.stringMatching(/^doco_at_/),
-      refresh_token: expect.stringMatching(/^doco_rt_/),
+      access_token: expect.stringMatching(/^braino_at_/),
+      refresh_token: expect.stringMatching(/^braino_rt_/),
       token_type: "Bearer",
       scope: MCP_OAUTH_SCOPE,
     });
@@ -180,7 +180,7 @@ describe("instance-local MCP OAuth", () => {
 
   it("rejects a resource-less OAuth token imported from another instance", async () => {
     const { setup, oauthClient } = await fixture();
-    const foreignToken = "doco_at_resource_less_foreign_instance_token";
+    const foreignToken = "braino_at_resource_less_foreign_instance_token";
     await db.query(
       `INSERT INTO oauth_access_tokens
          (token, client_id, user_id, token_name, granted_collection_ids,

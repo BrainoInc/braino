@@ -1,4 +1,4 @@
-import type { RetrievalChunkInput } from "@doco/db";
+import type { RetrievalChunkInput } from "@braino/db";
 import {
   OpenRouterStructuredOutputClient,
   type OpenRouterStructuredOutputClientOptions,

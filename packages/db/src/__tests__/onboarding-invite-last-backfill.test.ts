@@ -1,5 +1,5 @@
 // Alexander, 2026-10-13: "Invite your colleagues" is a workspace owner's last
-// setup step, after their own agent starts using Doco, and it is done only
+// setup step, after their own agent starts using Braino, and it is done only
 // once they end or skip it. It used to read as done once any agent worked in
 // the workspace, so schema.sql ends it for every owner it read as done for
 // when the step moved, which shipped on 2026-10-17: an owner who joined before

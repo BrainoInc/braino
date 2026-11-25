@@ -1,12 +1,12 @@
-// group_chat_conversations keeps what Señor Doco said once in each Slack
+// group_chat_conversations keeps what Señor Braino said once in each Slack
 // conversation: a channel's introduction, a person's welcome, and the threads
 // he is done with. Two migrations bring an older database to that shape when
 // schema.sql is applied again:
 // - Channel introductions move in from group_chat_channel_intros, which is
 //   dropped.
 // - Quieting him from Slack is gone (Alexander, 2026-11-03: "No management
-//   options in Slack other than the button to go to Doco."). A quieted
-//   channel keeps him as quiet through the switches on doco.to: the Times off
+//   options in Slack other than the button to go to Braino."). A quieted
+//   channel keeps him as quiet through the switches on braino.to: the Times off
 //   where it was his channel, and no watching for decisions there. quiet_at
 //   lives on only as a thread's closed_at.
 import type { PGlite } from "@electric-sql/pglite";
@@ -62,20 +62,20 @@ describe("group_chat_channel_intros becomes group_chat_conversations", () => {
   });
 });
 
-describe("quieting from Slack becomes the switches on doco.to", () => {
+describe("quieting from Slack becomes the switches on braino.to", () => {
   it("turns off the Times and watching where he was quieted, and keeps only closed threads", async () => {
     await db.exec(`
       INSERT INTO workspaces (id, handle, name) VALUES ('workspace_1', 'torre', 'Torre');
       INSERT INTO collections (id, handle, owner_id, workspace_id, data)
         VALUES ('collection_slack', 'torre-slack', 'workspace_1', 'workspace_1', '{}');
       INSERT INTO group_chat_installations
-        (id, provider, workspace_id, workspace_name, doco_workspace_id, default_channel_id)
+        (id, provider, workspace_id, workspace_name, braino_workspace_id, default_channel_id)
         VALUES ('gci_1', 'slack', 'T1', 'Torre', 'workspace_1', 'C_TIMES'),
                ('gci_2', 'slack', 'T2', 'Other', 'workspace_1', 'C_TIMES');
       INSERT INTO group_chat_mirrors (collection_id, installation_id, team_domain, history_since, consented_at)
         VALUES ('collection_slack', 'gci_1', 'torre', '2026-01-01', '2026-08-01');
       INSERT INTO group_chat_channels (collection_id, channel_id, name, decision_offers) VALUES
-        ('collection_slack', 'C_TIMES', 'doco-times', true),
+        ('collection_slack', 'C_TIMES', 'braino-times', true),
         ('collection_slack', 'C_ENG', 'eng', true),
         ('collection_slack', 'C_PRODUCT', 'product', true);
       ALTER TABLE group_chat_conversations RENAME COLUMN closed_at TO quiet_at;

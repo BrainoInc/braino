@@ -15,4 +15,4 @@ coverage/
 .env.*.local
 .env.before-restore.*
 backups/
-.doco/hook-tokens.json
+.braino/hook-tokens.json

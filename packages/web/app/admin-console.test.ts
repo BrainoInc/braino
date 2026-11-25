@@ -40,9 +40,9 @@ describe("open Braino administration", () => {
     expect(admin).toContain("Plugins");
     expect(admin).toContain("Agent access");
     expect(root).toContain("<AgentSidebar />");
-    expect(root).toContain("doco-shell-body");
+    expect(root).toContain("braino-shell-body");
     expect(root).not.toContain('to="/senor-braino"');
-    expect(agentSidebar).toContain("senor-doco-rail");
+    expect(agentSidebar).toContain("senor-braino-rail");
     expect(agentSidebar).toContain('const RAIL_COLLAPSED = "32px"');
     expect(agentSidebar).toContain('const RAIL_DEFAULT = "320px"');
     expect(agentSidebar).toContain("/api/v1/senor-braino.json");

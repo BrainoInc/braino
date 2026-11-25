@@ -22,9 +22,9 @@ export function configuredRetrievalExtractor(
   return new GeminiRetrievalExtractor({
     apiToken,
     timeoutMs: parsePositiveInteger(
-      env.DOCO_RETRIEVAL_EXTRACTION_TIMEOUT_MS,
+      env.BRAINO_RETRIEVAL_EXTRACTION_TIMEOUT_MS,
       DEFAULT_GEMINI_RETRIEVAL_TIMEOUT_MS,
-      "DOCO_RETRIEVAL_EXTRACTION_TIMEOUT_MS",
+      "BRAINO_RETRIEVAL_EXTRACTION_TIMEOUT_MS",
     ),
   });
 }

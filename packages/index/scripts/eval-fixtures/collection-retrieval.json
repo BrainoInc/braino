@@ -39,17 +39,17 @@
     {
       "id": "reference_oauth_device_flow",
       "type": "reference",
-      "text": "Agents authenticate to a collection over OAuth 2.1. Shell-capable agents use the localhost-loopback flow; chat-only or sandboxed agents use the RFC 8628 device authorization grant, where the project owner approves the device code at doco.to/device. Both end with an Authorization Bearer token."
+      "text": "Agents authenticate to a collection over OAuth 2.1. Shell-capable agents use the localhost-loopback flow; chat-only or sandboxed agents use the RFC 8628 device authorization grant, where the project owner approves the device code at braino.to/device. Both end with an Authorization Bearer token."
     },
     {
       "id": "reference_project_token",
       "type": "reference",
-      "text": "A read-only project token is a committable credential stored in .doco/project-tokens.json that lets any agent cloning the repo read the collection without an interactive OAuth approval. The owner mints it from the project-tokens page after confirming repo readers may read the collection."
+      "text": "A read-only project token is a committable credential stored in .braino/project-tokens.json that lets any agent cloning the repo read the collection without an interactive OAuth approval. The owner mints it from the project-tokens page after confirming repo readers may read the collection."
     },
     {
       "id": "reference_dev_signin",
       "type": "reference",
-      "text": "For UI testing against production, POST a reserved test username such as doco-test-harness to /auth/dev-signin to obtain a doco_session cookie, then drive doco.to with that cookie. Any non-reserved username returns 403."
+      "text": "For UI testing against production, POST a reserved test username such as braino-test-harness to /auth/dev-signin to obtain a braino_session cookie, then drive braino.to with that cookie. Any non-reserved username returns 403."
     },
     {
       "id": "rule_land_in_main",

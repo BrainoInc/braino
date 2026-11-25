@@ -1,4 +1,4 @@
-// Single id -> type derivation for @doco/index. Strips the trailing ULID
+// Single id -> type derivation for @braino/index. Strips the trailing ULID
 // segment from an entity id (e.g. "decision_01H…" -> "decision",
 // "reference_01H…" -> "reference").
 //
@@ -6,7 +6,7 @@
 // this, and a leaf with no imports cannot participate in the loadCollection<->edges
 // import cycle.
 //
-// NOT parseEntityId() from @doco/shared on purpose: parseEntityId maps the
+// NOT parseEntityId() from @braino/shared on purpose: parseEntityId maps the
 // historical "reference" prefix to the "reference_entity" type and returns
 // null for unrecognized prefixes, whereas this — like the inline
 // `id.split("_").slice(0, -1).join("_")` it replaces — returns the literal id

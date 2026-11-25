@@ -1,5 +1,5 @@
-import type { CollectionRole } from "@doco/db";
-import { withClient } from "@doco/db";
+import type { CollectionRole } from "@braino/db";
+import { withClient } from "@braino/db";
 import {
   AccountLinkError,
   WorkspaceAccessError,
@@ -11,13 +11,13 @@ import {
   resolveWorkspaceEmailPlugin,
   revokeWorkspaceInvitation,
   updateWorkspaceCollaborator,
-} from "@doco/host";
-import { WRITABLE_TYPES } from "@doco/shared";
-import { msg } from "@doco/shared/i18n";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+} from "@braino/host";
+import { WRITABLE_TYPES } from "@braino/shared";
+import { msg } from "@braino/shared/i18n";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";

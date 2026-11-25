@@ -1,4 +1,4 @@
-import { listWorkspacesForUser } from "@doco/db";
+import { listWorkspacesForUser } from "@braino/db";
 import { getCurrentUser } from "~/lib/current-user.server.js";
 
 export async function loader({ request }: { request: Request }) {

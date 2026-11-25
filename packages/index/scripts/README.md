@@ -22,7 +22,7 @@ Run the production prompts, structured-output schema, validation, and scoring
 through OpenRouter with Gemini 3.5 Flash-Lite:
 
 ```sh
-OPENROUTER_API_KEY='…' pnpm --filter @doco/index eval:collection-relations -- \
+OPENROUTER_API_KEY='…' pnpm --filter @braino/index eval:collection-relations -- \
   --model google/gemini-3.5-flash-lite \
   --batch-sizes 8,16,24,32 \
   --output /tmp/gemini-collection-relations-benchmark.json
@@ -61,12 +61,12 @@ space, `VOYAGE_API_KEY` for Braino's production embeddings, and
 evaluator also needs its configured judge-model API key.
 
 ```sh
-DOCO_BENCHMARK_DATABASE_URL='postgresql://localhost/doco_enterpriserag_bench' \
-VOYAGE_API_KEY='…' DOCO_EMBEDDING_PROVIDER=voyage \
-pnpm --filter @doco/index eval:enterprise-rag -- \
+BRAINO_BENCHMARK_DATABASE_URL='postgresql://localhost/braino_enterpriserag_bench' \
+VOYAGE_API_KEY='…' BRAINO_EMBEDDING_PROVIDER=voyage \
+pnpm --filter @braino/index eval:enterprise-rag -- \
   --archive /path/to/all_documents.zip \
   --questions /path/to/questions.jsonl \
-  --output /path/to/doco-enterprise-rag-answers.jsonl \
+  --output /path/to/braino-enterprise-rag-answers.jsonl \
   --answers
 ```
 
@@ -76,7 +76,7 @@ as a direct-retrieval control. The summary records the extractor id and graph
 row counts so a graph run cannot be confused with an empty index.
 
 `--answers` uses `ANTHROPIC_API_KEY` and Braino's configured assistant model
-(`SENOR_DOCO_ANTHROPIC_MODEL`, default `claude-sonnet-4-6`). Omit it for a
+(`SENOR_BRAINO_ANTHROPIC_MODEL`, default `claude-sonnet-4-6`). Omit it for a
 retrieval-only run. `--eligible-only` is only for partial-corpus calibration:
 it runs questions whose complete gold document set exists in the supplied
 archives and must never be reported as the official benchmark score.
@@ -100,13 +100,13 @@ database: the runner refuses an ordinary database name. It resumes indexing,
 search, answers, and judgments from its persisted database and output files.
 
 ```sh
-DOCO_BENCHMARK_DATABASE_URL='postgresql://localhost/doco_locomo_benchmark' \
-OPENROUTER_API_KEY='…' VOYAGE_API_KEY='…' DOCO_EMBEDDING_PROVIDER=voyage \
-pnpm --filter @doco/index eval:locomo -- \
+BRAINO_BENCHMARK_DATABASE_URL='postgresql://localhost/braino_locomo_benchmark' \
+OPENROUTER_API_KEY='…' VOYAGE_API_KEY='…' BRAINO_EMBEDDING_PROVIDER=voyage \
+pnpm --filter @braino/index eval:locomo -- \
   --dataset /path/to/locomo10.json \
   --output /path/to/locomo-pilot-results \
   --sample-rate 0.1 \
-  --seed doco-locomo-pilot-v1 \
+  --seed braino-locomo-pilot-v1 \
   --accept-noncommercial-license
 ```
 
@@ -128,27 +128,27 @@ providers in `embedding-provider.ts`, the reranker in `reranker.ts`, and the
 metrics in `retrieval-metrics.ts`). Build the package first:
 
 ```sh
-pnpm --filter @doco/index build
+pnpm --filter @braino/index build
 ```
 
 ## Run
 
 ```sh
 # Offline smoke test — deterministic fake provider, no API key, no network:
-pnpm --filter @doco/index eval:retrieval
+pnpm --filter @braino/index eval:retrieval
 
 # Run the same labeled fixture through the local Qdrant adapter:
-pnpm --filter @doco/index eval:retrieval -- --store qdrant
+pnpm --filter @braino/index eval:retrieval -- --store qdrant
 
 # Seed local PostgreSQL, backfill those rows, then retrieve from Qdrant:
-pnpm --filter @doco/index eval:retrieval -- --store qdrant-backfill
+pnpm --filter @braino/index eval:retrieval -- --store qdrant-backfill
 
 # Compare real models (needs the matching API keys in the env):
 OPENAI_API_KEY=… VOYAGE_API_KEY=… COHERE_API_KEY=… \
-  pnpm --filter @doco/index eval:retrieval -- --provider openai,voyage,cohere
+  pnpm --filter @braino/index eval:retrieval -- --provider openai,voyage,cohere
 
 # Measure the reranker lift (prints a "+rerank" row under each provider):
-VOYAGE_API_KEY=… pnpm --filter @doco/index eval:retrieval -- \
+VOYAGE_API_KEY=… pnpm --filter @braino/index eval:retrieval -- \
   --provider voyage --rerank
 ```
 
@@ -178,7 +178,7 @@ VOYAGE_API_KEY=… pnpm --filter @doco/index eval:retrieval -- \
 
 The committed fixture is built from this repository's real Braino-domain content
 (ADRs, the auth flow, workflow rules, the search architecture). Once the collection
-handle in `.doco/connections.md` resolves, export real nodes into the same
+handle in `.braino/connections.md` resolves, export real nodes into the same
 shape (id, type, prose) and point `--fixture` at them to evaluate on live
 content.
 
@@ -188,8 +188,8 @@ With `docker compose up -d postgres qdrant` running, copy the authoritative
 local PostgreSQL embedding rows into Qdrant:
 
 ```sh
-pnpm --filter @doco/index build
-pnpm --filter @doco/index backfill:qdrant
+pnpm --filter @braino/index build
+pnpm --filter @braino/index backfill:qdrant
 ```
 
 Use `--collection collection_…` (repeatable) to limit the copy and

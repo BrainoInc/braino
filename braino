@@ -9,12 +9,12 @@ compose() {
 }
 
 fail() {
-  echo "doco: $*" >&2
+  echo "braino: $*" >&2
   exit 1
 }
 
 temporary_directory() {
-  mktemp -d "${TMPDIR:-/tmp}/doco.XXXXXX"
+  mktemp -d "${TMPDIR:-/tmp}/braino.XXXXXX"
 }
 
 remove_temporary_directory() {
@@ -28,7 +28,7 @@ doctor() {
   command -v docker >/dev/null || fail "Docker is required."
   docker compose version >/dev/null || fail "Docker Compose v2 is required."
   compose config --quiet
-  echo "Doco configuration is valid."
+  echo "Braino configuration is valid."
 }
 
 service_image() {
@@ -49,7 +49,7 @@ backup() {
   doctor >/dev/null
   local timestamp destination destination_directory
   timestamp=$(date -u +%Y%m%dT%H%M%SZ)
-  destination=${1:-"backups/doco-${timestamp}.tar.gz"}
+  destination=${1:-"backups/braino-${timestamp}.tar.gz"}
   destination_directory=$(dirname "$destination")
   mkdir -p "$destination_directory"
 
@@ -59,28 +59,28 @@ backup() {
 
   compose up -d --wait postgres >/dev/null
   compose exec -T postgres pg_dump \
-    --username doco \
-    --dbname doco \
+    --username braino \
+    --dbname braino \
     --format=custom \
     --no-owner \
     --no-privileges >"$working_directory/postgres.dump"
 
   if [[ -f .env ]]; then
-    cp .env "$working_directory/doco.env"
-  elif [[ -n "${DOCO_ENCRYPTION_KEY:-}" && -n "${DOCO_POSTGRES_PASSWORD:-}" && -n "${BRAINO_SETUP_TOKEN:-}" && -n "${BRAINO_CODELINKER_API_TOKEN:-}" && -n "${BRAINO_PLUGIN_HOST_API_TOKEN:-}" ]]; then
+    cp .env "$working_directory/braino.env"
+  elif [[ -n "${BRAINO_ENCRYPTION_KEY:-}" && -n "${BRAINO_POSTGRES_PASSWORD:-}" && -n "${BRAINO_SETUP_TOKEN:-}" && -n "${BRAINO_CODELINKER_API_TOKEN:-}" && -n "${BRAINO_PLUGIN_HOST_API_TOKEN:-}" ]]; then
     {
-      printf 'DOCO_ENCRYPTION_KEY=%s\n' "$DOCO_ENCRYPTION_KEY"
-      printf 'DOCO_POSTGRES_PASSWORD=%s\n' "$DOCO_POSTGRES_PASSWORD"
+      printf 'BRAINO_ENCRYPTION_KEY=%s\n' "$BRAINO_ENCRYPTION_KEY"
+      printf 'BRAINO_POSTGRES_PASSWORD=%s\n' "$BRAINO_POSTGRES_PASSWORD"
       printf 'BRAINO_SETUP_TOKEN=%s\n' "$BRAINO_SETUP_TOKEN"
       printf 'BRAINO_CODELINKER_API_TOKEN=%s\n' "$BRAINO_CODELINKER_API_TOKEN"
       printf 'BRAINO_PLUGIN_HOST_API_TOKEN=%s\n' "$BRAINO_PLUGIN_HOST_API_TOKEN"
-      [[ -z "${DOCO_IMAGE:-}" ]] || printf 'DOCO_IMAGE=%s\n' "$DOCO_IMAGE"
+      [[ -z "${BRAINO_IMAGE:-}" ]] || printf 'BRAINO_IMAGE=%s\n' "$BRAINO_IMAGE"
       [[ -z "${BRAINO_CODELINKER_IMAGE:-}" ]] || printf 'BRAINO_CODELINKER_IMAGE=%s\n' "$BRAINO_CODELINKER_IMAGE"
       [[ -z "${BRAINO_PLUGIN_HOST_IMAGE:-}" ]] || printf 'BRAINO_PLUGIN_HOST_IMAGE=%s\n' "$BRAINO_PLUGIN_HOST_IMAGE"
-      [[ -z "${DOCO_PUBLIC_HOST:-}" ]] || printf 'DOCO_PUBLIC_HOST=%s\n' "$DOCO_PUBLIC_HOST"
-      [[ -z "${DOCO_HTTP_PORT:-}" ]] || printf 'DOCO_HTTP_PORT=%s\n' "$DOCO_HTTP_PORT"
-      [[ -z "${DOCO_HOST:-}" ]] || printf 'DOCO_HOST=%s\n' "$DOCO_HOST"
-    } >"$working_directory/doco.env"
+      [[ -z "${BRAINO_PUBLIC_HOST:-}" ]] || printf 'BRAINO_PUBLIC_HOST=%s\n' "$BRAINO_PUBLIC_HOST"
+      [[ -z "${BRAINO_HTTP_PORT:-}" ]] || printf 'BRAINO_HTTP_PORT=%s\n' "$BRAINO_HTTP_PORT"
+      [[ -z "${BRAINO_HOST:-}" ]] || printf 'BRAINO_HOST=%s\n' "$BRAINO_HOST"
+    } >"$working_directory/braino.env"
   fi
   {
     echo "created_at=$timestamp"
@@ -98,7 +98,7 @@ backup() {
 restore() {
   local archive=${1:-}
   local force=${2:-}
-  [[ -n "$archive" ]] || fail "Usage: ./doco restore <backup.tar.gz> [--force]"
+  [[ -n "$archive" ]] || fail "Usage: ./braino restore <backup.tar.gz> [--force]"
   [[ -f "$archive" ]] || fail "Backup not found: $archive"
   [[ -z "$force" || "$force" == "--force" ]] || fail "Unknown restore option: $force"
 
@@ -112,12 +112,12 @@ restore() {
   [[ -s "$working_directory/manifest" ]] || fail "Backup has no manifest."
   grep -qx "format=1" "$working_directory/manifest" || fail "Unsupported backup format."
 
-  if [[ -f "$working_directory/doco.env" ]]; then
-    if [[ -f .env ]] && ! cmp -s .env "$working_directory/doco.env"; then
+  if [[ -f "$working_directory/braino.env" ]]; then
+    if [[ -f .env ]] && ! cmp -s .env "$working_directory/braino.env"; then
       [[ "$force" == "--force" ]] || fail ".env differs from the backup; retry with --force to replace it."
       cp .env ".env.before-restore.$(date -u +%Y%m%dT%H%M%SZ)"
     fi
-    cp "$working_directory/doco.env" .env
+    cp "$working_directory/braino.env" .env
     chmod 600 .env
   fi
 
@@ -125,18 +125,18 @@ restore() {
   compose stop app scheduler codelinker plugin-host qdrant >/dev/null 2>&1 || true
   compose up -d --wait postgres >/dev/null
   compose exec -T postgres psql \
-    --username doco \
+    --username braino \
     --dbname postgres \
     --set ON_ERROR_STOP=1 \
-    -c 'DROP DATABASE doco WITH (FORCE)'
+    -c 'DROP DATABASE braino WITH (FORCE)'
   compose exec -T postgres psql \
-    --username doco \
+    --username braino \
     --dbname postgres \
     --set ON_ERROR_STOP=1 \
-    -c 'CREATE DATABASE doco OWNER doco'
+    -c 'CREATE DATABASE braino OWNER braino'
   compose exec -T postgres pg_restore \
-    --username doco \
-    --dbname doco \
+    --username braino \
+    --dbname braino \
     --no-owner \
     --no-privileges <"$working_directory/postgres.dump"
 
@@ -158,21 +158,21 @@ upgrade() {
   [[ -n "$configured_image" ]] || fail "Could not resolve the application image from Compose."
   [[ -n "$configured_codelinker_image" ]] || fail "Could not resolve the CodeLinker image from Compose."
   [[ -n "$configured_plugin_host_image" ]] || fail "Could not resolve the plugin host image from Compose."
-  [[ "$configured_image" != "doco:local" ]] || fail "Set DOCO_IMAGE to a released ghcr.io/brainoinc/braino tag before upgrading."
+  [[ "$configured_image" != "braino:local" ]] || fail "Set BRAINO_IMAGE to a released ghcr.io/brainoinc/braino tag before upgrading."
   [[ "$configured_codelinker_image" != "braino-codelinker:local" ]] || fail "Set BRAINO_CODELINKER_IMAGE to a released ghcr.io/brainoinc/braino-codelinker tag before upgrading."
   [[ "$configured_plugin_host_image" != "braino-plugin-host:local" ]] || fail "Set BRAINO_PLUGIN_HOST_IMAGE to a released ghcr.io/brainoinc/braino-plugin-host tag before upgrading."
 
   backup "${1:-backups/pre-upgrade-$(date -u +%Y%m%dT%H%M%SZ).tar.gz}"
   compose pull
   compose stop app scheduler
-  compose run --rm --no-deps app node node_modules/@doco/db/dist/migrate.js
+  compose run --rm --no-deps app node node_modules/@braino/db/dist/migrate.js
   compose up -d --wait
   echo "Upgrade completed with $configured_image, $configured_codelinker_image, and $configured_plugin_host_image"
 }
 
 help_text() {
   cat <<'EOF'
-Usage: ./doco <command>
+Usage: ./braino <command>
 
 Commands:
   doctor                         Validate Docker and the Compose configuration.
@@ -188,5 +188,5 @@ case "$command_name" in
   restore) restore "${2:-}" "${3:-}" ;;
   upgrade) upgrade "${2:-}" ;;
   help | --help | -h) help_text ;;
-  *) fail "Unknown command: $command_name. Run ./doco help." ;;
+  *) fail "Unknown command: $command_name. Run ./braino help." ;;
 esac

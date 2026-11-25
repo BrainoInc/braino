@@ -15,12 +15,12 @@ const PACKAGE_NAMES = [
 const root = resolve(import.meta.dirname, "..");
 const releaseDir = resolve(process.argv[2] ?? resolve(root, "release-packages"));
 const { version } = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
-const tarballs = PACKAGE_NAMES.map((name) => resolve(releaseDir, `doco-${name}-${version}.tgz`));
+const tarballs = PACKAGE_NAMES.map((name) => resolve(releaseDir, `braino-${name}-${version}.tgz`));
 const smokeDir = mkdtempSync(resolve(tmpdir(), "braino-package-smoke-"));
 
 try {
   const overrides = Object.fromEntries(
-    PACKAGE_NAMES.map((name, index) => [`@doco/${name}`, `file:${tarballs[index]}`]),
+    PACKAGE_NAMES.map((name, index) => [`@braino/${name}`, `file:${tarballs[index]}`]),
   );
   writeFileSync(
     resolve(smokeDir, "package.json"),
@@ -42,7 +42,7 @@ try {
     [
       "--input-type=module",
       "--eval",
-      `await Promise.all(${JSON.stringify([...PACKAGE_NAMES.map((name) => `@doco/${name}`), "@doco/db/schema", "@doco/db/test-support", "@doco/host/model-plugins", "@doco/shared/i18n"])}.map((name) => import(name)))`,
+      `await Promise.all(${JSON.stringify([...PACKAGE_NAMES.map((name) => `@braino/${name}`), "@braino/db/schema", "@braino/db/test-support", "@braino/host/model-plugins", "@braino/shared/i18n"])}.map((name) => import(name)))`,
     ],
     { cwd: smokeDir, encoding: "utf8" },
   );

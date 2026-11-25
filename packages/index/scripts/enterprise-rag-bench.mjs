@@ -27,7 +27,7 @@ const ACCESS_SCOPES = ["workspace"];
 const DEFAULT_ANSWER_MODEL = "claude-sonnet-4-6";
 
 const opts = parseBenchmarkArgs(process.argv.slice(2));
-process.env.DOCO_DATABASE_URL = opts.databaseUrl;
+process.env.BRAINO_DATABASE_URL = opts.databaseUrl;
 
 const index = await import(INDEX_DIST);
 const db = await import(DB_DIST);
@@ -346,8 +346,8 @@ async function anthropicMessage({ system, user }) {
       },
       body: JSON.stringify({
         model:
-          process.env.SENOR_DOCO_ANTHROPIC_MODEL ||
-          process.env.DOCO_ASSISTANT_MODEL ||
+          process.env.SENOR_BRAINO_ANTHROPIC_MODEL ||
+          process.env.BRAINO_ASSISTANT_MODEL ||
           DEFAULT_ANSWER_MODEL,
         max_tokens: 4_096,
         system,

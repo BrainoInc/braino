@@ -1,12 +1,12 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 const VERSION = "v1";
-const AAD = Buffer.from("doco:integration-secret:v1");
+const AAD = Buffer.from("braino:integration-secret:v1");
 
 function key(encryptionKey: string): Buffer {
   const normalized = encryptionKey.trim();
   if (normalized.length < 32) {
-    throw new Error("DOCO_ENCRYPTION_KEY must contain at least 32 characters.");
+    throw new Error("BRAINO_ENCRYPTION_KEY must contain at least 32 characters.");
   }
   return createHash("sha256").update(normalized).digest();
 }

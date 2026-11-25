@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 
 /** A short-lived database-client boundary. External I/O must run outside it. */
 export type ClientScope = <T>(operation: (client: PoolClient) => Promise<T>) => Promise<T>;

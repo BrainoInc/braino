@@ -1,4 +1,4 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 
 export interface AccessibleCollection {
   id: string;

@@ -1,4 +1,4 @@
-import type { WorkspaceUsagePeriod, WorkspaceUsageReport } from "@doco/shared";
+import type { WorkspaceUsagePeriod, WorkspaceUsageReport } from "@braino/shared";
 import { type ReactNode, useId, useState } from "react";
 import { Card } from "./card.js";
 import { PageHeader, PageMain } from "./page.js";

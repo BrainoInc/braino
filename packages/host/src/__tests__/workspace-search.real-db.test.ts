@@ -1,5 +1,5 @@
-import type { PoolClient } from "@doco/db";
-import type { RetrievalStore } from "@doco/index/qdrant-vector-store";
+import type { PoolClient } from "@braino/db";
+import type { RetrievalStore } from "@braino/index/qdrant-vector-store";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";

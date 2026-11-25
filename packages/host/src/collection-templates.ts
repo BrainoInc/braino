@@ -24,7 +24,7 @@
  * meta-constraints are policies, not Rule nodes
  * (decision_01KRRR5BQ16ASY8HQEE0V499YG).
  */
-import type { AuthoringPredicate, Lifecycle } from "@doco/shared";
+import type { AuthoringPredicate, Lifecycle } from "@braino/shared";
 import { DECISION_RECORD_TEMPLATES } from "./decision-record-templates.js";
 
 export interface TemplatePolicy {

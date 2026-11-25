@@ -29,7 +29,7 @@ beforeEach(async () => {
       VALUES ('collection_1', 'ws_notion', 'Acme', 'bot_1', 'enc', now());
     INSERT INTO notion_pages (collection_id, page_id, object, url)
       VALUES ('collection_1', 'page_1', 'page', 'https://www.notion.so/page1');
-    INSERT INTO group_chat_installations (id, provider, workspace_id, doco_workspace_id)
+    INSERT INTO group_chat_installations (id, provider, workspace_id, braino_workspace_id)
       VALUES ('gci_1', 'slack', 'T1', 'ws');
     INSERT INTO group_chat_mirrors (collection_id, installation_id, team_domain, history_since, consented_at)
       VALUES ('collection_1', 'gci_1', 'acme', now(), now());

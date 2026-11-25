@@ -35,7 +35,7 @@ async function seedSource(db: PGlite): Promise<void> {
       VALUES ('decision_jdk', '${COLLECTION_ID}', 'decision', 'Solar JDK', 'Solar uses JDK 8.');
 
     INSERT INTO group_chat_installations
-      (id, provider, workspace_id, workspace_name, bot_access_token, data, doco_workspace_id)
+      (id, provider, workspace_id, workspace_name, bot_access_token, data, braino_workspace_id)
       VALUES ('installation_snapshot', 'slack', 'T-SNAPSHOT', 'Acme Slack', 'slack-secret',
               '{"signing_secret":"never-copy"}'::jsonb, 'workspace_snapshot');
     INSERT INTO group_chat_mirrors
@@ -202,7 +202,7 @@ describe("retrieval corpus snapshots", () => {
         );
 
       INSERT INTO group_chat_installations
-        (id, provider, workspace_id, workspace_name, bot_access_token, data, doco_workspace_id)
+        (id, provider, workspace_id, workspace_name, bot_access_token, data, braino_workspace_id)
         VALUES (
           'installation_target', 'slack', 'T-TARGET', 'Meta Slack', 'local-slack-secret',
           '{"signing_secret":"local-signing-secret"}'::jsonb, 'workspace_target'
@@ -293,10 +293,10 @@ describe("retrieval corpus snapshots", () => {
     const connector = await target.query<{
       bot_access_token: string | null;
       data: Record<string, unknown>;
-      doco_workspace_id: string;
+      braino_workspace_id: string;
       collection_id: string;
     }>(`
-      SELECT i.bot_access_token, i.data, i.doco_workspace_id, m.collection_id
+      SELECT i.bot_access_token, i.data, i.braino_workspace_id, m.collection_id
         FROM group_chat_installations i
         JOIN group_chat_mirrors m ON m.installation_id = i.id
     `);
@@ -304,7 +304,7 @@ describe("retrieval corpus snapshots", () => {
       {
         bot_access_token: null,
         data: {},
-        doco_workspace_id: "workspace_target",
+        braino_workspace_id: "workspace_target",
         collection_id: "collection_target",
       },
     ]);

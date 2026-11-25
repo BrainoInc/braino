@@ -1,15 +1,15 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 
 export const MCP_OAUTH_SCOPE = "braino:mcp";
 
 const AUTHORIZATION_CODE_TTL_MS = 60 * 1000;
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const CLIENT_ID_PREFIX = "doco_client_";
-const CODE_PREFIX = "doco_code_";
-const ACCESS_TOKEN_PREFIX = "doco_at_";
-const REFRESH_TOKEN_PREFIX = "doco_rt_";
+const CLIENT_ID_PREFIX = "braino_client_";
+const CODE_PREFIX = "braino_code_";
+const ACCESS_TOKEN_PREFIX = "braino_at_";
+const REFRESH_TOKEN_PREFIX = "braino_rt_";
 
 type WorkspaceRole = "owner" | "writer" | "reader";
 

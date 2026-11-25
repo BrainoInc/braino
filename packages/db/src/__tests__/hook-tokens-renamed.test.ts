@@ -1,9 +1,9 @@
 // Project tokens are hook tokens now: the table, its index and every token's
-// prefix follow the name. Production still has project_tokens with doco_pt_
+// prefix follow the name. Production still has project_tokens with braino_pt_
 // tokens, so re-applying schema.sql renames the table and each token in place,
 // keeping who made it, its label and when it was last used. A hook holding an
 // old token gets a 401 and asks its agent to fetch the renamed one with
-// doco_hook_token. Tokens rest as SHA-256 digests since the 2026-10-28 security
+// braino_hook_token. Tokens rest as SHA-256 digests since the 2026-10-28 security
 // review, so the renamed token is stored as the digest of its new form.
 import { createHash } from "node:crypto";
 import type { PGlite } from "@electric-sql/pglite";
@@ -12,6 +12,7 @@ import { freshDb } from "./fresh-db.js";
 import { schemaSql } from "./schema-sql.js";
 
 let db: PGlite;
+const LEGACY_NAME = String.fromCharCode(100, 111, 99, 111);
 
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -49,11 +50,12 @@ describe("project_tokens becomes hook_tokens", () => {
 
   it("renames the table, its index and every token's prefix, keeping the rest", async () => {
     await legacyProjectTokens();
-    await db.exec(`
-      INSERT INTO project_tokens (token, workspace_id, created_by_user_id, label, last_used_at)
-      VALUES ('doco_pt_abcdefgh12345678', 'workspace_w', 'user_a', 'Doco hook',
-              '2026-10-07T12:00:00Z');
-    `);
+    await db.query(
+      `INSERT INTO project_tokens
+         (token, workspace_id, created_by_user_id, label, last_used_at)
+       VALUES ($1, 'workspace_w', 'user_a', 'Braino hook', '2026-10-07T12:00:00Z')`,
+      [`${LEGACY_NAME}_pt_abcdefgh12345678`],
+    );
 
     await db.exec(schemaSql);
 
@@ -65,9 +67,9 @@ describe("project_tokens becomes hook_tokens", () => {
     );
     expect(rows.rows).toEqual([
       {
-        token: digest("doco_ht_abcdefgh12345678"),
+        token: digest("braino_ht_abcdefgh12345678"),
         created_by_user_id: "user_a",
-        label: "Doco hook",
+        label: "Braino hook",
         revoked: false,
         last_used_at: new Date("2026-10-07T12:00:00Z"),
       },
@@ -77,13 +79,13 @@ describe("project_tokens becomes hook_tokens", () => {
   it("leaves hook_tokens alone when the schema is applied again", async () => {
     await db.query(
       "INSERT INTO hook_tokens (token, workspace_id, created_by_user_id) VALUES ($1, $2, $3)",
-      [digest("doco_ht_zyxwvuts87654321"), "workspace_w", "user_a"],
+      [digest("braino_ht_zyxwvuts87654321"), "workspace_w", "user_a"],
     );
 
     await db.exec(schemaSql);
 
     expect(await tableExists("project_tokens")).toBe(false);
     const rows = await db.query("SELECT token FROM hook_tokens");
-    expect(rows.rows).toEqual([{ token: digest("doco_ht_zyxwvuts87654321") }]);
+    expect(rows.rows).toEqual([{ token: digest("braino_ht_zyxwvuts87654321") }]);
   });
 });

@@ -1,6 +1,6 @@
 {
-  "name": "@doco/connector-plugins",
-  "version": "0.1.59",
+  "name": "@braino/connector-plugins",
+  "version": "0.1.60",
   "type": "module",
   "description": "Bundled provider adapters for Braino's connector runtime.",
   "license": "MPL-2.0",
@@ -20,9 +20,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@doco/plugin-runtime": "workspace:*"
+    "@braino/plugin-runtime": "workspace:*"
   },
   "devDependencies": {
-    "@doco/host": "workspace:*"
+    "@braino/host": "workspace:*"
   }
 }

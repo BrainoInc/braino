@@ -1,4 +1,4 @@
-import { msg } from "@doco/shared/i18n";
+import { msg } from "@braino/shared/i18n";
 
 export const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 export const MAX_FORM_BODY_BYTES = 64 * 1024;

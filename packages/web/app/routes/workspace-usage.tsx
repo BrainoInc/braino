@@ -1,6 +1,6 @@
-import { getWorkspaceUsageReport } from "@doco/host";
-import { useT } from "@doco/shared/i18n/react";
-import { WorkspaceUsagePage } from "@doco/ui";
+import { getWorkspaceUsageReport } from "@braino/host";
+import { useT } from "@braino/shared/i18n/react";
+import { WorkspaceUsagePage } from "@braino/ui";
 import { Link, redirect, useLoaderData, useSearchParams } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { metaTranslator, requestTranslator } from "~/locales/catalog";

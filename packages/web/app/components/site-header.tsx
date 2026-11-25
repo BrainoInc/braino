@@ -1,5 +1,5 @@
-import { useT } from "@doco/shared/i18n/react";
-import { AppHeader, BrainoMark } from "@doco/ui";
+import { useT } from "@braino/shared/i18n/react";
+import { AppHeader, BrainoMark } from "@braino/ui";
 import { Form, NavLink } from "react-router";
 import { LanguageMenu } from "~/components/language-menu";
 import { ThemeMenu } from "~/components/theme-menu";

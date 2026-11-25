@@ -1,10 +1,10 @@
-import { withClient } from "@doco/db";
-import { ChangesetError, applyChangeset } from "@doco/host";
-import { CAPTURE_SCHEMAS } from "@doco/shared";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+import { withClient } from "@braino/db";
+import { ChangesetError, applyChangeset } from "@braino/host";
+import { CAPTURE_SCHEMAS } from "@braino/shared";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { getCollectionForUser } from "~/lib/collection-access.server.js";
 import { getCurrentUser } from "~/lib/current-user.server.js";

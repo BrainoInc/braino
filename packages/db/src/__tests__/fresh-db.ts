@@ -5,7 +5,7 @@ import { inject, onTestFinished } from "vitest";
 
 declare module "vitest" {
   export interface ProvidedContext {
-    docoSchemaSnapshot: string;
+    brainoSchemaSnapshot: string;
   }
 }
 
@@ -14,7 +14,7 @@ declare module "vitest" {
 let snapshot: Promise<Blob> | undefined;
 function schemaSnapshot(): Promise<Blob> {
   if (!snapshot) {
-    snapshot = readFile(inject("docoSchemaSnapshot")).then((bytes) => new Blob([bytes]));
+    snapshot = readFile(inject("brainoSchemaSnapshot")).then((bytes) => new Blob([bytes]));
   }
   return snapshot;
 }

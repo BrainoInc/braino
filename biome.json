@@ -11,7 +11,7 @@
       "*.md",
       "*.yaml",
       "*.yml",
-      ".doco/hook.mjs",
+      ".braino/hook.mjs",
       "packages/db/src/schema-embedded.ts"
     ]
   },

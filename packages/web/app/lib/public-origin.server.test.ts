@@ -4,7 +4,7 @@ import { mcpResource, protectedResourceMetadataUrl, publicOrigin } from "./publi
 describe("instance-local public origin", () => {
   it("keeps every OAuth and MCP URL on the configured self-hosted instance", () => {
     const request = new Request("http://app:3000/admin");
-    const env = { DOCO_PUBLIC_HOST: "https://knowledge.example/" };
+    const env = { BRAINO_PUBLIC_HOST: "https://knowledge.example/" };
 
     expect(publicOrigin(request, env)).toBe("https://knowledge.example");
     expect(mcpResource(request, env)).toBe("https://knowledge.example/mcp");

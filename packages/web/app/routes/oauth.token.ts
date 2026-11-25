@@ -1,9 +1,9 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   McpOauthError,
   exchangeMcpOauthAuthorizationCode,
   refreshMcpOauthTokens,
-} from "@doco/host";
+} from "@braino/host";
 import { mcpResource } from "~/lib/public-origin.server";
 import {
   MAX_FORM_BODY_BYTES,

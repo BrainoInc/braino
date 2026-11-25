@@ -1,10 +1,10 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import type {
   EmailMessage,
   EmailSendCapability,
   EmailSendResponse,
   PluginManifest,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 import {
   type PluginInstallation,
   PluginInstallationError,

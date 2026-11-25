@@ -1,4 +1,4 @@
-import type { CollectionRole, PoolClient } from "@doco/db";
+import type { CollectionRole, PoolClient } from "@braino/db";
 
 export type ActivityPeriod = "24h" | "7d" | "30d";
 
@@ -109,7 +109,7 @@ export async function getWorkspaceAdminOverview(
              JOIN collections c ON c.id = h.collection_id
             WHERE c.workspace_id = $1 AND NOT h.revoked))::int AS connections,
        (SELECT count(DISTINCT CASE
-                  WHEN client_id = 'doco_self_hosted_tokens' THEN token
+                  WHEN client_id = 'braino_self_hosted_tokens' THEN token
                   ELSE client_id
                 END)::int
           FROM oauth_access_tokens

@@ -1,18 +1,18 @@
-name: doco
+name: braino
 
 x-braino-app: &braino-app
-  image: ${DOCO_IMAGE:-doco:local}
+  image: ${BRAINO_IMAGE:-braino:local}
   build:
     context: .
     dockerfile: Dockerfile
     args:
-      DOCO_VERSION: ${DOCO_VERSION:-local}
+      BRAINO_VERSION: ${BRAINO_VERSION:-local}
   restart: unless-stopped
   environment:
-    DOCO_DATABASE_URL: postgresql://doco:${DOCO_POSTGRES_PASSWORD:?set DOCO_POSTGRES_PASSWORD in .env}@postgres:5432/doco
-    DOCO_ENCRYPTION_KEY: ${DOCO_ENCRYPTION_KEY:?set DOCO_ENCRYPTION_KEY in .env}
+    BRAINO_DATABASE_URL: postgresql://braino:${BRAINO_POSTGRES_PASSWORD:?set BRAINO_POSTGRES_PASSWORD in .env}@postgres:5432/braino
+    BRAINO_ENCRYPTION_KEY: ${BRAINO_ENCRYPTION_KEY:?set BRAINO_ENCRYPTION_KEY in .env}
     BRAINO_SETUP_TOKEN: ${BRAINO_SETUP_TOKEN:?set BRAINO_SETUP_TOKEN in .env}
-    DOCO_PUBLIC_HOST: ${DOCO_PUBLIC_HOST:-http://localhost:3000}
+    BRAINO_PUBLIC_HOST: ${BRAINO_PUBLIC_HOST:-http://localhost:3000}
     QDRANT_URL: http://qdrant:6333
     BRAINO_CODELINKER_URL: http://codelinker:8080
     BRAINO_CODELINKER_API_TOKEN: ${BRAINO_CODELINKER_API_TOKEN:?set BRAINO_CODELINKER_API_TOKEN in .env}
@@ -26,7 +26,7 @@ services:
   app:
     <<: *braino-app
     ports:
-      - "127.0.0.1:${DOCO_HTTP_PORT:-3000}:3000"
+      - "127.0.0.1:${BRAINO_HTTP_PORT:-3000}:3000"
     depends_on:
       codelinker:
         condition: service_healthy
@@ -125,7 +125,7 @@ services:
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
     volumes:
-      - doco-ollama:/root/.ollama
+      - braino-ollama:/root/.ollama
     expose: ["11434"]
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -162,13 +162,13 @@ services:
     image: postgres:16.10-bookworm
     restart: unless-stopped
     environment:
-      POSTGRES_DB: doco
-      POSTGRES_USER: doco
-      POSTGRES_PASSWORD: ${DOCO_POSTGRES_PASSWORD:?set DOCO_POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: braino
+      POSTGRES_USER: braino
+      POSTGRES_PASSWORD: ${BRAINO_POSTGRES_PASSWORD:?set BRAINO_POSTGRES_PASSWORD in .env}
     volumes:
-      - doco-postgres:/var/lib/postgresql/data
+      - braino-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U doco -d doco"]
+      test: ["CMD-SHELL", "pg_isready -U braino -d braino"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -178,7 +178,7 @@ services:
     image: qdrant/qdrant:v1.20.0
     restart: unless-stopped
     volumes:
-      - doco-qdrant:/qdrant/storage
+      - braino-qdrant:/qdrant/storage
     healthcheck:
       test: ["CMD-SHELL", "bash -c ': >/dev/tcp/127.0.0.1/6333'"]
       interval: 5s
@@ -191,15 +191,15 @@ services:
     profiles: ["tls"]
     restart: unless-stopped
     environment:
-      DOCO_HOST: ${DOCO_HOST:-localhost}
+      BRAINO_HOST: ${BRAINO_HOST:-localhost}
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - doco-caddy-data:/data
-      - doco-caddy-config:/config
+      - braino-caddy-data:/data
+      - braino-caddy-config:/config
     depends_on:
       app:
         condition: service_healthy
@@ -209,8 +209,8 @@ networks:
   private:
 
 volumes:
-  doco-postgres:
-  doco-qdrant:
-  doco-ollama:
-  doco-caddy-data:
-  doco-caddy-config:
+  braino-postgres:
+  braino-qdrant:
+  braino-ollama:
+  braino-caddy-data:
+  braino-caddy-config:

@@ -19,7 +19,7 @@ describe("self-hosted instance isolation", () => {
       read("routes/mcp.ts"),
     ].join("\n");
 
-    expect(surface).toContain("DOCO_PUBLIC_HOST");
+    expect(surface).toContain("BRAINO_PUBLIC_HOST");
     expect(surface).not.toMatch(/connect\.braino\.dev|https:\/\/braino\.dev/);
     expect(surface).not.toContain("fetch(");
   });

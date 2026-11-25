@@ -7,7 +7,7 @@ export function parseBenchmarkArgs(argv, env = process.env) {
     archives: [],
     questions: "",
     output: resolve("enterprise-rag-answers.jsonl"),
-    databaseUrl: env.DOCO_BENCHMARK_DATABASE_URL ?? "",
+    databaseUrl: env.BRAINO_BENCHMARK_DATABASE_URL ?? "",
     topK: 10,
     eligibleOnly: false,
     answers: false,
@@ -34,7 +34,7 @@ export function parseBenchmarkArgs(argv, env = process.env) {
   if (parsed.archives.length === 0) throw new Error("Pass at least one --archive");
   if (!parsed.questions) throw new Error("Pass --questions");
   if (!parsed.databaseUrl) {
-    throw new Error("Set DOCO_BENCHMARK_DATABASE_URL or pass --database-url");
+    throw new Error("Set BRAINO_BENCHMARK_DATABASE_URL or pass --database-url");
   }
   const database = new URL(parsed.databaseUrl).pathname.slice(1).toLowerCase();
   if (!database.includes("enterprise") && !database.includes("benchmark")) {

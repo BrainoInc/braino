@@ -1,6 +1,6 @@
-import { type PoolClient, recordWorkspaceReply } from "@doco/db";
-import type { PluginEvent, TeamChatMessage, TeamChatSendResponse } from "@doco/plugin-runtime";
-import { generateUlid } from "@doco/shared";
+import { type PoolClient, recordWorkspaceReply } from "@braino/db";
+import type { PluginEvent, TeamChatMessage, TeamChatSendResponse } from "@braino/plugin-runtime";
+import { generateUlid } from "@braino/shared";
 
 interface DeliveryRow {
   id: string;

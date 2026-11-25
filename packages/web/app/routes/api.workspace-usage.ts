@@ -1,4 +1,4 @@
-import { workspaceUsageResponse } from "@doco/host";
+import { workspaceUsageResponse } from "@braino/host";
 import { getCurrentUser } from "~/lib/current-user.server";
 
 export async function loader({

@@ -411,9 +411,9 @@ export function configuredCollectionRelationshipModel(
     apiToken,
     timeoutMs: Math.min(
       parsePositiveInteger(
-        env.DOCO_COLLECTION_RELATIONSHIP_TIMEOUT_MS,
+        env.BRAINO_COLLECTION_RELATIONSHIP_TIMEOUT_MS,
         DEFAULT_COLLECTION_RELATIONSHIP_TIMEOUT_MS,
-        "DOCO_COLLECTION_RELATIONSHIP_TIMEOUT_MS",
+        "BRAINO_COLLECTION_RELATIONSHIP_TIMEOUT_MS",
       ),
       DEFAULT_COLLECTION_RELATIONSHIP_TIMEOUT_MS,
     ),

@@ -1,4 +1,4 @@
-import { createTranslator } from "@doco/shared/i18n";
+import { createTranslator } from "@braino/shared/i18n";
 import { describe, expect, it } from "vitest";
 import { hashPassword, passwordError, verifyPassword } from "./password.server.js";
 

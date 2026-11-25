@@ -1,5 +1,5 @@
 // People sign in with an email address and a password now, not GitHub
-// (decision_01M5EA9HVPXG0SF7FVZWCGXSQ1), so a person's Doco name lives in
+// (decision_01M5EA9HVPXG0SF7FVZWCGXSQ1), so a person's Braino name lives in
 // users.username instead of their GitHub login
 // (decision_01M5EAAX2VT2MMRG0ZGKDJGMJZ). schema.sql fills it once from
 // github_login, makes names and addresses unique regardless of case, and drops
@@ -26,7 +26,7 @@ async function columns(): Promise<string[]> {
   return r.rows.map((row) => row.column_name).sort();
 }
 
-describe("users move from GitHub logins to Doco usernames", () => {
+describe("users move from GitHub logins to Braino usernames", () => {
   beforeEach(async () => {
     db = await freshDb();
     // A database from GitHub sign-in: no username or stamp, the GitHub id,

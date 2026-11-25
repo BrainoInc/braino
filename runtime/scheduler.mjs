@@ -1,4 +1,4 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   answerWorkspaceQuestion,
   getSingleWorkspaceState,
@@ -8,9 +8,9 @@ import {
   resolveWorkspaceChatProvider,
   resolveWorkspaceEmbeddingProvider,
   resolveWorkspaceTeamChatPlugin,
-} from "@doco/host";
-import { syncQueuedEmbeddings, syncRetrievalSourceBatch } from "@doco/index";
-import { QdrantVectorStore } from "@doco/index/qdrant-vector-store";
+} from "@braino/host";
+import { syncQueuedEmbeddings, syncRetrievalSourceBatch } from "@braino/index";
+import { QdrantVectorStore } from "@braino/index/qdrant-vector-store";
 
 const pollMs = Number(process.env.BRAINO_TIMES_POLL_MS ?? 60_000);
 if (!Number.isFinite(pollMs) || pollMs < 1_000) {
@@ -21,7 +21,7 @@ if (!Number.isFinite(teamChatPollMs) || teamChatPollMs < 250) {
   throw new Error("BRAINO_TEAM_CHAT_POLL_MS must be at least 250 milliseconds.");
 }
 
-const baseUrl = (process.env.DOCO_PUBLIC_HOST ?? "http://localhost:3000").replace(/\/+$/, "");
+const baseUrl = (process.env.BRAINO_PUBLIC_HOST ?? "http://localhost:3000").replace(/\/+$/, "");
 let publishing = false;
 let indexing = false;
 let answeringTeamChat = false;
@@ -67,7 +67,7 @@ function qdrantStore() {
   return new QdrantVectorStore({
     url,
     ...(apiKey ? { apiKey } : {}),
-    collection: "doco_embeddings",
+    collection: "braino_embeddings",
     dimensions: 1536,
     timeoutMs: 15_000,
   });
@@ -84,7 +84,7 @@ async function indexRetrieval() {
     const report = await withClient(async (client) => {
       const provider = await resolveWorkspaceEmbeddingProvider(client, {
         workspaceId: state.workspace.id,
-        encryptionKey: required("DOCO_ENCRYPTION_KEY"),
+        encryptionKey: required("BRAINO_ENCRYPTION_KEY"),
         host: pluginHostConnection(),
       });
       if (!provider) return null;
@@ -128,7 +128,7 @@ async function drainTeamChat() {
     await withClient(async (client) => {
       const connection = {
         workspaceId: state.workspace.id,
-        encryptionKey: required("DOCO_ENCRYPTION_KEY"),
+        encryptionKey: required("BRAINO_ENCRYPTION_KEY"),
         host: pluginHostConnection(),
       };
       const [chat, teamChat] = await Promise.all([

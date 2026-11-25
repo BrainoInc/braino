@@ -1,9 +1,14 @@
-import { withClient } from "@doco/db";
-import { getSingleWorkspaceState, getWorkspaceRole } from "@doco/host";
-import { getWorkspaceModelPluginReadiness } from "@doco/host/model-plugins";
-import { type Locale, SOURCE_LOCALE, localeDirection, localeFromRequest } from "@doco/shared/i18n";
-import { I18nProvider, useT } from "@doco/shared/i18n/react";
-import { PageMain } from "@doco/ui";
+import { withClient } from "@braino/db";
+import { getSingleWorkspaceState, getWorkspaceRole } from "@braino/host";
+import { getWorkspaceModelPluginReadiness } from "@braino/host/model-plugins";
+import {
+  type Locale,
+  SOURCE_LOCALE,
+  localeDirection,
+  localeFromRequest,
+} from "@braino/shared/i18n";
+import { I18nProvider, useT } from "@braino/shared/i18n/react";
+import { PageMain } from "@braino/ui";
 import {
   Link,
   Links,
@@ -94,9 +99,9 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <SiteHeader user={data.user} isOwner={data.isOwner} initialized={data.initialized} />
-      <div className="doco-shell-body flex min-h-0 flex-1">
+      <div className="braino-shell-body flex min-h-0 flex-1">
         {data.user && data.modelsReady ? <AgentSidebar /> : null}
-        <main className="doco-shell-main min-w-0 flex-1 overflow-y-auto">
+        <main className="braino-shell-main min-w-0 flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

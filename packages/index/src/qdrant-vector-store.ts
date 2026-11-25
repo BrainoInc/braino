@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import type { EmbeddingHit, EmbeddingSource } from "@doco/db";
+import type { EmbeddingHit, EmbeddingSource } from "@braino/db";
 
-const DEFAULT_COLLECTION = "doco_embeddings";
+const DEFAULT_COLLECTION = "braino_embeddings";
 const DEFAULT_DIMENSIONS = 1536;
 const UPSERT_BATCH = 256;
 /** The HNSW graph each Qdrant collection is built with. */

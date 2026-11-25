@@ -1,4 +1,4 @@
-import { recordQueryEvent, withClient, withTransaction } from "@doco/db";
+import { recordQueryEvent, withClient, withTransaction } from "@braino/db";
 import {
   MCP_OAUTH_SCOPE,
   type McpPrincipal,
@@ -6,7 +6,7 @@ import {
   createWorkspaceBrief,
   recordBriefFeedback,
   searchWorkspaceRecords,
-} from "@doco/host";
+} from "@braino/host";
 
 type RpcId = string | number | null;
 
@@ -48,7 +48,7 @@ const TOOLS = [
     _meta: AUTH_META,
   },
   {
-    name: "doco_brief",
+    name: "braino_brief",
     description:
       "Get binding rules, prior decisions, work in motion, and background before acting.",
     inputSchema: {
@@ -67,7 +67,7 @@ const TOOLS = [
     _meta: AUTH_META,
   },
   {
-    name: "doco_get",
+    name: "braino_get",
     description: "Read one workspace record by its full Braino id.",
     inputSchema: {
       type: "object",
@@ -78,7 +78,7 @@ const TOOLS = [
     _meta: AUTH_META,
   },
   {
-    name: "doco_search",
+    name: "braino_search",
     description:
       "Search workspace records deterministically without a model or embedding provider.",
     inputSchema: {
@@ -93,7 +93,7 @@ const TOOLS = [
     _meta: AUTH_META,
   },
   {
-    name: "doco_changeset",
+    name: "braino_changeset",
     description: "Apply one atomic, policy-checked changeset to a collection.",
     inputSchema: {
       type: "object",
@@ -108,7 +108,7 @@ const TOOLS = [
     _meta: AUTH_META,
   },
   {
-    name: "doco_feedback",
+    name: "braino_feedback",
     description: "Tell Braino whether a previous brief helped and, optionally, what was better.",
     inputSchema: {
       type: "object",
@@ -193,7 +193,7 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
     });
     return toolResult(workspace ? [workspace] : []);
   }
-  if (name === "doco_brief") {
+  if (name === "braino_brief") {
     const touching = Array.isArray(args.touching)
       ? args.touching.filter((value): value is string => typeof value === "string")
       : [];
@@ -208,7 +208,7 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
     );
     return toolResult(brief);
   }
-  if (name === "doco_get") {
+  if (name === "braino_get") {
     const record = await withTransaction(async (client) => {
       const found = await client.query(
         `SELECT n.collection_id,n.id, c.handle AS collection_handle, n.node_type, n.lifecycle,
@@ -231,14 +231,14 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
         collectionId: collection_id,
         actor: principal.userId,
         source: "mcp",
-        metadata: { auth: "bearer", client: principal.label ?? "MCP client", tool: "doco_get" },
+        metadata: { auth: "bearer", client: principal.label ?? "MCP client", tool: "braino_get" },
       });
       return record;
     });
     if (!record) throw new Error("Record not found.");
     return toolResult(record);
   }
-  if (name === "doco_search") {
+  if (name === "braino_search") {
     const query = string(args.query, "query");
     const requestedLimit = typeof args.limit === "number" ? args.limit : undefined;
     const results = await withClient(async (client) => {
@@ -256,7 +256,7 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
         metadata: {
           auth: "bearer",
           client: principal.label ?? "MCP client",
-          tool: "doco_search",
+          tool: "braino_search",
           query,
           result_ids: searched.map((row) => row.id),
         },
@@ -265,7 +265,7 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
     });
     return toolResult({ query, results });
   }
-  if (name === "doco_changeset") {
+  if (name === "braino_changeset") {
     if (!Array.isArray(args.operations) || args.operations.length === 0) {
       throw new Error("operations must be a non-empty array.");
     }
@@ -281,7 +281,7 @@ async function callTool(name: string, rawArguments: unknown, principal: McpPrinc
     );
     return toolResult(result);
   }
-  if (name === "doco_feedback") {
+  if (name === "braino_feedback") {
     await withClient((client) =>
       recordBriefFeedback(client, {
         resultId: string(args.result_id, "result_id"),
@@ -317,7 +317,7 @@ export async function handleMcpMessage(
         protocolVersion:
           typeof params.protocolVersion === "string" ? params.protocolVersion : "2025-03-26",
         capabilities: { tools: {} },
-        serverInfo: { name: "Braino", version: process.env.DOCO_VERSION ?? "local" },
+        serverInfo: { name: "Braino", version: process.env.BRAINO_VERSION ?? "local" },
       },
     };
   }

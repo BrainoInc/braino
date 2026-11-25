@@ -4,9 +4,9 @@ import {
   readWorkspaceUsageBuckets,
   withTransaction,
   workspaceUsageWindow,
-} from "@doco/db";
+} from "@braino/db";
 
-import type { WorkspaceUsagePeriod, WorkspaceUsageReport } from "@doco/shared";
+import type { WorkspaceUsagePeriod, WorkspaceUsageReport } from "@braino/shared";
 
 async function memberWorkspaceId(
   client: PoolClient,

@@ -1,5 +1,5 @@
-import { msg } from "@doco/shared/i18n";
-import { useT } from "@doco/shared/i18n/react";
+import { msg } from "@braino/shared/i18n";
+import { useT } from "@braino/shared/i18n/react";
 import { Globe, Lock } from "lucide-react";
 import { cn } from "~/lib/cn";
 

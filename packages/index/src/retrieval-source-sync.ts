@@ -1,4 +1,8 @@
-import { type EmbeddingProviderLike, type QueryClient, upsertRetrievalEmbeddings } from "@doco/db";
+import {
+  type EmbeddingProviderLike,
+  type QueryClient,
+  upsertRetrievalEmbeddings,
+} from "@braino/db";
 import { configuredRetrievalExtractor } from "./retrieval-extractor.js";
 import {
   type GraphEnrichmentMode,

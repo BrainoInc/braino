@@ -1,5 +1,5 @@
-import { withClient } from "@doco/db";
-import { McpOauthError, registerMcpOauthClient } from "@doco/host";
+import { withClient } from "@braino/db";
+import { McpOauthError, registerMcpOauthClient } from "@braino/host";
 import { MAX_FORM_BODY_BYTES, RequestBodyError, readBoundedJson } from "~/lib/request-body.server";
 
 function error(code: string, description: string, status = 400) {

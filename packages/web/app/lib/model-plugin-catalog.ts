@@ -1,9 +1,9 @@
-import type { ModelCapability, ModelPluginStatus } from "@doco/host/model-plugins";
+import type { ModelCapability, ModelPluginStatus } from "@braino/host/model-plugins";
 import {
   parsePluginManifest,
   pluginConfigurationChoices,
   pluginProvidesCapability,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 
 /** The two models Braino needs, as they appear in setup URLs. */
 export const MODEL_KINDS = ["chat", "embedding"] as const;

@@ -6,7 +6,7 @@
 // `nodes` table — and on the page — but invisible to search. The fallback
 // pulls the node's identifying fields in so it still gets indexed.
 
-import type { LoadedEntity } from "@doco/shared";
+import type { LoadedEntity } from "@braino/shared";
 import { describe, expect, it } from "vitest";
 import { nodeIndexText } from "../build.js";
 

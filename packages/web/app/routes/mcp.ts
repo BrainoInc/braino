@@ -1,5 +1,5 @@
-import { withClient } from "@doco/db";
-import { authenticateMcpToken } from "@doco/host";
+import { withClient } from "@braino/db";
+import { authenticateMcpToken } from "@braino/host";
 import { handleMcpMessage } from "~/lib/mcp-server";
 import { mcpResource, protectedResourceMetadataUrl } from "~/lib/public-origin.server";
 import { MAX_JSON_BODY_BYTES, RequestBodyError, readBoundedJson } from "~/lib/request-body.server";

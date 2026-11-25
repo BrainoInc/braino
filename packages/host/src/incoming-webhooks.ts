@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import { type ApplyChangesetResult, applyChangeset } from "./changesets.js";
 
 function digest(value: string): string {
@@ -48,7 +48,7 @@ export async function createIncomingWebhook(
   }
   const label = input.label.trim().slice(0, 100);
   if (!label) throw new IncomingWebhookError("Webhook name is required.", "label_required");
-  const accessToken = `doco_wh_${randomBytes(32).toString("base64url")}`;
+  const accessToken = `braino_wh_${randomBytes(32).toString("base64url")}`;
   const tokenId = digest(accessToken);
   await client.query(
     `INSERT INTO incoming_webhooks (token, collection_id, created_by_user_id, label)
@@ -117,7 +117,7 @@ export async function deliverIncomingWebhook(
     reason?: string | null;
   },
 ): Promise<ApplyChangesetResult & { replayed: boolean }> {
-  if (!input.accessToken.startsWith("doco_wh_")) {
+  if (!input.accessToken.startsWith("braino_wh_")) {
     throw new IncomingWebhookError("Webhook token is invalid.", "webhook_unauthorized", 401);
   }
   const tokenId = digest(input.accessToken);

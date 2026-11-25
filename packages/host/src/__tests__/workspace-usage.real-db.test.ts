@@ -1,5 +1,5 @@
-import type { PoolClient } from "@doco/db";
-import { installTestDatabaseClient } from "@doco/db/test-support";
+import type { PoolClient } from "@braino/db";
+import { installTestDatabaseClient } from "@braino/db/test-support";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
 import { getWorkspaceUsageReport, workspaceUsageResponse } from "../workspace-usage.js";

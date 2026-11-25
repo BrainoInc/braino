@@ -2,7 +2,7 @@
 
 The plugin host is the only process that executes third-party plugin code. It
 runs WebAssembly Components implementing the canonical
-`braino:plugin/plugin@0.1.0` world published by `@doco/plugin-runtime`.
+`braino:plugin/plugin@0.1.0` world published by `@braino/plugin-runtime`.
 
 Every call creates a new Wasmtime store and component instance. A guest has no
 WASI environment, filesystem, clocks, random source, or sockets. Its only host

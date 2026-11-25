@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { QueryClient } from "./embeddings.js";
 
-const SNAPSHOT_FORMAT = "doco-retrieval-snapshot" as const;
+const SNAPSHOT_FORMAT = "braino-retrieval-snapshot" as const;
 const SNAPSHOT_VERSION = 2 as const;
 const INERT_NOTION_TOKEN = "snapshot:no-credential";
 
@@ -277,7 +277,7 @@ const TABLE_SPECS: readonly TableSpec[] = [
       "bot_scope",
       "installed_by_chat_user_id",
       "installed_by_user_id",
-      "doco_workspace_id",
+      "braino_workspace_id",
       "data",
       "created_at",
       "updated_at",
@@ -287,7 +287,7 @@ const TABLE_SPECS: readonly TableSpec[] = [
     select: (collectionId) => ({
       sql: `SELECT i.id, i.provider, i.workspace_id, i.workspace_name, i.bot_user_id,
                    NULL::text AS bot_access_token, i.bot_scope, i.installed_by_chat_user_id,
-                   NULL::text AS installed_by_user_id, i.doco_workspace_id,
+                   NULL::text AS installed_by_user_id, i.braino_workspace_id,
                    '{}'::jsonb AS data, i.created_at, i.updated_at
               FROM group_chat_installations i
               JOIN group_chat_mirrors m ON m.installation_id = i.id
@@ -934,7 +934,7 @@ export async function replaceRetrievalSnapshot(
       }
       const installations = snapshot.tables.group_chat_installations.map((row) => ({
         ...row,
-        doco_workspace_id: targetWorkspaceId,
+        braino_workspace_id: targetWorkspaceId,
       }));
       const mirrors = rowsForTargetCollection(
         snapshot.tables.group_chat_mirrors,

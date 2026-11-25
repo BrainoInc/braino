@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // The Braino hook: one script that briefs an agent before it acts, for Claude
 // Code, Codex and Gemini CLI, GitHub Copilot and Cursor. Served at
-// /agents/doco-hook.mjs; a project keeps it at .doco/hook.mjs and names it in
-// its client's hooks (lib/doco-hook-install.ts): Claude Code, Codex and Gemini
-// CLI run `node .doco/hook.mjs`, and their events name themselves; Copilot runs
-// `node .doco/hook.mjs copilot <event>`, since its events don't; Cursor runs
-// `node .doco/hook.mjs cursor`. Every client's event becomes one of these:
+// /agents/braino-hook.mjs; a project keeps it at .braino/hook.mjs and names it in
+// its client's hooks (lib/braino-hook-install.ts): Claude Code, Codex and Gemini
+// CLI run `node .braino/hook.mjs`, and their events name themselves; Copilot runs
+// `node .braino/hook.mjs copilot <event>`, since its events don't; Cursor runs
+// `node .braino/hook.mjs cursor`. Every client's event becomes one of these:
 //
 //   A session's start (SessionStart; Copilot's and Cursor's sessionStart):
 //     Braino's instructions for agents, opened in a new thread by the line
@@ -35,7 +35,7 @@
 //
 // The commit stamp (decision_01M653M1AH6JN4VHH04ZQMG4MR; Alexander,
 // 2026-10-29, "Spot agents committing without Braino"): a brief Braino can open
-// again ends with the `Doco-Brief:` line each commit after it carries. The hook remembers the latest one for the project,
+// again ends with the `Braino-Brief:` line each commit after it carries. The hook remembers the latest one for the project,
 // and at session start installs a prepare-commit-msg git hook in the checkout
 // that runs this script, which ends each commit message made within two hours
 // of that brief with the line, so the pull request shows the work went
@@ -56,10 +56,10 @@
 // AGENTS.md (Alexander, 2026-11-12, "Stop Codex Cloud tasks skipping
 // Braino": one started in /workspace, beside /workspace/sales/AGENTS.md, and
 // skipped Braino): Braino's section in that folder's AGENTS.md, in Braino's
-// words (?at=agents-md), and the workspace in its .doco/workspace, which the
+// words (?at=agents-md), and the workspace in its .braino/workspace, which the
 // gate of every checkout below reads. It writes nothing inside a checkout:
 // there the section comes by pull request. A commit whose message ends with
-// a `Doco-Brief:` line passes, as does one made within two hours of a brief,
+// a `Braino-Brief:` line passes, as does one made within two hours of a brief,
 // which the gate stamps with that brief's line. Any other is stopped once:
 // the gate briefs the agent on what the commit says and the files it stages,
 // prints the brief, and remembers its line, so the same commit tried again,
@@ -77,16 +77,16 @@
 // one it serves on the line asking the agent to save it again (Alexander,
 // 2026-11-12, "Make agents aware of outdated instructions"). The brief comes from GET
 // <origin>/api/v1/brief.json (the standing orders from
-// /api/v1/standing-orders.json) with a hook token (.doco/hook-tokens.json
-// keyed by workspace handle, or DOCO_TOKEN) or an OAuth token (DOCO_ACCESS).
+// /api/v1/standing-orders.json) with a hook token (.braino/hook-tokens.json
+// keyed by workspace handle, or BRAINO_TOKEN) or an OAuth token (BRAINO_ACCESS).
 // The workspace and the origin come from the URL in the project's
-// .doco/workspace, or DOCO_WORKSPACE and DOCO_ORIGIN. The output is the JSON
+// .braino/workspace, or BRAINO_WORKSPACE and BRAINO_ORIGIN. The output is the JSON
 // each client reads: hookSpecificOutput.additionalContext for Claude Code,
 // Codex and Gemini CLI, additionalContext (a stop's decision and reason) for
 // Copilot, additional_context (a stop's followup_message) for Cursor. Without a
 // token (the file stays out of git, so a fresh clone has none), or with one
 // Braino refuses (revoked, or a project token from before hook tokens), it tells
-// the agent to get its person's from Braino's doco_hook_token, at session start
+// the agent to get its person's from Braino's braino_hook_token, at session start
 // and after the reminder on a prompt. Anything that fails, including the
 // deadline, fails open: whatever of the two came; exit 0 either way. No
 // dependencies; Node 18 or later.
@@ -138,7 +138,7 @@ const ONCE_MS = 12 * 60 * 60_000;
 /** A brief stamps the commits made in its checkout for this long. */
 const STAMP_TTL_MS = 2 * 60 * 60_000;
 /** The line a brief ends with for the commits after it (BRIEF_TRAILER in lib/brief/brief.ts). */
-const STAMP_LINE = /^Doco-Brief: \S+$/m;
+const STAMP_LINE = /^Braino-Brief: \S+$/m;
 /** How the git hooks the stamp and the gate install know themselves. */
 const STAMP_MARK = "Installed by the Braino hook";
 /** The cut line of `git commit --verbose`: what follows is the diff. */
@@ -153,7 +153,7 @@ const SESSION_STARTS = new Set(["new-thread", "session"]);
 /**
  * A copy of this script as Braino tells one from another: the start of its
  * SHA-256, whatever line endings a checkout gave it (scriptFingerprint in
- * lib/doco-hook-script.server.ts).
+ * lib/braino-hook-script.server.ts).
  */
 export function fingerprint(script) {
   return createHash("sha256").update(script.replace(/\r/g, "")).digest("hex").slice(0, 12);
@@ -193,9 +193,9 @@ function readWorkspaceUrl(text) {
   }
 }
 
-/** The project's workspace: the URL in its .doco/workspace. */
+/** The project's workspace: the URL in its .braino/workspace. */
 export function readProjectWorkspace(cwd) {
-  const found = findUp(cwd, [join(".doco", "workspace")]);
+  const found = findUp(cwd, [join(".braino", "workspace")]);
   if (!found) return null;
   let saved = "";
   try {
@@ -206,9 +206,9 @@ export function readProjectWorkspace(cwd) {
   return { root: found.dir, ...readWorkspaceUrl(saved) };
 }
 
-/** The token saved at .doco/hook-tokens.json, for the workspace or the only one. */
+/** The token saved at .braino/hook-tokens.json, for the workspace or the only one. */
 export function readHookToken(cwd, workspace) {
-  const found = findUp(cwd, [join(".doco", "hook-tokens.json")]);
+  const found = findUp(cwd, [join(".braino", "hook-tokens.json")]);
   if (!found) return null;
   try {
     const entries = Object.entries(JSON.parse(readFileSync(found.path, "utf8")));
@@ -222,15 +222,15 @@ export function readHookToken(cwd, workspace) {
 
 export function resolveConfig(env, cwd) {
   const project = readProjectWorkspace(cwd);
-  const workspace = env.DOCO_WORKSPACE || project?.workspace || null;
+  const workspace = env.BRAINO_WORKSPACE || project?.workspace || null;
   return {
     root: project?.root ?? resolve(cwd),
-    origin: (env.DOCO_ORIGIN || project?.origin || DEFAULT_ORIGIN).replace(/\/+$/, ""),
+    origin: (env.BRAINO_ORIGIN || project?.origin || DEFAULT_ORIGIN).replace(/\/+$/, ""),
     workspace,
-    // The saved token first: it is the one doco_hook_token gave the agent.
-    token: readHookToken(cwd, workspace) || env.DOCO_TOKEN || env.DOCO_ACCESS || null,
-    timeoutMs: Number(env.DOCO_HOOK_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
-    budget: Number(env.DOCO_BRIEF_BUDGET) || PROMPT_BUDGET,
+    // The saved token first: it is the one braino_hook_token gave the agent.
+    token: readHookToken(cwd, workspace) || env.BRAINO_TOKEN || env.BRAINO_ACCESS || null,
+    timeoutMs: Number(env.BRAINO_HOOK_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
+    budget: Number(env.BRAINO_BRIEF_BUDGET) || PROMPT_BUDGET,
   };
 }
 
@@ -339,7 +339,7 @@ function projectFile(config, kind) {
   const key = createHash("sha1")
     .update(`${config.root}|${config.workspace ?? ""}`)
     .digest("hex");
-  return join(tmpdir(), "doco-hook", kind, key);
+  return join(tmpdir(), "braino-hook", kind, key);
 }
 
 /** When a session last started from this project and workspace, as the standing orders' `since`. */
@@ -347,14 +347,14 @@ function lastSeenFile(config) {
   return projectFile(config, "last-seen");
 }
 
-/** The latest brief's `Doco-Brief:` line for this project and workspace, written when it came. */
+/** The latest brief's `Braino-Brief:` line for this project and workspace, written when it came. */
 function stampFile(config) {
   return projectFile(config, "stamp");
 }
 
 /** What the hook keeps about one session or turn: a mark, or Cursor's prompt. */
 function noteFile(kind, key) {
-  return join(tmpdir(), "doco-hook", kind, createHash("sha1").update(key).digest("hex"));
+  return join(tmpdir(), "braino-hook", kind, createHash("sha1").update(key).digest("hex"));
 }
 
 /**
@@ -455,7 +455,7 @@ function git(cwd, ...args) {
 /** What each git hook the Braino hook installs does, said in its file. */
 const GIT_HOOKS = {
   "prepare-commit-msg":
-    "ends each commit message made\n# here within two hours of a Braino brief with that brief's Doco-Brief line, so\n# the pull request shows the work went through Braino.",
+    "ends each commit message made\n# here within two hours of a Braino brief with that brief's Braino-Brief line, so\n# the pull request shows the work went through Braino.",
   "commit-msg":
     "stops a commit that shows no\n# Braino brief once, and briefs the agent on it, so no work leaves this checkout\n# without going through Braino.",
 };
@@ -555,7 +555,7 @@ export function stampCommit(messageFile, env = process.env, cwd = process.cwd())
 /**
  * The commit gate's verdict on the commit message in `messageFile`: whether
  * the commit may go on, and what to tell whoever made it (stderr). A message
- * with a `Doco-Brief:` line, an empty one (git refuses it anyway) and a merge
+ * with a `Braino-Brief:` line, an empty one (git refuses it anyway) and a merge
  * pass; so does one made within two hours of a brief, stamped with its line.
  * Any other gets a brief on what it says and what it stages, whose line the
  * gate remembers for the commit tried again, and is stopped.
@@ -579,7 +579,7 @@ export async function gateCommit(messageFile, env = process.env, cwd = process.c
   if (!config.token || !config.workspace) {
     return {
       pass: false,
-      say: `Braino's commit gate stopped this commit: it shows no Braino brief, and the gate can't brief you without ${config.workspace ? "a token" : "the project's workspace"}. ${config.workspace ? `Call doco_hook_token for ${config.workspace} and save the token as it says, or set DOCO_TOKEN` : "Save the workspace's URL in .doco/workspace"}, then commit again. To turn the gate off here, delete .git/hooks/commit-msg.`,
+      say: `Braino's commit gate stopped this commit: it shows no Braino brief, and the gate can't brief you without ${config.workspace ? "a token" : "the project's workspace"}. ${config.workspace ? `Call braino_hook_token for ${config.workspace} and save the token as it says, or set BRAINO_TOKEN` : "Save the workspace's URL in .braino/workspace"}, then commit again. To turn the gate off here, delete .git/hooks/commit-msg.`,
     };
   }
   const staged = (git(cwd, "diff", "--cached", "--name-only") ?? "")
@@ -600,7 +600,7 @@ export async function gateCommit(messageFile, env = process.env, cwd = process.c
   if (fetched?.refused) {
     return {
       pass: false,
-      say: `Braino's commit gate stopped this commit: Braino refused its token. Call doco_hook_token for ${config.workspace}, save the token as it says, then commit again.`,
+      say: `Braino's commit gate stopped this commit: Braino refused its token. Call braino_hook_token for ${config.workspace}, save the token as it says, then commit again.`,
     };
   }
   const brief = fetched?.text ?? null;
@@ -613,7 +613,7 @@ export async function gateCommit(messageFile, env = process.env, cwd = process.c
   rememberStamp(config, brief);
   return {
     pass: false,
-    say: `Braino's commit gate stopped this commit: nothing in it shows the work went through Braino. Here is Braino's brief on it. Obey it, record what the workspace's constitution asks with doco_capture, then make the same commit again: it will end with this brief's Doco-Brief line.\n\n${brief}`,
+    say: `Braino's commit gate stopped this commit: nothing in it shows the work went through Braino. Here is Braino's brief on it. Obey it, record what the workspace's constitution asks with braino_capture, then make the same commit again: it will end with this brief's Braino-Brief line.\n\n${brief}`,
   };
 }
 
@@ -770,7 +770,7 @@ export function render(client, raw, event, context) {
 }
 
 function cacheFile(sessionId, cacheKey) {
-  const dir = join(tmpdir(), "doco-hook", String(sessionId || "no-session"));
+  const dir = join(tmpdir(), "braino-hook", String(sessionId || "no-session"));
   return join(dir, `${createHash("sha1").update(cacheKey).digest("hex")}.txt`);
 }
 
@@ -817,7 +817,7 @@ async function fetchMcpBrief(url, config, token, signal) {
       id: "braino-hook",
       method: "tools/call",
       params: {
-        name: "doco_brief",
+        name: "braino_brief",
         arguments: { about, ...(touching.length ? { touching } : {}) },
       },
     }),
@@ -831,7 +831,7 @@ async function fetchMcpBrief(url, config, token, signal) {
   const text = result?.content?.find?.((item) => item?.type === "text")?.text?.trim?.() || "";
   if (!text) return null;
   const briefId = result?.structuredContent?.brief_id ?? result?.structuredContent?.id;
-  return { text: briefId && !STAMP_LINE.test(text) ? `${text}\n\nDoco-Brief: ${briefId}` : text };
+  return { text: briefId && !STAMP_LINE.test(text) ? `${text}\n\nBraino-Brief: ${briefId}` : text };
 }
 
 /** GET a text, with the token when one is given. */
@@ -850,7 +850,7 @@ async function fetchText(url, config, token) {
       if (text) return { text };
     }
     const parsed = new URL(url);
-    if (parsed.pathname === INSTRUCTIONS_PATH && config.token?.startsWith("doco_at_")) {
+    if (parsed.pathname === INSTRUCTIONS_PATH && config.token?.startsWith("braino_at_")) {
       return { text: OPEN_BRAINO_INSTRUCTIONS };
     }
     return await fetchMcpBrief(url, config, token, controller.signal);
@@ -929,17 +929,17 @@ export async function main(
       [...(await leads).map((lead) => lead?.text), ...context].filter(Boolean).join("\n\n"),
     );
   if (plan.requests.length === 0) return output();
-  // Without a token Braino takes, the agent gets its person's from doco_hook_token.
+  // Without a token Braino takes, the agent gets its person's from braino_hook_token.
   const askForToken = (why) =>
     event.kind === "file"
       ? null
       : output(
-          `${why}: call doco_hook_token${config.workspace ? ` for ${config.workspace}` : ""}, save the token as it says, and the hook briefs you from the next prompt on.`,
+          `${why}: call braino_hook_token${config.workspace ? ` for ${config.workspace}` : ""}, save the token as it says, and the hook briefs you from the next prompt on.`,
         );
   if (!config.token) return askForToken("The Braino hook has no token here");
   if (event.kind === "session" && config.workspace) {
     try {
-      // In the checkout the session works in: .doco/workspace may sit above it.
+      // In the checkout the session works in: .braino/workspace may sit above it.
       installGitHook(event.cwd ?? cwd, "prepare-commit-msg");
     } catch {
       /* the commits go unstamped */
@@ -1002,7 +1002,7 @@ function withSection(agentsMd, section) {
  */
 async function leaveSection(here, config) {
   if (config.workspace) {
-    const file = join(here, ".doco", "workspace");
+    const file = join(here, ".braino", "workspace");
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, `${config.origin}/workspaces/${config.workspace}\n`);
   }

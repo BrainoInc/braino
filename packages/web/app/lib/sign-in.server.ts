@@ -1,4 +1,4 @@
-import type { PasswordAttemptBucket } from "@doco/host";
+import type { PasswordAttemptBucket } from "@braino/host";
 
 export function passwordAttemptBuckets(request: Request, email: string): PasswordAttemptBucket[] {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim();

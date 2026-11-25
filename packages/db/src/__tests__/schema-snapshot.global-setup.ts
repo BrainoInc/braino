@@ -20,6 +20,6 @@ export default async function setup({ provide }: GlobalSetupContext) {
   const dir = await mkdtemp(join(tmpdir(), "collection-schema-"));
   const file = join(dir, "schema.tar");
   await writeFile(file, Buffer.from(await dump.arrayBuffer()));
-  provide("docoSchemaSnapshot", file);
+  provide("brainoSchemaSnapshot", file);
   return () => rm(dir, { recursive: true, force: true });
 }

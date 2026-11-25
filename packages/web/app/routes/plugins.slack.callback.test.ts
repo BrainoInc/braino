@@ -11,10 +11,10 @@ const mocks = vi.hoisted(() => ({
   verifyPluginGatewayState: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   connectWorkspaceTeamChatPlugin: mocks.connectWorkspaceTeamChatPlugin,
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   getWorkspaceRole: mocks.getWorkspaceRole,

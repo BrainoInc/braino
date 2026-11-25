@@ -33,22 +33,22 @@ describe("node_touches", () => {
         "decision_01M3YXBFVNKEN703EAMWCW26QH",
         [
           "Edit packages/web/app/lib/search.server.ts and ./packages/db/src/schema.sql (PR #1331),",
-          "see https://doco.to/meta-doco/decision/decision_01M3YV52H2CTFEGW0P0KAZ2DEP.",
-          "Builds on idea_01M3YV52H2CTFEGW0P0KAZ2DEP and https://github.com/torrenegra/doco/pull/1330",
-          "The file /home/user/doco/AGENTS.md is loaded via CLAUDE.md; version 1.2 is not a path.",
+          "see https://braino.to/meta-braino/decision/decision_01M3YV52H2CTFEGW0P0KAZ2DEP.",
+          "Builds on idea_01M3YV52H2CTFEGW0P0KAZ2DEP and https://github.com/torrenegra/braino/pull/1330",
+          "The file /home/user/braino/AGENTS.md is loaded via CLAUDE.md; version 1.2 is not a path.",
         ].join("\n"),
       ],
     );
     expect(await touchesOf("decision_01M3YXBFVNKEN703EAMWCW26QH")).toEqual([
       ["node", "decision_01M3YV52H2CTFEGW0P0KAZ2DEP"],
       ["node", "idea_01M3YV52H2CTFEGW0P0KAZ2DEP"],
-      ["path", "home/user/doco/AGENTS.md"],
+      ["path", "home/user/braino/AGENTS.md"],
       ["path", "packages/db/src/schema.sql"],
       ["path", "packages/web/app/lib/search.server.ts"],
       ["pr", "#1330"],
       ["pr", "#1331"],
-      ["url", "https://doco.to/meta-doco/decision/decision_01M3YV52H2CTFEGW0P0KAZ2DEP"],
-      ["url", "https://github.com/torrenegra/doco/pull/1330"],
+      ["url", "https://braino.to/meta-braino/decision/decision_01M3YV52H2CTFEGW0P0KAZ2DEP"],
+      ["url", "https://github.com/torrenegra/braino/pull/1330"],
     ]);
   });
 

@@ -1,11 +1,11 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   GithubConnectionError,
   PluginInvocationError,
   deliverGithubGatewayWebhook,
   getSingleWorkspaceState,
   resolveWorkspaceGithubPlugin,
-} from "@doco/host";
+} from "@braino/host";
 import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
 import { MAX_JSON_BODY_BYTES, RequestBodyError, readBoundedText } from "~/lib/request-body.server";
 

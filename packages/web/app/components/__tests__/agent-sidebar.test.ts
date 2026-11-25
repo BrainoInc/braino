@@ -18,8 +18,8 @@ describe("AgentSidebar", () => {
   it("is the persistent hosted-style rail rather than a separate page", () => {
     const html = render();
 
-    expect(html).toContain("senor-doco-rail");
-    expect(html).toContain("--senor-doco-current-width:320px");
+    expect(html).toContain("senor-braino-rail");
+    expect(html).toContain("--senor-braino-current-width:320px");
     expect(html).toContain('id="senor-braino-question"');
     expect(html).not.toContain('href="/senor-braino"');
   });
@@ -29,9 +29,9 @@ describe("AgentSidebar", () => {
   });
 
   it("becomes the same overlay drawer as hosted Braino on narrow screens", () => {
-    expect(appCss).toContain('@import "@doco/ui/styles.css"');
-    expect(sharedCss).toContain('.senor-doco-rail:not([data-collapsed="true"])');
+    expect(appCss).toContain('@import "@braino/ui/styles.css"');
+    expect(sharedCss).toContain('.senor-braino-rail:not([data-collapsed="true"])');
     expect(sharedCss).toContain("@media (min-width: 640px)");
-    expect(sharedCss).toContain(".senor-doco-backdrop");
+    expect(sharedCss).toContain(".senor-braino-backdrop");
   });
 });

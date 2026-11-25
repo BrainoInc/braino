@@ -1,6 +1,6 @@
 {
-  "name": "@doco/index",
-  "version": "0.1.59",
+  "name": "@braino/index",
+  "version": "0.1.60",
   "type": "module",
   "description": "PG-backed search indexer, PageRank, and embedding provider.",
   "license": "MPL-2.0",
@@ -34,8 +34,8 @@
     "smoke:qdrant": "node scripts/smoke-qdrant-vector-store.mjs"
   },
   "dependencies": {
-    "@doco/db": "workspace:*",
-    "@doco/shared": "workspace:*",
+    "@braino/db": "workspace:*",
+    "@braino/shared": "workspace:*",
     "yauzl": "^3.4.0"
   },
   "devDependencies": {

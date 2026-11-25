@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 
 export const DEFAULT_TIMES_TIME_ZONE = "America/Los_Angeles";
 export const TIMES_STORY_LIMIT = 15;
