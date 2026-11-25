@@ -1,10 +1,20 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { applyMigrations } from "../client.js";
+import { MIGRATIONS } from "../schema-embedded.js";
 import { freshDb } from "./fresh-db.js";
 
 const LEGACY_NAME = String.fromCharCode(100, 111, 99, 111);
+
+function migrationClient(db: PGlite) {
+  return {
+    async query<T>(sql: string, params?: unknown[]) {
+      if (params) return db.query<T>(sql, params);
+      const results = await db.exec(sql);
+      return (results[results.length - 1] ?? { rows: [] }) as { rows: T[] };
+    },
+  };
+}
 
 describe("Braino machine-contract migration", () => {
   let db: PGlite;
@@ -48,17 +58,35 @@ describe("Braino machine-contract migration", () => {
       INSERT INTO oauth_clients (client_id, redirect_uris)
       VALUES ('${legacyClient}', '{http://localhost/callback}');
 
+      INSERT INTO changesets (collection_id, actor, source, metadata)
+      VALUES (
+        'collection_legacy',
+        'user_legacy',
+        'api',
+        jsonb_build_object('surface', 'senor_' || '${LEGACY_NAME}', 'client', 'website')
+      );
+
       ALTER FUNCTION braino_allow_history_delete_for_collection()
         RENAME TO ${LEGACY_NAME}_allow_history_delete_for_collection;
       ALTER FUNCTION braino_block_history_mutation()
         RENAME TO ${LEGACY_NAME}_block_history_mutation;
     `);
 
-    const migration = await readFile(
-      join(import.meta.dirname, "..", "..", "migrations", "027_braino_machine_contracts.sql"),
-      "utf8",
-    );
-    await db.exec(migration);
+    await db.exec(`
+      CREATE TABLE schema_migrations (
+        version integer PRIMARY KEY CHECK (version >= 0),
+        name text NOT NULL UNIQUE,
+        checksum text NOT NULL,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    for (const migration of MIGRATIONS.filter(({ version }) => version < 27)) {
+      await db.query(
+        "INSERT INTO schema_migrations (version, name, checksum) VALUES ($1, $2, $3)",
+        [migration.version, migration.name, migration.checksum],
+      );
+    }
+    await applyMigrations(migrationClient(db));
   });
 
   afterAll(() => db.close());
@@ -117,5 +145,16 @@ describe("Braino machine-contract migration", () => {
     );
     expect(activity.rows[0]?.definition).toContain("senor_braino");
     expect(activity.rows[0]?.definition).not.toContain(LEGACY_NAME);
+
+    const changeset = await db.query<{ surface: string }>(
+      "SELECT metadata->>'surface' AS surface FROM changesets WHERE actor = 'user_legacy'",
+    );
+    expect(changeset.rows[0]?.surface).toBe("senor_braino");
+  });
+
+  it("restores the append-only guard after the controlled history rewrite", async () => {
+    await expect(
+      db.exec("UPDATE changesets SET metadata = '{}' WHERE actor = 'user_legacy'"),
+    ).rejects.toThrow("history append-only");
   });
 });
