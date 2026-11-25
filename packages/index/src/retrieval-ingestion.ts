@@ -11,7 +11,7 @@ import {
   type RetrievalRelationshipInput,
   chunkText,
   ingestRetrievalDocument,
-} from "@doco/db";
+} from "@braino/db";
 import {
   type RetrievalValidationIssue,
   validateRetrievalExtraction,
@@ -58,12 +58,12 @@ export interface RetrievalLlmValidator {
  * explicit ingestion option can override it for a workspace or source.
  */
 export function resolveGraphEnrichmentMode(
-  value: string | undefined = process.env.DOCO_GRAPH_ENRICHMENT_MODE,
+  value: string | undefined = process.env.BRAINO_GRAPH_ENRICHMENT_MODE,
 ): GraphEnrichmentMode {
   const normalized = value?.trim().toLowerCase() || "fast";
   if (normalized === "fast" || normalized === "llm-validated") return normalized;
   throw new Error(
-    `DOCO_GRAPH_ENRICHMENT_MODE must be "fast" or "llm-validated"; received ${JSON.stringify(value)}`,
+    `BRAINO_GRAPH_ENRICHMENT_MODE must be "fast" or "llm-validated"; received ${JSON.stringify(value)}`,
   );
 }
 

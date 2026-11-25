@@ -9,10 +9,10 @@ const mocks = vi.hoisted(() => ({
   resolveWorkspaceTeamChatPlugin: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   enqueueTeamChatEvents: mocks.enqueueTeamChatEvents,
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   resolveWorkspaceTeamChatPlugin: mocks.resolveWorkspaceTeamChatPlugin,

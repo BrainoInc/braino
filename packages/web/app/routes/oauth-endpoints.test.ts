@@ -6,10 +6,10 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => {
+vi.mock("@braino/host", () => {
   class McpOauthError extends Error {
     constructor(
       public code: string,
@@ -33,14 +33,14 @@ describe("instance-local OAuth HTTP endpoints", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.register.mockResolvedValue({
-      clientId: "doco_client_chatgpt",
+      clientId: "braino_client_chatgpt",
       clientName: "ChatGPT",
       redirectUris: ["https://chatgpt.com/connector_platform_oauth_redirect"],
       registeredAt: "2026-11-12T00:00:00.000Z",
     });
     mocks.exchange.mockResolvedValue({
-      access_token: "doco_at_one",
-      refresh_token: "doco_rt_one",
+      access_token: "braino_at_one",
+      refresh_token: "braino_rt_one",
       token_type: "Bearer",
       expires_in: 3600,
       scope: "braino:mcp",
@@ -62,7 +62,7 @@ describe("instance-local OAuth HTTP endpoints", () => {
     const body = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(201);
-    expect(body.client_id).toBe("doco_client_chatgpt");
+    expect(body.client_id).toBe("braino_client_chatgpt");
     expect(body.token_endpoint_auth_method).toBe("none");
     expect(body).not.toHaveProperty("client_secret");
   });
@@ -74,8 +74,8 @@ describe("instance-local OAuth HTTP endpoints", () => {
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           grant_type: "authorization_code",
-          client_id: "doco_client_chatgpt",
-          code: "doco_code_one",
+          client_id: "braino_client_chatgpt",
+          code: "braino_code_one",
           redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect",
           code_verifier: "x".repeat(43),
           resource: "https://another-instance.example/mcp",

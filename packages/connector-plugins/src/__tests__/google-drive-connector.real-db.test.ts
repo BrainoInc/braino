@@ -1,5 +1,5 @@
 import { generateKeyPairSync } from "node:crypto";
-import { connectConnector, initializeSingleWorkspace, syncConnectorConnection } from "@doco/host";
+import { connectConnector, initializeSingleWorkspace, syncConnectorConnection } from "@braino/host";
 import type { PGlite } from "@electric-sql/pglite";
 import type { PoolClient } from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -25,7 +25,7 @@ const credential = JSON.stringify({
   project_id: "acme-knowledge",
   private_key_id: "test-key",
   private_key: privateKey,
-  client_email: "doco@acme-knowledge.iam.gserviceaccount.com",
+  client_email: "braino@acme-knowledge.iam.gserviceaccount.com",
   token_uri: "https://oauth2.googleapis.com/token",
 });
 
@@ -64,7 +64,7 @@ function fakeDrive(state: DriveState): typeof fetch {
       return Response.json({
         user: {
           displayName: "Acme Knowledge",
-          emailAddress: "doco@acme-knowledge.iam.gserviceaccount.com",
+          emailAddress: "braino@acme-knowledge.iam.gserviceaccount.com",
           permissionId: "permission_acme",
         },
       });

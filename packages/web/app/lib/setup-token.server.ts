@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { msg } from "@doco/shared/i18n";
+import { msg } from "@braino/shared/i18n";
 
 interface SetupEnvironment {
   BRAINO_SETUP_TOKEN?: string;

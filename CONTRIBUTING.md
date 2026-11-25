@@ -32,7 +32,7 @@ maps every English sentence to its translation.
 Every word a person reads goes through the translator:
 
 ```tsx
-import { useT } from "@doco/shared/i18n/react";
+import { useT } from "@braino/shared/i18n/react";
 
 function Results({ count, query }: { count: number; query: string }) {
   const t = useT();
@@ -61,7 +61,7 @@ function Results({ count, query }: { count: number; query: string }) {
   (`const t = await requestTranslator(request)`, from `~/locales/catalog`) and
   a route's `meta` from its matches (`const t = metaTranslator(matches)`).
 - **Text made where no translator is at hand** (a constant table, an error a
-  helper returns) is marked with `msg("…")` from `@doco/shared/i18n` and shown
+  helper returns) is marked with `msg("…")` from `@braino/shared/i18n` and shown
   with `t(text)`.
 - **Text that reads the same in every language** (Braino, a command, a
   handle) is written in braces, `{"Braino"}`, to say so on purpose.
@@ -74,7 +74,7 @@ function Results({ count, query }: { count: number; query: string }) {
 - **What stays English:** the HTTP API, MCP tools and OAuth errors, logs, and
   what people wrote themselves (records, handles, names).
 
-After adding or changing a sentence, run `pnpm --filter @doco/web i18n:sync`.
+After adding or changing a sentence, run `pnpm --filter @braino/web i18n:sync`.
 It adds the new sentence to every catalog with an empty translation and drops
 sentences the source no longer says; fill in each empty translation, keeping
 the same `{values}` and `<parts>` and giving each plural the forms its language

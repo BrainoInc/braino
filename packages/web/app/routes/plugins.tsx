@@ -1,6 +1,6 @@
-import { withClient } from "@doco/db";
-import { listPluginInstallations } from "@doco/host";
-import { useT } from "@doco/shared/i18n/react";
+import { withClient } from "@braino/db";
+import { listPluginInstallations } from "@braino/host";
+import { useT } from "@braino/shared/i18n/react";
 import {
   BUILT_IN_PLUGIN_BRANDS,
   Card,
@@ -10,7 +10,7 @@ import {
   CardTitle,
   PageMain,
   PluginManager,
-} from "@doco/ui";
+} from "@braino/ui";
 import { Link, useLoaderData } from "react-router";
 import { loadModelSetup } from "~/lib/model-setup.server";
 import {

@@ -12,15 +12,15 @@ import {
   rebuildCollectionDerivedData,
   upsertEmbeddings,
   withClient,
-} from "@doco/db";
-import type { LoadedCollection, LoadedEntity } from "@doco/shared";
+} from "@braino/db";
+import type { LoadedCollection, LoadedEntity } from "@braino/shared";
 import { entityTypeFromId } from "./entity-id.js";
 import { loadCollectionFromPostgres } from "./loadCollection.js";
 
 /**
  * The text to index for a loaded node — its FTS body and its embedding
  * input: the node's `prose`, or its identifying fields while the prose is
- * empty (see @doco/db's `nodeIndexText`, which the embedding sweep shares).
+ * empty (see @braino/db's `nodeIndexText`, which the embedding sweep shares).
  */
 export function nodeIndexText(le: LoadedEntity): string {
   return indexTextOf(le.parsed.prose, (le.parsed.data ?? {}) as Record<string, unknown>);

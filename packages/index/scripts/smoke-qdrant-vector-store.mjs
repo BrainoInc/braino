@@ -6,12 +6,12 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIST = join(HERE, "..", "dist", "qdrant-vector-store.js");
 const { QdrantVectorStore } = await import(DIST).catch(() => {
-  throw new Error("Build @doco/index first: pnpm --filter @doco/index build");
+  throw new Error("Build @braino/index first: pnpm --filter @braino/index build");
 });
 
 const url = (process.env.QDRANT_URL ?? "http://127.0.0.1:6333").replace(/\/$/, "");
 const apiKey = process.env.QDRANT_API_KEY;
-const collection = "doco_local_smoke";
+const collection = "braino_local_smoke";
 const headers = { ...(apiKey ? { "api-key": apiKey } : {}) };
 
 async function removeSmokeCollection() {

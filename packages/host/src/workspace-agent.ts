@@ -1,6 +1,6 @@
-import { type PoolClient, recordWorkspaceReply } from "@doco/db";
-import type { ChatCompleteCapability, ChatMessage } from "@doco/plugin-runtime";
-import { generateUlid } from "@doco/shared";
+import { type PoolClient, recordWorkspaceReply } from "@braino/db";
+import type { ChatCompleteCapability, ChatMessage } from "@braino/plugin-runtime";
+import { generateUlid } from "@braino/shared";
 import { searchWorkspaceRecords } from "./workspace-search.js";
 
 const SYSTEM_PROMPT = `You are Señor Braino, the assistant for one Braino workspace.

@@ -11,7 +11,7 @@
  *   - Collection: the root container
  *
  * The OAuth identity layer and the workspace container have no entity shape
- * here; their honest types are `UserRow` / `WorkspaceRow` in `@doco/db`.
+ * here; their honest types are `UserRow` / `WorkspaceRow` in `@braino/db`.
  *
  * Per-category discriminator fields:
  *   - Nodes    → `node_type: NodeType`
@@ -67,7 +67,7 @@ export interface CommonFields {
  *
  * The OAuth identity layer (`User`) and the workspace container are NOT entity
  * shapes here — their honest in-memory types are `UserRow` / `WorkspaceRow` in
- * `@doco/db`, which mirror their tables 1:1. There is no parallel `User` /
+ * `@braino/db`, which mirror their tables 1:1. There is no parallel `User` /
  * `Workspace` interface to drift from those rows.
  */
 
@@ -76,7 +76,7 @@ export interface CommonFields {
 /**
  * Principal — documented role/persona that participates in flows.
  * Related to work through edge rows. Slimmed from the pre-rename Principal
- * which also held OAuth identity; that concern is now the `UserRow` in @doco/db.
+ * which also held OAuth identity; that concern is now the `UserRow` in @braino/db.
  */
 // Principal carries a display label (`name`) and an optional seat `kind`; like
 // every node its text lives in the one canonical `prose` column — there is no
@@ -535,7 +535,7 @@ export type Node =
 
 /**
  * A graph-knowledge entity the index loader hydrates. Containers (`Collection`) and
- * the OAuth identity / workspace rows are read through their own `@doco/db`
+ * the OAuth identity / workspace rows are read through their own `@braino/db`
  * row types, not this union.
  */
 export type Entity = Node | Policy | Collection;

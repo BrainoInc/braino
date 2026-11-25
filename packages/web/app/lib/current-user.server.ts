@@ -1,4 +1,4 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import { readSessionIdentity } from "./session.server.js";
 
 export interface CurrentUser {

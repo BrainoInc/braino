@@ -482,7 +482,7 @@ describe("OpenRouter collection relationship model", () => {
     const model = new OpenRouterCollectionRelationshipModel({
       fetchImpl: vi.fn(async () =>
         openRouterResponse({
-          digest: "doco_01M46A3A7QZ1FSSN1DDY18K5CM",
+          digest: "braino_01M46A3A7QZ1FSSN1DDY18K5CM",
           evidenceIds: ["node:real"],
         }),
       ),
@@ -515,7 +515,7 @@ describe("OpenRouter collection relationship model", () => {
       fetchImpl: vi.fn(async () =>
         openRouterResponse({
           digest:
-            "doco_01M3T6V5JN0RZAEH05RND2ZT90#torre-codebase#code:torre-labs/api-gateway:CHANGELOG.md#code:torre-labs/api-gateway:docs/public-api/index.md",
+            "braino_01M3T6V5JN0RZAEH05RND2ZT90#torre-codebase#code:torre-labs/api-gateway:CHANGELOG.md#code:torre-labs/api-gateway:docs/public-api/index.md",
           evidenceIds: ["node:real"],
         }),
       ),

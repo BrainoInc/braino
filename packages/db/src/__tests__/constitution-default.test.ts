@@ -43,7 +43,7 @@ describe("default workspace constitution text stays in sync", () => {
   });
 
   // Alexander, 2026-10-21: "the instructions shouldn't make reference to it.
-  // The Constitutions should." Doco's agent instructions name no collection,
+  // The Constitutions should." Braino's agent instructions name no collection,
   // so the constitution says what to record and in which of the collections
   // a new workspace starts with.
   it("says what to record and where: each chat, each decision by its kind, each process change", () => {

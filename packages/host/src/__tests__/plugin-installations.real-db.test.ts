@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import type { PoolClient } from "@doco/db";
-import type { PluginManifest } from "@doco/plugin-runtime";
+import type { PoolClient } from "@braino/db";
+import type { PluginManifest } from "@braino/plugin-runtime";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";

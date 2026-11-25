@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import type { PoolClient } from "@doco/db";
-import { type PluginManifest, parsePluginManifest } from "@doco/plugin-runtime";
-import { generateUlid } from "@doco/shared";
+import type { PoolClient } from "@braino/db";
+import { type PluginManifest, parsePluginManifest } from "@braino/plugin-runtime";
+import { generateUlid } from "@braino/shared";
 import { sealSecret } from "./secret-box.js";
 
 const MAX_COMPONENT_BYTES = 16 * 1024 * 1024;

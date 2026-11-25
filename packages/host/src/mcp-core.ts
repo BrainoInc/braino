@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
-import { type PoolClient, recordQueryEvent } from "@doco/db";
-import { generateUlid } from "@doco/shared";
+import { type PoolClient, recordQueryEvent } from "@braino/db";
+import { generateUlid } from "@braino/shared";
 
-const MCP_CLIENT_ID = "doco_self_hosted_tokens";
+const MCP_CLIENT_ID = "braino_self_hosted_tokens";
 const TOKEN_LIFETIME_MS = 365 * 24 * 60 * 60 * 1000;
 
 function digest(value: string): string {
@@ -36,7 +36,7 @@ export async function createMcpToken(
   const role = membership.rows[0]?.role;
   if (!role) throw new Error("Workspace membership is required to create an MCP token.");
   const label = input.label.trim().slice(0, 100) || "MCP client";
-  const accessToken = `doco_at_${randomBytes(32).toString("base64url")}`;
+  const accessToken = `braino_at_${randomBytes(32).toString("base64url")}`;
   const tokenId = digest(accessToken);
   const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_MS).toISOString();
 
@@ -80,7 +80,7 @@ export async function authenticateMcpToken(
   accessToken: string,
   expectedResource?: string,
 ): Promise<McpPrincipal | null> {
-  if (!accessToken.startsWith("doco_at_")) return null;
+  if (!accessToken.startsWith("braino_at_")) return null;
   const tokenId = digest(accessToken);
   const found = await client.query<{
     user_id: string;
@@ -303,7 +303,7 @@ export async function createWorkspaceBrief(
   await client.query(
     `INSERT INTO agent_results
        (id, actor, tool, query, result_ids, source, metadata, context)
-     VALUES ($1, $2, 'doco_brief', $3, $4, 'mcp', $5::jsonb, $6::jsonb)`,
+     VALUES ($1, $2, 'braino_brief', $3, $4, 'mcp', $5::jsonb, $6::jsonb)`,
     [
       resultId,
       input.userId,

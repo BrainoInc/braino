@@ -1,21 +1,21 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   PluginInstallationError,
   connectWorkspaceEmailPlugin,
   listPluginInstallations,
   removePluginInstallation,
-} from "@doco/host";
+} from "@braino/host";
 import {
   ModelPluginVerificationError,
   activateWorkspaceModelPlugin,
   installWorkspaceModelPlugin,
   verifyWorkspaceModelPlugin,
-} from "@doco/host/model-plugins";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
-import { PluginLogo } from "@doco/ui";
+} from "@braino/host/model-plugins";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
+import { PluginLogo } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import { bundledModelPlugin, bundledPlugin } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
@@ -111,7 +111,7 @@ export async function loader({ request, params }: { request: Request; params: Pa
   }
 
   if (id === "slack") {
-    const origin = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
+    const origin = (process.env.BRAINO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
       /\/+$/,
       "",
     );
@@ -189,7 +189,7 @@ async function saveModelPlugin(
   const encryptionKey = pluginSecretsKey();
   const host = pluginHostConnection();
   if (!encryptionKey)
-    return { error: t("DOCO_ENCRYPTION_KEY must contain at least 32 characters.") };
+    return { error: t("BRAINO_ENCRYPTION_KEY must contain at least 32 characters.") };
   if (!host) return { error: t("The plugin service is not configured.") };
 
   try {

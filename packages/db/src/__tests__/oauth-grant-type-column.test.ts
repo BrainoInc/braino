@@ -14,7 +14,7 @@ describe("oauth grant_type column (regular | actor)", () => {
     db = await freshDb();
     await db.query("INSERT INTO users (id, data) VALUES ('user_alice', '{}')");
     await db.query(
-      "INSERT INTO oauth_clients (client_id, client_name, redirect_uris) VALUES ('doco_client_x', 'x', ARRAY['urn:ietf:wg:oauth:2.0:oob'])",
+      "INSERT INTO oauth_clients (client_id, client_name, redirect_uris) VALUES ('braino_client_x', 'x', ARRAY['urn:ietf:wg:oauth:2.0:oob'])",
     );
   });
 
@@ -22,12 +22,12 @@ describe("oauth grant_type column (regular | actor)", () => {
     await db.query(
       `INSERT INTO oauth_authorization_codes
          (code, client_id, user_id, redirect_uri, code_challenge, granted_collection_ids, resource, expires_at)
-       VALUES ('c_reg', 'doco_client_x', 'user_alice', 'urn:x', 'ch', ARRAY['collection_1'], 'https://braino.test/mcp', now() + interval '5 min')`,
+       VALUES ('c_reg', 'braino_client_x', 'user_alice', 'urn:x', 'ch', ARRAY['collection_1'], 'https://braino.test/mcp', now() + interval '5 min')`,
     );
     await db.query(
       `INSERT INTO oauth_authorization_codes
          (code, client_id, user_id, redirect_uri, code_challenge, granted_collection_ids, grant_type, resource, expires_at)
-       VALUES ('c_act', 'doco_client_x', 'user_alice', 'urn:x', 'ch', ARRAY[]::text[], 'actor', 'https://braino.test/mcp', now() + interval '5 min')`,
+       VALUES ('c_act', 'braino_client_x', 'user_alice', 'urn:x', 'ch', ARRAY[]::text[], 'actor', 'https://braino.test/mcp', now() + interval '5 min')`,
     );
 
     const rows = await db.query<{ code: string; grant_type: string }>(
@@ -43,12 +43,12 @@ describe("oauth grant_type column (regular | actor)", () => {
     await db.query(
       `INSERT INTO oauth_device_authorizations
          (device_code, user_code, client_id, expires_at)
-       VALUES ('dc_reg', 'AAAA-1111', 'doco_client_x', now() + interval '5 min')`,
+       VALUES ('dc_reg', 'AAAA-1111', 'braino_client_x', now() + interval '5 min')`,
     );
     await db.query(
       `INSERT INTO oauth_device_authorizations
          (device_code, user_code, client_id, grant_type, expires_at)
-       VALUES ('dc_act', 'BBBB-2222', 'doco_client_x', 'actor', now() + interval '5 min')`,
+       VALUES ('dc_act', 'BBBB-2222', 'braino_client_x', 'actor', now() + interval '5 min')`,
     );
 
     const rows = await db.query<{ device_code: string; grant_type: string }>(
@@ -65,7 +65,7 @@ describe("oauth grant_type column (regular | actor)", () => {
       db.query(
         `INSERT INTO oauth_authorization_codes
            (code, client_id, user_id, redirect_uri, code_challenge, granted_collection_ids, grant_type, resource, expires_at)
-         VALUES ('c_bad', 'doco_client_x', 'user_alice', 'urn:x', 'ch', ARRAY['collection_1'], 'superuser', 'https://braino.test/mcp', now() + interval '5 min')`,
+         VALUES ('c_bad', 'braino_client_x', 'user_alice', 'urn:x', 'ch', ARRAY['collection_1'], 'superuser', 'https://braino.test/mcp', now() + interval '5 min')`,
       ),
     ).rejects.toThrow();
   });
@@ -74,13 +74,13 @@ describe("oauth grant_type column (regular | actor)", () => {
     await db.query(
       `INSERT INTO oauth_refresh_tokens
          (token, client_id, user_id, granted_collection_ids, grant_type, actor_role, expires_at)
-       VALUES ('rt_cap', 'doco_client_x', 'user_alice', ARRAY[]::text[], 'actor', 'reader', now() + interval '60 days')`,
+       VALUES ('rt_cap', 'braino_client_x', 'user_alice', ARRAY[]::text[], 'actor', 'reader', now() + interval '60 days')`,
     );
     // Default is NULL (no ceiling = full live role).
     await db.query(
       `INSERT INTO oauth_refresh_tokens
          (token, client_id, user_id, granted_collection_ids, grant_type, expires_at)
-       VALUES ('rt_full', 'doco_client_x', 'user_alice', ARRAY[]::text[], 'actor', now() + interval '60 days')`,
+       VALUES ('rt_full', 'braino_client_x', 'user_alice', ARRAY[]::text[], 'actor', now() + interval '60 days')`,
     );
 
     const rows = await db.query<{ token: string; actor_role: string | null }>(
@@ -97,7 +97,7 @@ describe("oauth grant_type column (regular | actor)", () => {
       db.query(
         `INSERT INTO oauth_refresh_tokens
            (token, client_id, user_id, granted_collection_ids, grant_type, actor_role, expires_at)
-         VALUES ('rt_bad', 'doco_client_x', 'user_alice', ARRAY[]::text[], 'actor', 'superuser', now() + interval '60 days')`,
+         VALUES ('rt_bad', 'braino_client_x', 'user_alice', ARRAY[]::text[], 'actor', 'superuser', now() + interval '60 days')`,
       ),
     ).rejects.toThrow();
   });

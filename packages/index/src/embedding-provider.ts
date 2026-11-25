@@ -8,8 +8,8 @@
  * Env-var convention matches Speco: bare provider keys (`OPENAI_API_KEY`,
  * `VOYAGE_API_KEY`, `COHERE_API_KEY`). No collection-prefixed variant. To pick a
  * provider explicitly when more than one key is present, set
- * `DOCO_EMBEDDING_PROVIDER` to `openai` | `voyage` | `cohere` | `none`.
- * `DOCO_VOYAGE_EMBEDDING_MODEL` can opt a deployment into another Voyage
+ * `BRAINO_EMBEDDING_PROVIDER` to `openai` | `voyage` | `cohere` | `none`.
+ * `BRAINO_VOYAGE_EMBEDDING_MODEL` can opt a deployment into another Voyage
  * model; the established production default remains `voyage-3.5`.
  *
  * Asymmetric retrieval. Agent queries are short natural-language questions;
@@ -214,15 +214,15 @@ export class CohereEmbeddingProvider implements EmbeddingProvider {
 }
 
 /**
- * Resolve the active provider from the environment. `DOCO_EMBEDDING_PROVIDER`
+ * Resolve the active provider from the environment. `BRAINO_EMBEDDING_PROVIDER`
  * forces a choice; otherwise we auto-detect by key presence, preferring
  * OpenAI when its key is set so existing single-key deployments are
  * unchanged. A Voyage/Cohere key is used implicitly only when OPENAI_API_KEY
  * is absent — to prefer an asymmetric model while the OpenAI key is also set,
- * set `DOCO_EMBEDDING_PROVIDER=voyage` (or `cohere`).
+ * set `BRAINO_EMBEDDING_PROVIDER=voyage` (or `cohere`).
  */
 export function getDefaultEmbeddingProvider(): EmbeddingProvider {
-  const selector = (process.env.DOCO_EMBEDDING_PROVIDER ?? "").trim().toLowerCase();
+  const selector = (process.env.BRAINO_EMBEDDING_PROVIDER ?? "").trim().toLowerCase();
   try {
     switch (selector) {
       case "none":
@@ -238,7 +238,7 @@ export function getDefaultEmbeddingProvider(): EmbeddingProvider {
         break;
       default:
         console.error(
-          `[collection/embedding-provider] Unknown DOCO_EMBEDDING_PROVIDER="${selector}"; auto-detecting by key.`,
+          `[collection/embedding-provider] Unknown BRAINO_EMBEDDING_PROVIDER="${selector}"; auto-detecting by key.`,
         );
     }
     if (process.env.OPENAI_API_KEY) return new OpenAIEmbeddingProvider(process.env.OPENAI_API_KEY);
@@ -258,7 +258,7 @@ export function getDefaultEmbeddingProvider(): EmbeddingProvider {
 function voyageProvider(apiKey: string): VoyageEmbeddingProvider {
   return new VoyageEmbeddingProvider(
     apiKey,
-    process.env.DOCO_VOYAGE_EMBEDDING_MODEL?.trim() || "voyage-3.5",
+    process.env.BRAINO_VOYAGE_EMBEDDING_MODEL?.trim() || "voyage-3.5",
   );
 }
 
@@ -273,7 +273,7 @@ function providerForKey(
   const key = process.env[envName];
   if (!key) {
     console.error(
-      `[collection/embedding-provider] DOCO_EMBEDDING_PROVIDER selects ${envName} but it is not set; embeddings disabled.`,
+      `[collection/embedding-provider] BRAINO_EMBEDDING_PROVIDER selects ${envName} but it is not set; embeddings disabled.`,
     );
     return new NoopEmbeddingProvider();
   }

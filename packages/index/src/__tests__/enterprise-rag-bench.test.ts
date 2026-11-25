@@ -16,7 +16,7 @@ describe("EnterpriseRAG-Bench adapter", () => {
       "--questions",
       "/tmp/questions.jsonl",
       "--database-url",
-      "postgres://localhost/doco_enterprise_benchmark",
+      "postgres://localhost/braino_enterprise_benchmark",
     ];
 
     expect(parseBenchmarkArgs(common, {})).toMatchObject({ graph: false });

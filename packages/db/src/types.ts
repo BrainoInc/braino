@@ -1,4 +1,4 @@
-import { GENERIC_CAPTURE_NODE_TYPES, NODE_CATALOG, NODE_TYPES } from "@doco/shared";
+import { GENERIC_CAPTURE_NODE_TYPES, NODE_CATALOG, NODE_TYPES } from "@braino/shared";
 
 // Per-entity-type table mapping + storage interface.
 //

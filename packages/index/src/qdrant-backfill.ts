@@ -1,4 +1,4 @@
-import type { EmbeddingSource, QueryClient } from "@doco/db";
+import type { EmbeddingSource, QueryClient } from "@braino/db";
 import type { VectorRecord, VectorStore } from "./qdrant-vector-store.js";
 
 interface EmbeddingRow {

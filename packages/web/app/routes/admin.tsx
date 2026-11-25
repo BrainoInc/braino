@@ -1,16 +1,16 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   type ActivityPeriod,
   WorkspaceAdminError,
   getSingleWorkspaceState,
   getWorkspaceAdminOverview,
   updateWorkspaceSettings,
-} from "@doco/host";
-import { type Translator, msg } from "@doco/shared/i18n";
-import { type ReactTranslator, useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+} from "@braino/host";
+import { type Translator, msg } from "@braino/shared/i18n";
+import { type ReactTranslator, useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { loadModelSetup } from "~/lib/model-setup.server";
@@ -60,16 +60,16 @@ function deploymentStatus(
   plugins: { ready: boolean; embedding: boolean },
   t: Translator,
 ): DeploymentStatus {
-  const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
+  const publicHost = (process.env.BRAINO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
     /\/$/,
     "",
   );
-  const embeddingProvider = process.env.DOCO_EMBEDDING_PROVIDER?.trim().toLowerCase();
+  const embeddingProvider = process.env.BRAINO_EMBEDDING_PROVIDER?.trim().toLowerCase();
   const hasEmbeddingKey = Boolean(
     process.env.OPENAI_API_KEY || process.env.VOYAGE_API_KEY || process.env.COHERE_API_KEY,
   );
   return {
-    version: process.env.DOCO_VERSION?.trim() || "local",
+    version: process.env.BRAINO_VERSION?.trim() || "local",
     publicHost,
     postgres: t("Connected"),
     qdrant: process.env.QDRANT_URL?.trim() ? t("Configured") : t("Not configured"),
@@ -550,7 +550,7 @@ export default function AdminPage() {
           <pre className="neu-well overflow-x-auto rounded-md px-4 py-3 font-mono text-xs leading-6">
             <code>
               {
-                "./doco doctor\n./doco backup\n./doco restore backups/<archive>.tar.gz\n./doco upgrade"
+                "./braino doctor\n./braino backup\n./braino restore backups/<archive>.tar.gz\n./braino upgrade"
               }
             </code>
           </pre>

@@ -1,5 +1,5 @@
 // Postgres-backed FTS row builder. Computes the full-text-search rows
-// the indexer (@doco/index) builds and writes them straight to Postgres.
+// the indexer (@braino/index) builds and writes them straight to Postgres.
 //
 // Pure side-effecting writer: caller supplies the entities' FTS rows and
 // the collection_id; we wipe and rebuild the PG-side FTS rows for that collection

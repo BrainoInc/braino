@@ -1,5 +1,5 @@
-import { useT } from "@doco/shared/i18n/react";
-import { BrainoMark } from "@doco/ui";
+import { useT } from "@braino/shared/i18n/react";
+import { BrainoMark } from "@braino/ui";
 import {
   type CSSProperties,
   type FormEvent,
@@ -216,13 +216,13 @@ export function AgentSidebar() {
   };
 
   const railStyle = {
-    "--senor-doco-current-width": collapsed ? RAIL_COLLAPSED : RAIL_DEFAULT,
+    "--senor-braino-current-width": collapsed ? RAIL_COLLAPSED : RAIL_DEFAULT,
     transition: "width 180ms ease-out",
-  } as CSSProperties & { "--senor-doco-current-width": string };
+  } as CSSProperties & { "--senor-braino-current-width": string };
 
   const rail = (
     <aside
-      className="senor-doco-rail flex h-full shrink-0 flex-col overflow-hidden border-e border-border bg-card"
+      className="senor-braino-rail flex h-full shrink-0 flex-col overflow-hidden border-e border-border bg-card"
       data-collapsed={collapsed ? "true" : "false"}
       style={railStyle}
       aria-busy={asking}
@@ -348,7 +348,7 @@ export function AgentSidebar() {
         <button
           type="button"
           aria-label={t("Señor Braino")}
-          className="senor-doco-backdrop"
+          className="senor-braino-backdrop"
           onClick={() => setCollapsedPersistent(true)}
         />
       )}

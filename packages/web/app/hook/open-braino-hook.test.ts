@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 // The hook is a dependency-free script shared by every supported agent client.
 // @ts-expect-error JavaScript entrypoints intentionally ship without declarations.
-import { main } from "../../../../.doco/hook.mjs";
+import { main } from "../../../../.braino/hook.mjs";
 
 describe("Open Braino hook transport", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -40,9 +40,9 @@ describe("Open Braino hook transport", () => {
       }),
       {
         ...process.env,
-        DOCO_ORIGIN: "https://meta.braino.dev",
-        DOCO_TOKEN: "doco_at_meta",
-        DOCO_WORKSPACE: "meta-braino",
+        BRAINO_ORIGIN: "https://meta.braino.dev",
+        BRAINO_TOKEN: "braino_at_meta",
+        BRAINO_WORKSPACE: "meta-braino",
       },
       cwd,
     );
@@ -54,11 +54,11 @@ describe("Open Braino hook transport", () => {
     });
     const mcp = calls.find((call) => call.url === "https://meta.braino.dev/mcp");
     expect(mcp?.init?.method).toBe("POST");
-    expect(mcp?.init?.headers).toMatchObject({ Authorization: "Bearer doco_at_meta" });
+    expect(mcp?.init?.headers).toMatchObject({ Authorization: "Bearer braino_at_meta" });
     expect(JSON.parse(String(mcp?.init?.body))).toMatchObject({
       method: "tools/call",
       params: {
-        name: "doco_brief",
+        name: "braino_brief",
         arguments: { about: "Reconfigure the project hook" },
       },
     });

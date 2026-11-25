@@ -94,7 +94,7 @@ const JUDGE_PROMPT = `
 
 process.env.OPENROUTER_API_KEY ||= process.env.OPEN_ROUTER_API_KEY;
 const opts = parseBenchmarkArgs(process.argv.slice(2));
-process.env.DOCO_DATABASE_URL = opts.databaseUrl;
+process.env.BRAINO_DATABASE_URL = opts.databaseUrl;
 
 const index = await import(INDEX_DIST);
 const db = await import(DB_DIST);

@@ -52,20 +52,20 @@ COPY packages/web/package.json packages/web/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-ARG DOCO_VERSION=local
-ENV DOCO_VERSION=$DOCO_VERSION
-RUN pnpm run build:packages && pnpm --filter @doco/web build
-RUN pnpm --filter @doco/web deploy --prod --legacy /opt/doco
+ARG BRAINO_VERSION=local
+ENV BRAINO_VERSION=$BRAINO_VERSION
+RUN pnpm run build:packages && pnpm --filter @braino/web build
+RUN pnpm --filter @braino/web deploy --prod --legacy /opt/braino
 
 FROM node:22-bookworm-slim AS runtime
 
-ARG DOCO_VERSION=local
-ENV DOCO_VERSION=$DOCO_VERSION
+ARG BRAINO_VERSION=local
+ENV BRAINO_VERSION=$BRAINO_VERSION
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 WORKDIR /app
-COPY --from=build --chown=node:node /opt/doco ./
+COPY --from=build --chown=node:node /opt/braino ./
 COPY --from=build --chown=node:node /source/runtime ./runtime
 COPY --from=plugin-build --chown=node:node \
   /source/plugins/anthropic-chat/target/wasm32-wasip2/release/braino_anthropic_chat.wasm \

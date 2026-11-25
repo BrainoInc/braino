@@ -1,6 +1,6 @@
 {
-  "name": "@doco/host",
-  "version": "0.1.59",
+  "name": "@braino/host",
+  "version": "0.1.60",
   "type": "module",
   "description": "Postgres-backed workspace, collection, user, and template services.",
   "license": "MPL-2.0",
@@ -24,9 +24,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@doco/db": "workspace:*",
-    "@doco/index": "workspace:*",
-    "@doco/plugin-runtime": "workspace:*",
-    "@doco/shared": "workspace:*"
+    "@braino/db": "workspace:*",
+    "@braino/index": "workspace:*",
+    "@braino/plugin-runtime": "workspace:*",
+    "@braino/shared": "workspace:*"
   }
 }

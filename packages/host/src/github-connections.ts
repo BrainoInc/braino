@@ -6,14 +6,14 @@ import {
   createChangeset,
   nodeRowFromFields,
   upsertNode,
-} from "@doco/db";
+} from "@braino/db";
 import {
   type CodeGraphClient,
   configuredCodeGraphClient,
   syncCodeGraphCollection,
   syncCodeGraphRepository,
-} from "@doco/index";
-import { generateUlid, makeEntityId } from "@doco/shared";
+} from "@braino/index";
+import { generateUlid, makeEntityId } from "@braino/shared";
 import type { ClientScope } from "./client-scope.js";
 import { createCollectionInWorkspace } from "./host.js";
 import { createWorkspaceBrief } from "./mcp-core.js";
@@ -219,7 +219,7 @@ function headers(accessToken: string): Record<string, string> {
   return {
     Accept: "application/vnd.github+json",
     Authorization: `Bearer ${accessToken}`,
-    "User-Agent": "doco-self-hosted",
+    "User-Agent": "braino-self-hosted",
     "X-GitHub-Api-Version": "2022-11-28",
   };
 }
@@ -496,13 +496,13 @@ function githubWebhookUrl(publicHost: string, connectionId: string): string {
     url = new URL(publicHost);
   } catch {
     throw new GithubConnectionError(
-      "DOCO_PUBLIC_HOST must be a valid HTTPS URL before automatic GitHub sync can be enabled.",
+      "BRAINO_PUBLIC_HOST must be a valid HTTPS URL before automatic GitHub sync can be enabled.",
       "public_host_invalid",
     );
   }
   if (url.protocol !== "https:" || url.username || url.password) {
     throw new GithubConnectionError(
-      "DOCO_PUBLIC_HOST must be a public HTTPS URL before automatic GitHub sync can be enabled.",
+      "BRAINO_PUBLIC_HOST must be a public HTTPS URL before automatic GitHub sync can be enabled.",
       "public_host_invalid",
     );
   }
@@ -961,7 +961,7 @@ export async function listGithubConnections(
   return Promise.all(found.rows.map((row) => summary(client, row.id)));
 }
 
-const BRIEF_TRAILER = /(?:Doco|Braino)-Brief:\s*https?:\/\/\S+/i;
+const BRIEF_TRAILER = /(?:Braino|Braino)-Brief:\s*https?:\/\/\S+/i;
 const BRAINO_RECORD =
   /\b(?:intent|idea|rule|decision|action|log|eval|reference|state|principal|policy|brief)_[0-9A-HJKMNP-TV-Z]{26}\b/i;
 
@@ -1122,11 +1122,11 @@ async function rejectPullRequestOnce(
 }
 
 function publicBrainoOrigin(): string {
-  const configured = process.env.DOCO_PUBLIC_HOST?.trim();
-  if (!configured) throw new Error("DOCO_PUBLIC_HOST is required to publish a Braino brief.");
+  const configured = process.env.BRAINO_PUBLIC_HOST?.trim();
+  if (!configured) throw new Error("BRAINO_PUBLIC_HOST is required to publish a Braino brief.");
   const origin = new URL(configured);
   if (origin.protocol !== "https:") {
-    throw new Error("DOCO_PUBLIC_HOST must use HTTPS to publish a Braino brief.");
+    throw new Error("BRAINO_PUBLIC_HOST must use HTTPS to publish a Braino brief.");
   }
   return origin.origin;
 }

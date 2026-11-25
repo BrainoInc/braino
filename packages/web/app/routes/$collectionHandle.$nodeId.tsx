@@ -1,7 +1,7 @@
-import { withClient } from "@doco/db";
-import { Card, CardContent } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+import { withClient } from "@braino/db";
+import { Card, CardContent } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { Link, redirect, useLoaderData } from "react-router";
 import { getCollectionForUser } from "~/lib/collection-access.server";
 import { getCurrentUser } from "~/lib/current-user.server";

@@ -3,7 +3,7 @@ services:
   # proof keeps those same three service names and dependency edges, while
   # substituting a tiny deterministic server and instant bootstrap jobs.
   ollama:
-    image: ${DOCO_IMAGE}
+    image: ${BRAINO_IMAGE}
     profiles: ["conformance"]
     entrypoint: ["node", "--input-type=module"]
     command:
@@ -56,12 +56,12 @@ services:
       timeout: 2s
       retries: 10
   ollama-model:
-    image: ${DOCO_IMAGE}
+    image: ${BRAINO_IMAGE}
     profiles: ["conformance"]
     entrypoint: ["node", "--input-type=module"]
     command: ["-e", "process.exit(0)"]
   ollama-chat-model:
-    image: ${DOCO_IMAGE}
+    image: ${BRAINO_IMAGE}
     profiles: ["conformance"]
     entrypoint: ["node", "--input-type=module"]
     command: ["-e", "process.exit(0)"]

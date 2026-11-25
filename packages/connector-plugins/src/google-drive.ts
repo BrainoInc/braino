@@ -5,7 +5,7 @@ import {
   type ConnectorFetcher,
   type ConnectorSource,
   type SourcePullCapability,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const TOKEN_URI = "https://oauth2.googleapis.com/token";
@@ -131,7 +131,7 @@ async function driveResponse(
   token: string,
 ): Promise<Response> {
   const response = await fetcher(`${DRIVE_API}${path}`, {
-    headers: { Authorization: `Bearer ${token}`, "User-Agent": "doco-self-hosted" },
+    headers: { Authorization: `Bearer ${token}`, "User-Agent": "braino-self-hosted" },
   });
   if (!response.ok) {
     let detail = "";

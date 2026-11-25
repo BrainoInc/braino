@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import { createRequestHandler } from "@react-router/express";
 import express from "express";
 

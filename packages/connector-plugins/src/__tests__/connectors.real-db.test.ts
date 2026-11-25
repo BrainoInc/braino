@@ -5,7 +5,7 @@ import {
   initializeSingleWorkspace,
   listConnectorConnections,
   syncConnectorConnection,
-} from "@doco/host";
+} from "@braino/host";
 import type { PGlite } from "@electric-sql/pglite";
 import type { PoolClient } from "pg";
 import { beforeEach, describe, expect, it } from "vitest";

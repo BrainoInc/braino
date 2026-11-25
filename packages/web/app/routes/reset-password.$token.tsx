@@ -1,8 +1,8 @@
-import { withClient } from "@doco/db";
-import { AccountLinkError, consumePasswordResetLink, getPasswordResetLink } from "@doco/host";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { NarrowPageMain } from "@doco/ui";
+import { withClient } from "@braino/db";
+import { AccountLinkError, consumePasswordResetLink, getPasswordResetLink } from "@braino/host";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { NarrowPageMain } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { hashPassword, passwordError } from "~/lib/password.server";
 import {

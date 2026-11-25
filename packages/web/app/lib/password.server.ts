@@ -1,5 +1,5 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
-import type { Translator } from "@doco/shared/i18n";
+import type { Translator } from "@braino/shared/i18n";
 
 const KEY_LENGTH = 64;
 const MIN_LENGTH = 12;

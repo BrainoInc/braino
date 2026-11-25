@@ -14,7 +14,7 @@ import {
   listNodesByCollection,
   listNodesByCollectionAndIds,
   withClient,
-} from "@doco/db";
+} from "@braino/db";
 import type {
   Collection,
   Entity,
@@ -23,8 +23,8 @@ import type {
   LoadFailure,
   LoadedCollection,
   LoadedEntity,
-} from "@doco/shared";
-import { ENTITY_TYPES, NODE_TYPES, isEntityId } from "@doco/shared";
+} from "@braino/shared";
+import { ENTITY_TYPES, NODE_TYPES, isEntityId } from "@braino/shared";
 import { entityTypeFromId } from "./entity-id.js";
 
 // All node types are collection-scoped.

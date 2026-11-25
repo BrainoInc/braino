@@ -1,6 +1,6 @@
-import type { PoolClient } from "@doco/db";
-import type { EmbeddingInputType, EmbeddingProvider } from "@doco/index";
-import type { EmbeddingResponse } from "@doco/plugin-runtime";
+import type { PoolClient } from "@braino/db";
+import type { EmbeddingInputType, EmbeddingProvider } from "@braino/index";
+import type { EmbeddingResponse } from "@braino/plugin-runtime";
 import { resolveActiveWorkspaceModelPlugin } from "./model-plugin-installation.js";
 import {
   type PluginHostConnection,

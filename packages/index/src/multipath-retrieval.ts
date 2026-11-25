@@ -18,7 +18,7 @@ import {
   searchRetrievalChunksFts,
   searchRetrievalEntitiesFts,
   searchRetrievalRelationsFts,
-} from "@doco/db";
+} from "@braino/db";
 
 export type RetrievalPath =
   | "chunk_lexical"

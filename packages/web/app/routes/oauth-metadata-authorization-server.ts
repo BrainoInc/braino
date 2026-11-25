@@ -1,4 +1,4 @@
-import { MCP_OAUTH_SCOPE } from "@doco/host";
+import { MCP_OAUTH_SCOPE } from "@braino/host";
 import { publicOrigin } from "~/lib/public-origin.server";
 
 export function loader({ request }: { request: Request }) {

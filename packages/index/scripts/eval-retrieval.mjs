@@ -5,10 +5,10 @@
 // the lift from asymmetric query/document hints and from reranking — BEFORE
 // committing to one in production.
 //
-// Zero runtime deps: it imports the built @doco/index barrel and otherwise
+// Zero runtime deps: it imports the built @braino/index barrel and otherwise
 // uses only Node built-ins. Build the package first:
 //
-//   pnpm --filter @doco/index build
+//   pnpm --filter @braino/index build
 //
 // Usage:
 //   node scripts/eval-retrieval.mjs                       # fake provider, fixture
@@ -44,7 +44,7 @@ try {
   mod = await import(DIST);
 } catch {
   console.error(
-    `Could not import ${DIST}\nBuild the package first:  pnpm --filter @doco/index build`,
+    `Could not import ${DIST}\nBuild the package first:  pnpm --filter @braino/index build`,
   );
   process.exit(1);
 }
@@ -235,19 +235,19 @@ async function rankWithVectorStore(store, provider, documents, queries) {
 
 function requireLocalDatabase() {
   const databaseUrl =
-    process.env.DOCO_DATABASE_URL ??
+    process.env.BRAINO_DATABASE_URL ??
     process.env.DATABASE_URL ??
-    "postgresql://doco:doco-local@127.0.0.1:55432/doco";
+    "postgresql://braino:braino-local@127.0.0.1:55432/braino";
   const host = new URL(databaseUrl).hostname;
   if (!["localhost", "127.0.0.1", "[::1]", "::1"].includes(host)) {
     throw new Error("Database-backed retrieval evals accept only a localhost DATABASE_URL.");
   }
-  process.env.DOCO_DATABASE_URL = databaseUrl;
+  process.env.BRAINO_DATABASE_URL = databaseUrl;
 }
 
 async function rankThroughPostgresThenQdrant(provider, documents, queries, qdrantStore) {
   requireLocalDatabase();
-  const { closePool, ensureSchema, upsertEmbeddings, withClient } = await import("@doco/db");
+  const { closePool, ensureSchema, upsertEmbeddings, withClient } = await import("@braino/db");
   await ensureSchema();
   try {
     return await withClient(async (client) => {

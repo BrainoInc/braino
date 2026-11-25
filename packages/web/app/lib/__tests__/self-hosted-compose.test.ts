@@ -21,13 +21,13 @@ function runUpgradeWithImages(
   codeLinkerImage = "ghcr.io/brainoinc/braino-codelinker:0.1.14",
   pluginHostImage = "ghcr.io/brainoinc/braino-plugin-host:0.1.14",
 ) {
-  const runtime = mkdtempSync(join(tmpdir(), "doco-upgrade-test-"));
+  const runtime = mkdtempSync(join(tmpdir(), "braino-upgrade-test-"));
   const docker = join(runtime, "docker");
   const log = join(runtime, "docker.log");
   writeFileSync(
     docker,
     `#!/bin/sh
-printf '%s\\n' "$*" >> "$DOCO_DOCKER_LOG"
+printf '%s\\n' "$*" >> "$BRAINO_DOCKER_LOG"
 if [ "$*" = "compose config --images" ]; then
   printf '%s\\n' qdrant/qdrant:v1.20.0 "$FAKE_APP_IMAGE" "$FAKE_CODELINKER_IMAGE" "$FAKE_PLUGIN_HOST_IMAGE" postgres:16.10-bookworm
 elif [ "$*" = "compose config --format json" ]; then
@@ -52,18 +52,18 @@ fi
   chmodSync(docker, 0o755);
 
   try {
-    const result = spawnSync(resolve(root, "doco"), ["upgrade"], {
+    const result = spawnSync(resolve(root, "braino"), ["upgrade"], {
       cwd: runtime,
       encoding: "utf8",
       env: {
         ...process.env,
         PATH: `${runtime}:${process.env.PATH ?? ""}`,
-        DOCO_DOCKER_LOG: log,
+        BRAINO_DOCKER_LOG: log,
         FAKE_APP_IMAGE: appImage,
         FAKE_CODELINKER_IMAGE: codeLinkerImage,
         FAKE_PLUGIN_HOST_IMAGE: pluginHostImage,
-        DOCO_ENCRYPTION_KEY: "test-encryption-key-with-thirty-two-characters",
-        DOCO_POSTGRES_PASSWORD: "test-postgres-password",
+        BRAINO_ENCRYPTION_KEY: "test-encryption-key-with-thirty-two-characters",
+        BRAINO_POSTGRES_PASSWORD: "test-postgres-password",
         BRAINO_SETUP_TOKEN: "test-setup-token",
         BRAINO_CODELINKER_API_TOKEN: "test-codelinker-token-with-thirty-two-characters",
         BRAINO_PLUGIN_HOST_API_TOKEN: "test-plugin-host-token-with-thirty-two-characters",
@@ -158,16 +158,16 @@ describe("the supported self-hosted stack", () => {
       "pull",
       "${BRAINO_OLLAMA_CHAT_MODEL:-qwen3.5:4b}",
     ]);
-    expect(compose.services.app?.ports).toEqual(["127.0.0.1:${DOCO_HTTP_PORT:-3000}:3000"]);
+    expect(compose.services.app?.ports).toEqual(["127.0.0.1:${BRAINO_HTTP_PORT:-3000}:3000"]);
     expect(compose.services.postgres?.ports).toBeUndefined();
     expect(compose.services.qdrant?.ports).toBeUndefined();
     expect(compose.services.caddy?.profiles).toEqual(["tls"]);
     expect(Object.keys(compose.volumes)).toEqual([
-      "doco-postgres",
-      "doco-qdrant",
-      "doco-ollama",
-      "doco-caddy-data",
-      "doco-caddy-config",
+      "braino-postgres",
+      "braino-qdrant",
+      "braino-ollama",
+      "braino-caddy-data",
+      "braino-caddy-config",
     ]);
   });
 
@@ -177,13 +177,13 @@ describe("the supported self-hosted stack", () => {
     const dockerignore = readFileSync(resolve(root, ".dockerignore"), "utf8");
     const runtimeStage = dockerfile.split(" AS runtime")[1] ?? "";
 
-    expect(env).toContain("DOCO_ENCRYPTION_KEY=");
-    expect(env).toContain("DOCO_POSTGRES_PASSWORD=");
+    expect(env).toContain("BRAINO_ENCRYPTION_KEY=");
+    expect(env).toContain("BRAINO_POSTGRES_PASSWORD=");
     expect(env).toContain("BRAINO_SETUP_TOKEN=");
     expect(env).toContain("BRAINO_CODELINKER_API_TOKEN=");
     expect(env).toContain("BRAINO_PLUGIN_HOST_API_TOKEN=");
     expect(dockerfile).toContain("COPY packages/ui/package.json packages/ui/package.json");
-    expect(dockerfile).toContain("pnpm --filter @doco/web build");
+    expect(dockerfile).toContain("pnpm --filter @braino/web build");
     expect(dockerfile).toContain("plugins/ollama-embedding");
     expect(dockerfile).toContain("plugins/ollama-chat");
     expect(dockerfile).toContain("plugins/openai-embedding");
@@ -195,8 +195,8 @@ describe("the supported self-hosted stack", () => {
     expect(runtimeStage).toContain("/app/plugins/braino_openai_chat.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_slack.wasm");
     expect(runtimeStage).toContain("/app/plugins/braino_resend.wasm");
-    expect(runtimeStage).toContain("ARG DOCO_VERSION");
-    expect(runtimeStage).toContain("ENV DOCO_VERSION=$DOCO_VERSION");
+    expect(runtimeStage).toContain("ARG BRAINO_VERSION");
+    expect(runtimeStage).toContain("ENV BRAINO_VERSION=$BRAINO_VERSION");
     expect(dockerfile).toContain("USER node");
     expect(dockerignore).toContain(".env*");
     expect(dockerignore).toContain("!.env.example");
@@ -346,7 +346,7 @@ describe("the supported self-hosted stack", () => {
     expect(scheduler).toContain("syncRetrievalSourceBatch");
     expect(scheduler).toContain("syncQueuedEmbeddings");
     expect(scheduler).toContain("pluginHostConnectionFromEnv(process.env)");
-    expect(scheduler).toContain("DOCO_ENCRYPTION_KEY");
+    expect(scheduler).toContain("BRAINO_ENCRYPTION_KEY");
   });
 
   it("drains workspace-scoped team-chat events through the installed providers", () => {
@@ -405,30 +405,30 @@ describe("the supported self-hosted stack", () => {
   });
 
   it("ships executable backup, restore, preflight, and upgrade commands", () => {
-    const commandPath = resolve(root, "doco");
+    const commandPath = resolve(root, "braino");
     const command = readFileSync(commandPath, "utf8");
     const readme = readFileSync(resolve(root, "README.md"), "utf8");
 
     expect(statSync(commandPath).mode & 0o111).not.toBe(0);
     expect(command).toContain("pg_dump");
     expect(command).toContain("pg_restore");
-    expect(command).toContain("DROP DATABASE doco WITH (FORCE)");
-    expect(command).toContain("CREATE DATABASE doco OWNER doco");
+    expect(command).toContain("DROP DATABASE braino WITH (FORCE)");
+    expect(command).toContain("CREATE DATABASE braino OWNER braino");
     expect(command).not.toContain("--clean");
     expect(command).toContain("doctor)");
     expect(command).toContain("upgrade)");
     expect(command).toContain("BRAINO_CODELINKER_API_TOKEN");
     expect(command).toContain("BRAINO_PLUGIN_HOST_API_TOKEN");
     expect(command.indexOf("compose stop app")).toBeLessThan(
-      command.indexOf("node_modules/@doco/db/dist/migrate.js"),
+      command.indexOf("node_modules/@braino/db/dist/migrate.js"),
     );
-    expect(command).toContain("node_modules/@doco/db/dist/migrate.js");
+    expect(command).toContain("node_modules/@braino/db/dist/migrate.js");
     expect(command).toContain("compose stop app scheduler codelinker plugin-host qdrant");
     expect(command).toContain("compose stop app scheduler");
     expect(command).toContain("/qdrant/storage");
-    expect(readme).toContain("./doco backup");
-    expect(readme).toContain("./doco restore");
-    expect(readme).toContain("./doco upgrade");
+    expect(readme).toContain("./braino backup");
+    expect(readme).toContain("./braino restore");
+    expect(readme).toContain("./braino upgrade");
   });
 
   it("applies ordered migrations before the web server accepts traffic", () => {
@@ -437,7 +437,7 @@ describe("the supported self-hosted stack", () => {
     ) as { scripts: Record<string, string> };
 
     expect(webPackage.scripts.start).toBe(
-      "node node_modules/@doco/db/dist/migrate.js && node server.mjs",
+      "node node_modules/@braino/db/dist/migrate.js && node server.mjs",
     );
   });
 
@@ -480,10 +480,10 @@ describe("the supported self-hosted stack", () => {
   });
 
   it("refuses to upgrade a local app image regardless of Compose image order", () => {
-    const result = runUpgradeWithImages("doco:local");
+    const result = runUpgradeWithImages("braino:local");
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Set DOCO_IMAGE to a released");
+    expect(result.stderr).toContain("Set BRAINO_IMAGE to a released");
     expect(result.stdout).not.toContain("Backup written");
     expect(result.calls).not.toContain("compose pull");
   });
@@ -522,7 +522,7 @@ describe("the supported self-hosted stack", () => {
     expect(result.stdout).toContain("ghcr.io/brainoinc/braino-codelinker:0.1.14");
     expect(result.stdout).toContain("ghcr.io/brainoinc/braino-plugin-host:0.1.14");
     expect(result.calls).toContain("compose pull");
-    expect(result.calls).toContain("node_modules/@doco/db/dist/migrate.js");
+    expect(result.calls).toContain("node_modules/@braino/db/dist/migrate.js");
   });
 
   // Alexander, 2026-11-11: agents can't push tags, so a version bump merged to
@@ -549,7 +549,7 @@ describe("the supported self-hosted stack", () => {
       "type=semver,pattern={{version}},value=${{ needs.version.outputs.tag }}",
     );
     expect(workflow).toContain("type=raw,value=latest");
-    expect(workflow).toContain("DOCO_VERSION=${{ needs.version.outputs.tag }}");
+    expect(workflow).toContain("BRAINO_VERSION=${{ needs.version.outputs.tag }}");
     expect(workflow).toContain("provenance: mode=max");
     expect(workflow).toContain("sbom: true");
     expect(workflow).toContain("cosign sign --yes");
@@ -653,19 +653,19 @@ describe("the supported self-hosted stack", () => {
     expect(script).toContain("docker compose");
     expect(script).toContain("COMPOSE_FILE=compose.yml:compose.conformance.yml");
     const modelFixture = conformanceCompose.services.ollama;
-    expect(modelFixture.image).toBe("${DOCO_IMAGE}");
+    expect(modelFixture.image).toBe("${BRAINO_IMAGE}");
     expect(modelFixture.profiles).toEqual(["conformance"]);
     expect(modelFixture.entrypoint).toEqual(["node", "--input-type=module"]);
     expect(modelFixture.healthcheck.test.join(" ")).toContain("/api/tags");
     for (const bootstrap of ["ollama-model", "ollama-chat-model"] as const) {
-      expect(conformanceCompose.services[bootstrap].image).toBe("${DOCO_IMAGE}");
+      expect(conformanceCompose.services[bootstrap].image).toBe("${BRAINO_IMAGE}");
       expect(conformanceCompose.services[bootstrap].profiles).toEqual(["conformance"]);
       expect(conformanceCompose.services[bootstrap].command).toEqual(["-e", "process.exit(0)"]);
     }
     expect(script).toContain("http://codelinker:8080/healthz");
     expect(script).toContain("http://plugin-host:8080/healthz");
-    expect(script).toContain("doco_records");
-    expect(script).toContain("/collections/doco_records");
+    expect(script).toContain("braino_records");
+    expect(script).toContain("/collections/braino_records");
     expect(script).toContain('"$origin/admin"');
     expect(script).toContain('"$origin/plugins"');
     expect(script).toContain('"$origin/integrations"');
@@ -677,8 +677,8 @@ describe("the supported self-hosted stack", () => {
     );
     expect(script).not.toContain("grep -q 'Connect Señor Braino'");
     expect(script).toContain('"$origin/times"');
-    expect(script).toContain("./doco backup");
-    expect(script).toContain("./doco restore");
+    expect(script).toContain("./braino backup");
+    expect(script).toContain("./braino restore");
     expect(script).toContain("600");
     expect(workflow.indexOf("pnpm conformance")).toBeGreaterThan(0);
     expect(workflow.indexOf("pnpm conformance")).toBeLessThan(

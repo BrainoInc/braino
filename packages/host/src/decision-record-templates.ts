@@ -34,7 +34,7 @@
  * protect the system — access, secrets, encryption, an accepted risk — is a
  * security decision, and the ADR gate sends it there.
  */
-import type { Lifecycle } from "@doco/shared";
+import type { Lifecycle } from "@braino/shared";
 import type { CollectionTemplate, TemplatePolicy } from "./collection-templates.js";
 
 /**

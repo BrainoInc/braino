@@ -16,16 +16,16 @@ const mocks = vi.hoisted(() => ({
   verifyWorkspaceModelPlugin: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   PluginInstallationError: class PluginInstallationError extends Error {},
   connectWorkspaceEmailPlugin: mocks.connectWorkspaceEmailPlugin,
   listPluginInstallations: mocks.listPluginInstallations,
   removePluginInstallation: mocks.removePluginInstallation,
 }));
-vi.mock("@doco/host/model-plugins", () => ({
+vi.mock("@braino/host/model-plugins", () => ({
   ModelPluginVerificationError: class ModelPluginVerificationError extends Error {
     constructor(public readonly kind: "chat" | "embedding") {
       super("verification failed");

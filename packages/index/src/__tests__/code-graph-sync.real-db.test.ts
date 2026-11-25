@@ -1,4 +1,4 @@
-import type { QueryClient } from "@doco/db";
+import type { QueryClient } from "@braino/db";
 import type { PGlite } from "@electric-sql/pglite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";

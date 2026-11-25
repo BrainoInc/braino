@@ -1,5 +1,5 @@
-import type { QueryClient } from "@doco/db";
-import { generateUlid } from "@doco/shared";
+import type { QueryClient } from "@braino/db";
+import { generateUlid } from "@braino/shared";
 import type {
   CollectionRelationshipEvidence,
   CollectionRelationshipInference,

@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300..900;1,300..900&display=swap");
 @import "tailwindcss";
-@import "@doco/ui/styles.css";
-@source "../node_modules/@doco/ui/dist";
+@import "@braino/ui/styles.css";
+@source "../node_modules/@braino/ui/dist";
 
 .orbit {
   --orbit-chip-line: color-mix(in srgb, var(--color-foreground) 30%, transparent);

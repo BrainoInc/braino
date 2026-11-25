@@ -10,7 +10,7 @@ import {
   retireActiveEdgesForNode,
   setWorkspaceUsageActor,
   upsertNode,
-} from "@doco/db";
+} from "@braino/db";
 import {
   BLOCKED_NODE_JSON_EDGE_FIELD_SET,
   CAPTURE_SCHEMAS,
@@ -28,7 +28,7 @@ import {
   generateUlid,
   isDeterministicPredicate,
   normalizeWriteTypes,
-} from "@doco/shared";
+} from "@braino/shared";
 
 const LIFECYCLES = new Set(["drafting", "queued", "active", "retired"]);
 const RESERVED_BODY_KEYS = new Set([

@@ -7,10 +7,10 @@ const mocks = vi.hoisted(() => ({
   issueMcpOauthAuthorizationCode: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   MCP_OAUTH_SCOPE: "braino:mcp",
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   getMcpOauthClient: mocks.getMcpOauthClient,
@@ -24,7 +24,7 @@ const callback = "https://chatgpt.com/connector_platform_oauth_redirect";
 const authorize = new URL("https://knowledge.example/oauth/authorize");
 authorize.search = new URLSearchParams({
   response_type: "code",
-  client_id: "doco_client_chatgpt",
+  client_id: "braino_client_chatgpt",
   redirect_uri: callback,
   code_challenge: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO12",
   code_challenge_method: "S256",
@@ -42,11 +42,11 @@ describe("instance-local OAuth authorization", () => {
       workspace: { id: "workspace_acme", handle: "acme", name: "Acme" },
     });
     mocks.getMcpOauthClient.mockResolvedValue({
-      clientId: "doco_client_chatgpt",
+      clientId: "braino_client_chatgpt",
       clientName: "ChatGPT",
       redirectUris: [callback],
     });
-    mocks.issueMcpOauthAuthorizationCode.mockResolvedValue({ code: "doco_code_one" });
+    mocks.issueMcpOauthAuthorizationCode.mockResolvedValue({ code: "braino_code_one" });
   });
 
   it("returns an unsigned user to the exact local authorization request after sign-in", async () => {
@@ -84,7 +84,7 @@ describe("instance-local OAuth authorization", () => {
     );
     const location = new URL(response.headers.get("location") ?? "missing:");
     expect(location.origin + location.pathname).toBe(callback);
-    expect(location.searchParams.get("code")).toBe("doco_code_one");
+    expect(location.searchParams.get("code")).toBe("braino_code_one");
     expect(location.searchParams.get("state")).toBe("opaque-state");
     expect(location.searchParams.get("iss")).toBe("https://knowledge.example");
   });

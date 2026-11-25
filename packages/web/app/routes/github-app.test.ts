@@ -15,10 +15,10 @@ const mocks = vi.hoisted(() => ({
   syncGithubConnection: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   connectGithubRepositoryWithPlugin: mocks.connectGithubRepositoryWithPlugin,
   finishGithubGatewayMigration: mocks.finishGithubGatewayMigration,
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,

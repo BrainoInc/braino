@@ -1,5 +1,5 @@
-import { connectorPlugin } from "@doco/connector-plugins";
-import { withClient } from "@doco/db";
+import { connectorPlugin } from "@braino/connector-plugins";
+import { withClient } from "@braino/db";
 import {
   type ConnectorConnectionSummary,
   connectConnector,
@@ -11,12 +11,12 @@ import {
   listIncomingWebhooks,
   revokeIncomingWebhook,
   syncConnectorConnection,
-} from "@doco/host";
-import { msg } from "@doco/shared/i18n";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+} from "@braino/host";
+import { msg } from "@braino/shared/i18n";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { metaTranslator, requestTranslator } from "~/locales/catalog";
@@ -60,7 +60,7 @@ export async function loader({ request }: { request: Request }) {
       }),
     };
   });
-  const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
+  const publicHost = (process.env.BRAINO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
     /\/$/,
     "",
   );
@@ -73,9 +73,9 @@ function text(form: FormData, name: string) {
 }
 
 function encryptionKey(): string {
-  const value = process.env.DOCO_ENCRYPTION_KEY?.trim();
+  const value = process.env.BRAINO_ENCRYPTION_KEY?.trim();
   if (!value || value.length < 32) {
-    throw new Error(msg("DOCO_ENCRYPTION_KEY must contain at least 32 characters."));
+    throw new Error(msg("BRAINO_ENCRYPTION_KEY must contain at least 32 characters."));
   }
   return value;
 }
@@ -232,7 +232,7 @@ export async function action({ request }: { request: Request }): Promise<ActionD
           label: text(form, "label"),
         }),
       );
-      const publicHost = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
+      const publicHost = (process.env.BRAINO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
         /\/$/,
         "",
       );

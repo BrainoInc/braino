@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { type QueryClient, ingestRetrievalDocument } from "@doco/db";
+import { type QueryClient, ingestRetrievalDocument } from "@braino/db";
 
 export type CodeGraphLanguage = "python" | "scala";
 

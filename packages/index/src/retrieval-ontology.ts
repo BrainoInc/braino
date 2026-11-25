@@ -3,7 +3,7 @@ import {
   type RetrievalEntityInput,
   type RetrievalRelationshipInput,
   normalizeRetrievalEntityName,
-} from "@doco/db";
+} from "@braino/db";
 import type { RetrievalExtraction, RetrievalSourceDocument } from "./retrieval-ingestion.js";
 
 export const RETRIEVAL_ENTITY_TYPES = {

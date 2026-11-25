@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { QueryClient } from "@doco/db";
+import type { QueryClient } from "@braino/db";
 import {
   COLLECTION_RELATIONSHIP_PIPELINE_VERSION,
   COLLECTION_SUMMARY_PIPELINE_VERSION,

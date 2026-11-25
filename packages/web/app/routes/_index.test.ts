@@ -11,16 +11,16 @@ const mocks = vi.hoisted(() => ({
   passwordError: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   clearPasswordSignInAttempts: vi.fn(),
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   initializeSingleWorkspace: mocks.initializeSingleWorkspace,
   reservePasswordSignInAttempt: vi.fn(),
 }));
-vi.mock("@doco/host/model-plugins", () => ({
+vi.mock("@braino/host/model-plugins", () => ({
   getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
 }));
 vi.mock("~/lib/current-user.server", () => ({ getCurrentUser: mocks.getCurrentUser }));
@@ -31,7 +31,7 @@ vi.mock("~/lib/password.server", () => ({
 }));
 vi.mock("~/lib/session.server", () => ({
   clearSessionCookie: mocks.clearSessionCookie,
-  createSessionCookie: () => "doco_session=test; Path=/",
+  createSessionCookie: () => "braino_session=test; Path=/",
 }));
 vi.mock("~/lib/setup-token.server", () => ({ setupTokenError: () => null }));
 vi.mock("~/lib/sign-in.server", () => ({ passwordAttemptBuckets: vi.fn() }));
@@ -40,7 +40,7 @@ import { action, loader } from "./_index";
 
 describe("sign out", () => {
   it("ends only the current browser session", async () => {
-    mocks.clearSessionCookie.mockReturnValue("doco_session=; Max-Age=0; Path=/");
+    mocks.clearSessionCookie.mockReturnValue("braino_session=; Max-Age=0; Path=/");
     const response = await action({
       request: new Request("https://meta.braino.dev/", {
         method: "POST",

@@ -1,4 +1,4 @@
-import type { QueryClient } from "@doco/db";
+import type { QueryClient } from "@braino/db";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
@@ -289,7 +289,7 @@ describe("collection relationship sweep", () => {
     });
     await db.exec(`
       UPDATE collection_summaries
-         SET digest = 'doco_01M3T6V5JN0RZAEH05RND2ZT90#torre-codebase#code:api-gateway'
+         SET digest = 'braino_01M3T6V5JN0RZAEH05RND2ZT90#torre-codebase#code:api-gateway'
        WHERE collection_id = 'collection_code'
     `);
 

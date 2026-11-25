@@ -2,7 +2,7 @@ import type {
   RetrievalChunkInput,
   RetrievalEntityInput,
   RetrievalRelationshipInput,
-} from "@doco/db";
+} from "@braino/db";
 import type {
   RetrievalExtraction,
   RetrievalExtractor,

@@ -14,12 +14,12 @@ describe("MCP OAuth resource migration", () => {
       INSERT INTO oauth_clients
         (client_id, redirect_uris, grant_types, response_types)
       VALUES
-        ('doco_client_legacy', ARRAY['urn:test'], ARRAY['authorization_code'], ARRAY['code']);
+        ('braino_client_legacy', ARRAY['urn:test'], ARRAY['authorization_code'], ARRAY['code']);
     `);
     await db.query(
       `INSERT INTO oauth_authorization_codes
          (code, client_id, user_id, redirect_uri, code_challenge, granted_collection_ids, expires_at)
-       VALUES ('legacy_code', 'doco_client_legacy', 'user_legacy', 'urn:test', 'challenge',
+       VALUES ('legacy_code', 'braino_client_legacy', 'user_legacy', 'urn:test', 'challenge',
                ARRAY[]::text[], now() + interval '1 minute')`,
     );
     const migration = await readFile(

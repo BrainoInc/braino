@@ -14,10 +14,10 @@ const mocks = vi.hoisted(() => ({
   revokeWorkspaceInvitation: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   AccountLinkError: class AccountLinkError extends Error {},
   WorkspaceAccessError: class WorkspaceAccessError extends Error {},
   acceptWorkspaceInvitation: mocks.acceptWorkspaceInvitation,
@@ -44,7 +44,7 @@ vi.mock("~/lib/password.server", () => ({
   passwordError: mocks.passwordError,
 }));
 vi.mock("~/lib/session.server", () => ({
-  createSessionCookie: ({ userId }: { userId: string }) => `doco_session=${userId}; Path=/`,
+  createSessionCookie: ({ userId }: { userId: string }) => `braino_session=${userId}; Path=/`,
 }));
 vi.mock("~/locales/catalog", () => ({
   metaTranslator: () => (value: string) => value,

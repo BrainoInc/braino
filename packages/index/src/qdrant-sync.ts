@@ -1,4 +1,4 @@
-import type { EmbeddingSource, QueryClient } from "@doco/db";
+import type { EmbeddingSource, QueryClient } from "@braino/db";
 import { embeddingValues } from "./qdrant-backfill.js";
 import type { VectorPointKey, VectorRecord, VectorStore } from "./qdrant-vector-store.js";
 

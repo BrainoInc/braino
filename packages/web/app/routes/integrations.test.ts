@@ -7,13 +7,13 @@ const mocks = vi.hoisted(() => ({
   syncConnectorConnection: vi.fn(),
 }));
 
-vi.mock("@doco/connector-plugins", () => ({
+vi.mock("@braino/connector-plugins", () => ({
   connectorPlugin: () => ({ adapter: { provider: "slack" }, label: "Slack" }),
 }));
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (operation: (client: object) => unknown) => operation({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   connectConnector: mocks.connectConnector,
   createIncomingWebhook: vi.fn(),
   disconnectConnector: vi.fn(),
@@ -35,7 +35,7 @@ import { action } from "./integrations";
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.stubEnv("DOCO_ENCRYPTION_KEY", "integration-key-with-more-than-thirty-two-characters");
+  vi.stubEnv("BRAINO_ENCRYPTION_KEY", "integration-key-with-more-than-thirty-two-characters");
   mocks.getCurrentUser.mockResolvedValue({ id: "user_owner" });
   mocks.getSingleWorkspaceState.mockResolvedValue({
     initialized: true,

@@ -1,5 +1,5 @@
-import { withClient } from "@doco/db";
-import { getSingleWorkspaceState } from "@doco/host";
+import { withClient } from "@braino/db";
+import { getSingleWorkspaceState } from "@braino/host";
 
 const headers = { "Cache-Control": "no-store" };
 

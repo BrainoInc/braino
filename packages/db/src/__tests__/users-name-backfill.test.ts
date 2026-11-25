@@ -36,7 +36,7 @@ describe("users.name", () => {
         VALUES ('collection_slack', 'inst_acme', 'acme.slack.com', now(), now());
       INSERT INTO group_chat_members (collection_id, chat_user_id, real_name, is_bot) VALUES
         ('collection_slack', 'U_ANA', ' Ana Ruiz ', false),
-        ('collection_slack', 'U_BOT', 'Señor Doco', true);
+        ('collection_slack', 'U_BOT', 'Señor Braino', true);
       INSERT INTO group_chat_user_links (id, provider, workspace_id, chat_user_id, user_id) VALUES
         ('link_ana', 'slack', 'T_ACME', 'U_ANA', 'user_ana'),
         ('link_bo', 'slack', 'T_OTHER', 'U_BO', 'user_bo');

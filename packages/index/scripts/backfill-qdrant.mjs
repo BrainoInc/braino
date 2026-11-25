@@ -7,11 +7,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const DIST = join(HERE, "..", "dist");
 const { backfillEmbeddingsToVectorStore } = await import(join(DIST, "qdrant-backfill.js")).catch(
   () => {
-    throw new Error("Build @doco/index first: pnpm --filter @doco/index build");
+    throw new Error("Build @braino/index first: pnpm --filter @braino/index build");
   },
 );
 const { QdrantVectorStore } = await import(join(DIST, "qdrant-vector-store.js"));
-const { closePool, ensureSchema, withClient } = await import("@doco/db");
+const { closePool, ensureSchema, withClient } = await import("@braino/db");
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -26,13 +26,13 @@ function localOnly(name, value) {
 }
 
 const databaseUrl =
-  process.env.DOCO_DATABASE_URL ??
+  process.env.BRAINO_DATABASE_URL ??
   process.env.DATABASE_URL ??
-  "postgresql://doco:doco-local@127.0.0.1:55432/doco";
+  "postgresql://braino:braino-local@127.0.0.1:55432/braino";
 const qdrantUrl = process.env.QDRANT_URL ?? "http://127.0.0.1:6333";
 localOnly("DATABASE_URL", databaseUrl);
 localOnly("QDRANT_URL", qdrantUrl);
-process.env.DOCO_DATABASE_URL = databaseUrl;
+process.env.BRAINO_DATABASE_URL = databaseUrl;
 
 const collectionIds = process.argv.flatMap((arg, index, args) =>
   arg === "--collection" && args[index + 1] ? [args[index + 1]] : [],
@@ -41,7 +41,7 @@ const batchSize = Number(option("--batch-size") ?? 500);
 const store = new QdrantVectorStore({
   url: qdrantUrl,
   apiKey: process.env.QDRANT_API_KEY,
-  collection: process.env.DOCO_QDRANT_COLLECTION,
+  collection: process.env.BRAINO_QDRANT_COLLECTION,
 });
 
 try {

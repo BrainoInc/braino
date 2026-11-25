@@ -1,4 +1,4 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   GithubConnectionError,
   type GithubConnectionSummary,
@@ -10,11 +10,11 @@ import {
   listGithubConnections,
   resolveWorkspaceGithubPlugin,
   syncGithubConnection,
-} from "@doco/host";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+} from "@braino/host";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
@@ -66,7 +66,10 @@ export async function loader({ request }: { request: Request }) {
       repositories: plugin ? await plugin.repositories() : [],
     };
   });
-  const origin = (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(/\/+$/, "");
+  const origin = (process.env.BRAINO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
+    /\/+$/,
+    "",
+  );
   let installUrl: string | null = null;
   if (!loaded.plugin && encryptionKey && origin.startsWith("https://")) {
     const url = new URL("/v1/providers/github/install", brainoPluginGatewayUrl());
@@ -311,7 +314,7 @@ export default function GithubAppPage() {
           role="alert"
           className="rounded-md border border-destructive p-3 text-sm text-destructive"
         >
-          {t("GitHub requires a public HTTPS address. Set DOCO_PUBLIC_HOST before connecting.")}
+          {t("GitHub requires a public HTTPS address. Set BRAINO_PUBLIC_HOST before connecting.")}
         </p>
       ) : null}
       {!data.configured ? (

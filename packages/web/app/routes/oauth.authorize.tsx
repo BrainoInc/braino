@@ -1,14 +1,14 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   MCP_OAUTH_SCOPE,
   McpOauthError,
   getMcpOauthClient,
   getSingleWorkspaceState,
   issueMcpOauthAuthorizationCode,
-} from "@doco/host";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { NarrowPageMain } from "@doco/ui";
+} from "@braino/host";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { NarrowPageMain } from "@braino/ui";
 import { Form, Link, redirect, useLoaderData } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { mcpResource, publicOrigin } from "~/lib/public-origin.server";

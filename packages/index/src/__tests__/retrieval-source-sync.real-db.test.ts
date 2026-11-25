@@ -1,4 +1,4 @@
-import type { EmbeddingProviderLike, QueryClient } from "@doco/db";
+import type { EmbeddingProviderLike, QueryClient } from "@braino/db";
 import type { PGlite } from "@electric-sql/pglite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
@@ -32,7 +32,7 @@ beforeEach(async () => {
 
     INSERT INTO nodes (id, collection_id, node_type, lifecycle, prose, locator)
       VALUES ('decision_source', '${COLLECTION_ID}', 'decision', 'active',
-              'Solar uses JDK 8.', 'https://doco.test/decision_source');
+              'Solar uses JDK 8.', 'https://braino.test/decision_source');
 
     INSERT INTO notion_mirrors
       (collection_id, workspace_id, workspace_name, bot_id, access_token, consented_at)
@@ -43,7 +43,7 @@ beforeEach(async () => {
       VALUES ('${COLLECTION_ID}', 'notion_page', 'page', 'workspace', 'Language tests',
               'https://notion.test/language-tests', '# Status', 'Status', 'notion-hash', false, now());
 
-    INSERT INTO group_chat_installations (id, provider, workspace_id, doco_workspace_id)
+    INSERT INTO group_chat_installations (id, provider, workspace_id, braino_workspace_id)
       VALUES ('slack_install', 'slack', 'T_SOURCES', 'ws_sources');
     INSERT INTO group_chat_mirrors
       (collection_id, installation_id, team_domain, history_since, consented_at)
@@ -168,7 +168,7 @@ describe("unified retrieval source sync", () => {
         source: "node",
         external_id: "decision_source",
         title: "decision",
-        locator: "https://doco.test/decision_source",
+        locator: "https://braino.test/decision_source",
       },
       {
         source: "notion",

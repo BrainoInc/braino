@@ -6,9 +6,9 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 
 pnpm run build:packages
-pnpm --filter @doco/db exec vitest run \
+pnpm --filter @braino/db exec vitest run \
   src/__tests__/schema-apply-once.test.ts
-pnpm --filter @doco/host exec vitest run \
+pnpm --filter @braino/host exec vitest run \
   src/__tests__/single-workspace.real-db.test.ts \
   src/__tests__/workspace-admin.real-db.test.ts \
   src/__tests__/times.real-db.test.ts \
@@ -19,7 +19,7 @@ pnpm --filter @doco/host exec vitest run \
   src/__tests__/mcp-core.real-db.test.ts \
   src/__tests__/incoming-webhooks.real-db.test.ts \
   src/__tests__/github-connections.real-db.test.ts
-pnpm --filter @doco/web exec vitest run \
+pnpm --filter @braino/web exec vitest run \
   app/lib/__tests__/self-hosted-compose.test.ts \
   app/design-language.test.ts \
   app/admin-console.test.ts \
@@ -28,7 +28,7 @@ pnpm --filter @doco/web exec vitest run \
   app/routes/oauth-authorize.test.ts \
   app/routes/mcp-route.test.ts
 
-if [[ "${DOCO_CONFORMANCE_SKIP_DOCKER:-}" == "1" ]]; then
+if [[ "${BRAINO_CONFORMANCE_SKIP_DOCKER:-}" == "1" ]]; then
   echo "Braino v0.1 logic conformance passed; Docker proof skipped by request."
   exit 0
 fi
@@ -40,12 +40,12 @@ command -v docker >/dev/null || {
 docker compose version >/dev/null
 
 started_at=$(date +%s)
-runtime=$(mktemp -d "${TMPDIR:-/tmp}/doco-conformance.XXXXXX")
-project="doco-conformance-$$"
-image="doco:conformance-$$"
+runtime=$(mktemp -d "${TMPDIR:-/tmp}/braino-conformance.XXXXXX")
+project="braino-conformance-$$"
+image="braino:conformance-$$"
 codelinker_image="braino-codelinker:conformance-$$"
 plugin_host_image="braino-plugin-host:conformance-$$"
-port=${DOCO_CONFORMANCE_PORT:-3210}
+port=${BRAINO_CONFORMANCE_PORT:-3210}
 
 cleanup() {
   if [[ -d "$runtime" ]]; then
@@ -66,21 +66,21 @@ git archive --format=tar HEAD | tar -xf - -C "$runtime"
 cd "$runtime"
 
 export COMPOSE_PROJECT_NAME="$project"
-export DOCO_IMAGE="$image"
+export BRAINO_IMAGE="$image"
 export BRAINO_CODELINKER_IMAGE="$codelinker_image"
 export BRAINO_PLUGIN_HOST_IMAGE="$plugin_host_image"
-export DOCO_POSTGRES_PASSWORD="conformance-postgres-$project"
-export DOCO_ENCRYPTION_KEY="conformance-encryption-key-$project-000000000000"
+export BRAINO_POSTGRES_PASSWORD="conformance-postgres-$project"
+export BRAINO_ENCRYPTION_KEY="conformance-encryption-key-$project-000000000000"
 export BRAINO_SETUP_TOKEN="conformance-setup-token-$project-000000000000000"
 export BRAINO_CODELINKER_API_TOKEN="conformance-codelinker-token-$project-000000000000"
 export BRAINO_PLUGIN_HOST_API_TOKEN="conformance-plugin-host-token-$project-000000000000"
-export DOCO_HTTP_PORT="$port"
-export DOCO_PUBLIC_HOST="http://localhost:$port"
+export BRAINO_HTTP_PORT="$port"
+export BRAINO_PUBLIC_HOST="http://localhost:$port"
 export COMPOSE_FILE=compose.yml:compose.conformance.yml
 export COMPOSE_PROFILES=conformance
 
 docker compose build app codelinker plugin-host
-if [[ "${DOCO_CONFORMANCE_PRUNE_BUILD_CACHE:-}" == "1" ]]; then
+if [[ "${BRAINO_CONFORMANCE_PRUNE_BUILD_CACHE:-}" == "1" ]]; then
   docker builder prune --force >/dev/null
 fi
 docker compose up -d --wait
@@ -181,34 +181,34 @@ curl --fail --silent --show-error -b "$cookies" \
   "$origin/api/v1/search.json?q=v0.1%20conformance" >"$runtime/search.json"
 grep -q 'Braino v0.1 conformance record' "$runtime/search.json"
 docker compose exec -T app node --input-type=module -e '
-  import { withClient } from "@doco/db";
-  import { getSingleWorkspaceState, publishTimesEdition } from "@doco/host";
+  import { withClient } from "@braino/db";
+  import { getSingleWorkspaceState, publishTimesEdition } from "@braino/host";
   const state = await withClient(getSingleWorkspaceState);
   if (!state.initialized) process.exit(1);
   await withClient((client) => publishTimesEdition(client, {
     workspaceId: state.workspace.id,
     at: new Date(),
-    baseUrl: process.env.DOCO_PUBLIC_HOST,
+    baseUrl: process.env.BRAINO_PUBLIC_HOST,
   }));
 '
 curl --fail --silent --show-error --location -b "$cookies" "$origin/times" >"$runtime/times"
 grep -q 'The Conformance Workspace Times' "$runtime/times"
 docker compose exec -T app node --input-type=module -e '
-  const response = await fetch("http://qdrant:6333/collections/doco_records");
+  const response = await fetch("http://qdrant:6333/collections/braino_records");
   if (!response.ok) process.exit(1);
   const body = await response.json();
   if (Number(body.result?.points_count ?? 0) < 1) process.exit(1);
 '
 
-./doco doctor >/dev/null
-./doco backup "$runtime/conformance-backup.tar.gz" >/dev/null
-docker compose exec -T postgres psql --username doco --dbname doco \
+./braino doctor >/dev/null
+./braino backup "$runtime/conformance-backup.tar.gz" >/dev/null
+docker compose exec -T postgres psql --username braino --dbname braino \
   -c "DELETE FROM nodes WHERE prose = 'Braino v0.1 conformance record'" >/dev/null
-deleted=$(docker compose exec -T postgres psql --username doco --dbname doco --tuples-only --no-align \
+deleted=$(docker compose exec -T postgres psql --username braino --dbname braino --tuples-only --no-align \
   -c "SELECT count(*) FROM nodes WHERE prose = 'Braino v0.1 conformance record'")
 [[ "$deleted" == "0" ]]
-./doco restore "$runtime/conformance-backup.tar.gz" --force >/dev/null
-restored=$(docker compose exec -T postgres psql --username doco --dbname doco --tuples-only --no-align \
+./braino restore "$runtime/conformance-backup.tar.gz" --force >/dev/null
+restored=$(docker compose exec -T postgres psql --username braino --dbname braino --tuples-only --no-align \
   -c "SELECT count(*) FROM nodes WHERE prose = 'Braino v0.1 conformance record'")
 [[ "$restored" == "1" ]]
 curl --fail --silent --show-error "$origin/healthz" >/dev/null

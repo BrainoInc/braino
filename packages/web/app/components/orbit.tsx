@@ -54,8 +54,8 @@
 // skeleton", then, of five ways to load it quickly and in sequence, "Do 1 2 and 4
 // as you suggest"). Nothing stands in for the picture meanwhile.
 
-import { type ReactTranslator, useT } from "@doco/shared/i18n/react";
-import { LOGOS } from "@doco/ui";
+import { type ReactTranslator, useT } from "@braino/shared/i18n/react";
+import { LOGOS } from "@braino/ui";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useFetcher, useLocation, useNavigation, useRevalidator } from "react-router";
 import { cn } from "~/lib/cn";

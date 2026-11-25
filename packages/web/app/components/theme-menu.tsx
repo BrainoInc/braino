@@ -1,5 +1,5 @@
-import { msg } from "@doco/shared/i18n";
-import { useT } from "@doco/shared/i18n/react";
+import { msg } from "@braino/shared/i18n";
+import { useT } from "@braino/shared/i18n/react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useRef, useState } from "react";
 import { useRouteLoaderData } from "react-router";

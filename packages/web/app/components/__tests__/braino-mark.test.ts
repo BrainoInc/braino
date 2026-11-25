@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { BrainoMark } from "@doco/ui";
+import { BrainoMark } from "@braino/ui";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";

@@ -1,9 +1,14 @@
-import { withClient } from "@doco/db";
-import { createMcpToken, getSingleWorkspaceState, listMcpTokens, revokeMcpToken } from "@doco/host";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { PageHeader } from "@doco/ui";
-import { PageMain } from "@doco/ui";
+import { withClient } from "@braino/db";
+import {
+  createMcpToken,
+  getSingleWorkspaceState,
+  listMcpTokens,
+  revokeMcpToken,
+} from "@braino/host";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { PageHeader } from "@braino/ui";
+import { PageMain } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { getCurrentUser } from "~/lib/current-user.server";
 import {
@@ -167,7 +172,7 @@ export default function McpTokensPage() {
             <p role="alert" className="text-xs text-destructive">
               {t(
                 "ChatGPT requires a public HTTPS URL. Configure {variable} with this instance's HTTPS origin before connecting.",
-                { variable: "DOCO_PUBLIC_HOST" },
+                { variable: "BRAINO_PUBLIC_HOST" },
               )}
             </p>
           ) : null}

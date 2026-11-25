@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 
 const WINDOW_MS = 15 * 60 * 1000;
 const BLOCK_MS = 15 * 60 * 1000;

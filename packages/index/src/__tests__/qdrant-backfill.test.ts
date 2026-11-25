@@ -1,4 +1,4 @@
-import type { QueryClient } from "@doco/db";
+import type { QueryClient } from "@braino/db";
 import { describe, expect, it, vi } from "vitest";
 import { backfillEmbeddingsToVectorStore, embeddingValues } from "../qdrant-backfill.js";
 import type { VectorStore } from "../qdrant-vector-store.js";

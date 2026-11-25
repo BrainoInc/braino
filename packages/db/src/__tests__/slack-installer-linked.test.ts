@@ -1,4 +1,4 @@
-// The Slack user who approved Señor Doco's install is the Doco owner who
+// The Slack user who approved Señor Braino's install is the Braino owner who
 // started it, and an install links the two (lib/slack.server.ts). Teams
 // installed before that are linked on boot, so their installer can press
 // Manage in Slack as an owner without linking first (Alexander, 2026-11-01).
@@ -34,7 +34,7 @@ describe("Slack installers are linked to the owner who installed", () => {
     `);
   });
 
-  it("links each installer Slack and Doco both name, once, on every boot", async () => {
+  it("links each installer Slack and Braino both name, once, on every boot", async () => {
     await db.exec(schemaSql);
     await db.exec(schemaSql);
 

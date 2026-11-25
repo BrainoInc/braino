@@ -4,7 +4,7 @@ import {
   type ConnectorFetcher,
   type ConnectorSource,
   type SourcePullCapability,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 
 const API = "https://api.notion.com/v1";
 const NOTION_VERSION = "2026-03-11";
@@ -58,7 +58,7 @@ async function notionJson<T>(
       Authorization: `Bearer ${credential}`,
       "Notion-Version": NOTION_VERSION,
       "Content-Type": "application/json",
-      "User-Agent": "doco-self-hosted",
+      "User-Agent": "braino-self-hosted",
     },
     ...(init.body ? { body: JSON.stringify(init.body) } : {}),
   });

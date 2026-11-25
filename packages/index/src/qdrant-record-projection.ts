@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import type { QueryClient } from "@doco/db";
+import type { QueryClient } from "@braino/db";
 import type { VectorPointKey, VectorRecord, VectorStore } from "./qdrant-vector-store.js";
 
-const MODEL_ID = "doco:record-search:v1";
+const MODEL_ID = "braino:record-search:v1";
 
 interface ProjectionState {
   initialized: boolean;

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { CONNECTOR_PLUGINS, connectorPlugin } from "@doco/connector-plugins";
-import * as host from "@doco/host";
+import { CONNECTOR_PLUGINS, connectorPlugin } from "@braino/connector-plugins";
+import * as host from "@braino/host";
 import { describe, expect, it } from "vitest";
 
 describe("connector plugin boundary", () => {

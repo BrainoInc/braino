@@ -1,5 +1,5 @@
-import { LOCALES, LOCALE_PARAM, type Locale } from "@doco/shared/i18n";
-import { useT } from "@doco/shared/i18n/react";
+import { LOCALES, LOCALE_PARAM, type Locale } from "@braino/shared/i18n";
+import { useT } from "@braino/shared/i18n/react";
 import { BR, CN, DE, ES, FR, GB, IN, JP, KR, RU } from "country-flag-icons/react/3x2";
 import { useLocation } from "react-router";
 

@@ -31,7 +31,7 @@ beforeEach(async () => {
       ('collection_notes', 'acme-notes', 'workspace_acme', 'workspace_acme', '{}'),
       ('collection_bugs', 'acme-bugs', 'workspace_acme', 'workspace_acme', '{}'),
       ('collection_quiet', 'acme-quiet', 'workspace_acme', 'workspace_acme', '{}');
-    INSERT INTO group_chat_installations (id, provider, workspace_id, workspace_name, doco_workspace_id)
+    INSERT INTO group_chat_installations (id, provider, workspace_id, workspace_name, braino_workspace_id)
       VALUES ('gci_1', 'slack', 'T1', 'Acme', 'workspace_acme');
     INSERT INTO group_chat_mirrors (collection_id, installation_id, team_domain, history_since, consented_at)
       VALUES ('collection_notes', 'gci_1', 'acme', '2020-01-01T00:00:00Z', now());

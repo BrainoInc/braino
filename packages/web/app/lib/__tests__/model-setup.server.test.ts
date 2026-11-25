@@ -10,15 +10,15 @@ const mocks = vi.hoisted(() => ({
   pluginHostConnectionFromEnv: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   getWorkspaceRole: mocks.getWorkspaceRole,
   pluginHostConnectionFromEnv: mocks.pluginHostConnectionFromEnv,
 }));
-vi.mock("@doco/host/model-plugins", () => ({
+vi.mock("@braino/host/model-plugins", () => ({
   getWorkspaceModelPluginReadiness: mocks.getWorkspaceModelPluginReadiness,
   listWorkspaceModelPlugins: mocks.listWorkspaceModelPlugins,
 }));
@@ -109,9 +109,9 @@ describe("the state every model setup screen starts from", () => {
   });
 
   it("offers a key for sealing secrets only when the deployment has a usable one", () => {
-    vi.stubEnv("DOCO_ENCRYPTION_KEY", "short");
+    vi.stubEnv("BRAINO_ENCRYPTION_KEY", "short");
     expect(pluginSecretsKey()).toBeNull();
-    vi.stubEnv("DOCO_ENCRYPTION_KEY", "test-encryption-key-with-more-than-thirty-two-characters");
+    vi.stubEnv("BRAINO_ENCRYPTION_KEY", "test-encryption-key-with-more-than-thirty-two-characters");
     expect(pluginSecretsKey()).toBe("test-encryption-key-with-more-than-thirty-two-characters");
   });
 

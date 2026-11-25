@@ -1,5 +1,5 @@
-import type { Translator } from "@doco/shared/i18n";
-import type { ReactTranslator } from "@doco/shared/i18n/react";
+import type { Translator } from "@braino/shared/i18n";
+import type { ReactTranslator } from "@braino/shared/i18n/react";
 
 export function timeAgo(
   t: Translator | ReactTranslator,

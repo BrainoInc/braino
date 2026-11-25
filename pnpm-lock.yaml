@@ -32,17 +32,17 @@ importers:
 
   packages/connector-plugins:
     dependencies:
-      '@doco/plugin-runtime':
+      '@braino/plugin-runtime':
         specifier: workspace:*
         version: link:../plugin-runtime
     devDependencies:
-      '@doco/host':
+      '@braino/host':
         specifier: workspace:*
         version: link:../host
 
   packages/db:
     dependencies:
-      '@doco/shared':
+      '@braino/shared':
         specifier: workspace:*
         version: link:../shared
       pg:
@@ -55,25 +55,25 @@ importers:
 
   packages/host:
     dependencies:
-      '@doco/db':
+      '@braino/db':
         specifier: workspace:*
         version: link:../db
-      '@doco/index':
+      '@braino/index':
         specifier: workspace:*
         version: link:../index
-      '@doco/plugin-runtime':
+      '@braino/plugin-runtime':
         specifier: workspace:*
         version: link:../plugin-runtime
-      '@doco/shared':
+      '@braino/shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/index:
     dependencies:
-      '@doco/db':
+      '@braino/db':
         specifier: workspace:*
         version: link:../db
-      '@doco/shared':
+      '@braino/shared':
         specifier: workspace:*
         version: link:../shared
       yauzl:
@@ -110,7 +110,7 @@ importers:
 
   packages/ui:
     dependencies:
-      '@doco/shared':
+      '@braino/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -132,25 +132,25 @@ importers:
 
   packages/web:
     dependencies:
-      '@doco/connector-plugins':
+      '@braino/connector-plugins':
         specifier: workspace:*
         version: link:../connector-plugins
-      '@doco/db':
+      '@braino/db':
         specifier: workspace:*
         version: link:../db
-      '@doco/host':
+      '@braino/host':
         specifier: workspace:*
         version: link:../host
-      '@doco/index':
+      '@braino/index':
         specifier: workspace:*
         version: link:../index
-      '@doco/plugin-runtime':
+      '@braino/plugin-runtime':
         specifier: workspace:*
         version: link:../plugin-runtime
-      '@doco/shared':
+      '@braino/shared':
         specifier: workspace:*
         version: link:../shared
-      '@doco/ui':
+      '@braino/ui':
         specifier: workspace:*
         version: link:../ui
       '@react-router/express':

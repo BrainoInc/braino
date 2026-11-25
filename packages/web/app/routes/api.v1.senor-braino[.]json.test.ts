@@ -10,10 +10,10 @@ const mocks = vi.hoisted(() => ({
   sendWorkspaceChatMessage: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   listWorkspaceChatMessages: mocks.listWorkspaceChatMessages,
   resolveWorkspaceChatProvider: mocks.resolveWorkspaceChatProvider,

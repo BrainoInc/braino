@@ -4,7 +4,7 @@ import {
   type LoadedPolicy,
   evaluateEdgePolicies,
   evaluatePolicies,
-} from "@doco/shared";
+} from "@braino/shared";
 import { describe, expect, it } from "vitest";
 import {
   type CollectionTemplate,

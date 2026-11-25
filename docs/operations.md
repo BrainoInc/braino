@@ -14,15 +14,15 @@ Copy `.env.example` to `.env`, generate independent secrets, then validate the
 resolved Compose configuration:
 
 ```sh
-./doco doctor
+./braino doctor
 ```
 
 ## Backup
 
 ```sh
-./doco backup
+./braino backup
 # Or choose the archive path:
-./doco backup /secure/backups/doco-2026-11-08.tar.gz
+./braino backup /secure/backups/braino-2026-11-08.tar.gz
 ```
 
 The archive contains a custom-format PostgreSQL dump, an image/version
@@ -35,7 +35,7 @@ Qdrant is deliberately not backed up: PostgreSQL can rebuild it.
 Restore into the checkout for the release you want to run:
 
 ```sh
-./doco restore /secure/backups/doco-2026-11-08.tar.gz
+./braino restore /secure/backups/braino-2026-11-08.tar.gz
 ```
 
 Restore stops the application and its stateless services, replaces the PostgreSQL contents, clears the
@@ -46,11 +46,11 @@ configuration; the previous file is retained as `.env.before-restore.<time>`.
 
 ## Upgrade
 
-Set `DOCO_IMAGE`, `BRAINO_CODELINKER_IMAGE`, and `BRAINO_PLUGIN_HOST_IMAGE` in `.env` to the exact,
+Set `BRAINO_IMAGE`, `BRAINO_CODELINKER_IMAGE`, and `BRAINO_PLUGIN_HOST_IMAGE` in `.env` to the exact,
 matching release you intend to run, then:
 
 ```sh
-./doco upgrade
+./braino upgrade
 ```
 
 Upgrade validates the configuration, creates a pre-upgrade backup, pulls the

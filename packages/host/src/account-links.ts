@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { CollectionRole, PoolClient } from "@doco/db";
-import { generateUlid, makeEntityId } from "@doco/shared";
+import type { CollectionRole, PoolClient } from "@braino/db";
+import { generateUlid, makeEntityId } from "@braino/shared";
 import {
   normalizeWorkspaceRole,
   requireWorkspaceOwner,

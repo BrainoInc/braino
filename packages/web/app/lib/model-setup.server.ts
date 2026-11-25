@@ -1,10 +1,14 @@
-import { withClient } from "@doco/db";
-import { getSingleWorkspaceState, getWorkspaceRole, pluginHostConnectionFromEnv } from "@doco/host";
-import type { PluginHostConnection } from "@doco/host";
+import { withClient } from "@braino/db";
+import {
+  getSingleWorkspaceState,
+  getWorkspaceRole,
+  pluginHostConnectionFromEnv,
+} from "@braino/host";
+import type { PluginHostConnection } from "@braino/host";
 import {
   getWorkspaceModelPluginReadiness,
   listWorkspaceModelPlugins,
-} from "@doco/host/model-plugins";
+} from "@braino/host/model-plugins";
 import { redirect } from "react-router";
 import { bundledModelPluginCatalog } from "~/lib/bundled-model-plugins.server";
 import { getCurrentUser } from "~/lib/current-user.server";
@@ -71,7 +75,7 @@ export async function loadModelSetup(request: Request): Promise<ModelSetup> {
 
 /** The key that seals plugin secrets, or null when the deployment has not set a usable one. */
 export function pluginSecretsKey(): string | null {
-  const value = process.env.DOCO_ENCRYPTION_KEY?.trim();
+  const value = process.env.BRAINO_ENCRYPTION_KEY?.trim();
   return value && value.length >= 32 ? value : null;
 }
 

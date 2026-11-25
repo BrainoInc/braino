@@ -1,11 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-const COOKIE_NAME = "doco_session";
+const COOKIE_NAME = "braino_session";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 
 interface SessionEnvironment {
-  DOCO_ENCRYPTION_KEY?: string;
-  DOCO_PUBLIC_HOST?: string;
+  BRAINO_ENCRYPTION_KEY?: string;
+  BRAINO_PUBLIC_HOST?: string;
 }
 
 interface SessionPayload {
@@ -20,9 +20,9 @@ export interface SessionIdentity {
 }
 
 function key(env: SessionEnvironment): string {
-  const value = env.DOCO_ENCRYPTION_KEY?.trim();
+  const value = env.BRAINO_ENCRYPTION_KEY?.trim();
   if (!value || value.length < 32) {
-    throw new Error("DOCO_ENCRYPTION_KEY must contain at least 32 characters.");
+    throw new Error("BRAINO_ENCRYPTION_KEY must contain at least 32 characters.");
   }
   return value;
 }
@@ -32,7 +32,7 @@ function signature(payload: string, env: SessionEnvironment): string {
 }
 
 function secure(env: SessionEnvironment): boolean {
-  return env.DOCO_PUBLIC_HOST?.trim().startsWith("https://") ?? false;
+  return env.BRAINO_PUBLIC_HOST?.trim().startsWith("https://") ?? false;
 }
 
 export function createSessionCookie(

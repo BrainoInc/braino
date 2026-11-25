@@ -62,13 +62,13 @@ jobs:
       - name: Pack the core packages
         run: |
           mkdir -p release-packages
-          pnpm --filter @doco/shared pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
-          pnpm --filter @doco/ui pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
-          pnpm --filter @doco/plugin-runtime pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
-          pnpm --filter @doco/db pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
-          pnpm --filter @doco/index pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
-          pnpm --filter @doco/host pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
-          pnpm --filter @doco/connector-plugins pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
+          pnpm --filter @braino/shared pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
+          pnpm --filter @braino/ui pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
+          pnpm --filter @braino/plugin-runtime pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
+          pnpm --filter @braino/db pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
+          pnpm --filter @braino/index pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
+          pnpm --filter @braino/host pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
+          pnpm --filter @braino/connector-plugins pack --pack-destination "$GITHUB_WORKSPACE/release-packages"
       - name: Verify the release packages install together
         run: node scripts/verify-release-packages.mjs release-packages
 
@@ -104,7 +104,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.app_metadata.outputs.tags }}
           labels: ${{ steps.app_metadata.outputs.labels }}
-          build-args: DOCO_VERSION=${{ needs.version.outputs.tag }}
+          build-args: BRAINO_VERSION=${{ needs.version.outputs.tag }}
           provenance: mode=max
           sbom: true
       - id: codelinker_metadata

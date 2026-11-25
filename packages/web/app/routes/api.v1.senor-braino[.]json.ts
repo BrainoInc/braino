@@ -1,10 +1,10 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   getSingleWorkspaceState,
   listWorkspaceChatMessages,
   resolveWorkspaceChatProvider,
   sendWorkspaceChatMessage,
-} from "@doco/host";
+} from "@braino/host";
 import { getCurrentUser } from "~/lib/current-user.server";
 import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
 import {
@@ -63,7 +63,10 @@ export async function action({ request }: { request: Request }) {
         workspaceId: workspace.id,
         userId: user.id,
         question,
-        baseUrl: (process.env.DOCO_PUBLIC_HOST ?? new URL(request.url).origin).replace(/\/+$/, ""),
+        baseUrl: (process.env.BRAINO_PUBLIC_HOST ?? new URL(request.url).origin).replace(
+          /\/+$/,
+          "",
+        ),
         chat,
       });
     });

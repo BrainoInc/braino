@@ -26,8 +26,8 @@ export interface QueryClient {
   query<T>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
 }
 
-// `inputType` mirrors @doco/index's EmbeddingInputType ("query" | "document").
-// Inlined rather than imported because @doco/index depends on @doco/db, not
+// `inputType` mirrors @braino/index's EmbeddingInputType ("query" | "document").
+// Inlined rather than imported because @braino/index depends on @braino/db, not
 // the other way round; the two definitions must stay in sync.
 export interface EmbeddingProviderLike {
   modelId: string;
@@ -146,7 +146,7 @@ export async function upsertEmbeddings(
     existing.map((r) => [`${r.collection_id}\n${r.entity_id}\n${r.chunk_index}`, r]),
   );
 
-  // node:crypto is imported lazily so the @doco/db barrel stays out of
+  // node:crypto is imported lazily so the @braino/db barrel stays out of
   // browser bundles.
   const { createHash } = await import(/* @vite-ignore */ "node:crypto");
   const pending: {

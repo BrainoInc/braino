@@ -1,4 +1,4 @@
-import { connectConnector, initializeSingleWorkspace, syncConnectorConnection } from "@doco/host";
+import { connectConnector, initializeSingleWorkspace, syncConnectorConnection } from "@braino/host";
 import type { PGlite } from "@electric-sql/pglite";
 import type { PoolClient } from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -41,7 +41,7 @@ function fakeNotion(state: NotionState): typeof fetch {
     if (url.pathname === "/v1/users/me") {
       return Response.json({
         object: "user",
-        id: "bot_doco",
+        id: "bot_braino",
         name: "Braino",
         type: "bot",
         bot: { workspace_id: "notion_acme", workspace_name: "Acme Wiki" },

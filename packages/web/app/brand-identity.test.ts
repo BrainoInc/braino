@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { DEFAULT_COLLECTION_TEMPLATES } from "@doco/host";
+import { DEFAULT_COLLECTION_TEMPLATES } from "@braino/host";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "../../../");
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
+const LEGACY_NAME = String.fromCharCode(100, 111, 99, 111);
+const LEGACY_NAME_PATTERN = new RegExp(`\\b${LEGACY_NAME}\\b|Señor ${LEGACY_NAME}`, "i");
 
 describe("Braino's public identity", () => {
   it("presents Braino on every human-facing open-source surface", () => {
@@ -31,11 +33,11 @@ describe("Braino's public identity", () => {
       "packages/host/src/mcp-core.ts",
       "packages/db/src/client.ts",
     ]) {
-      expect(read(path), path).not.toMatch(/\bDoco\b|Señor Doco/);
+      expect(read(path), path).not.toMatch(LEGACY_NAME_PATTERN);
     }
     expect(
       DEFAULT_COLLECTION_TEMPLATES.map((template) => template.description).join("\n"),
-    ).not.toMatch(/\bDoco\b/);
+    ).not.toMatch(LEGACY_NAME_PATTERN);
   });
 
   it("uses the established Braino mark and release image", () => {
@@ -53,14 +55,14 @@ describe("Braino's public identity", () => {
     expect(read("docs/operations.md")).toContain("ghcr.io/brainoinc/braino");
   });
 
-  it("moves existing display data forward without renaming machine contracts", () => {
+  it("moves display data and machine contracts forward together", () => {
     const schema = read("packages/db/src/schema.sql");
     const migration = read("packages/db/migrations/002_braino_product_identity.sql");
 
     expect(schema).toContain("VALUES ('host', 'Braino', 'public')");
     expect(migration).toContain("name = 'Braino'");
-    expect(read("packages/host/src/mcp-core.ts")).toContain('const MCP_CLIENT_ID = "doco_');
-    expect(read("compose.yml")).toContain("doco-postgres:");
-    expect(read(".env.example")).toContain("DOCO_IMAGE=");
+    expect(read("packages/host/src/mcp-core.ts")).toContain('const MCP_CLIENT_ID = "braino_');
+    expect(read("compose.yml")).toContain("braino-postgres:");
+    expect(read(".env.example")).toContain("BRAINO_IMAGE=");
   });
 });

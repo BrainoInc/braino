@@ -8,10 +8,10 @@ const mocks = vi.hoisted(() => ({
   resolveWorkspaceGithubPlugin: vi.fn(),
 }));
 
-vi.mock("@doco/db", () => ({
+vi.mock("@braino/db", () => ({
   withClient: (callback: (client: object) => unknown) => callback({}),
 }));
-vi.mock("@doco/host", () => ({
+vi.mock("@braino/host", () => ({
   deliverGithubGatewayWebhook: mocks.deliverGithubGatewayWebhook,
   getSingleWorkspaceState: mocks.getSingleWorkspaceState,
   resolveWorkspaceGithubPlugin: mocks.resolveWorkspaceGithubPlugin,

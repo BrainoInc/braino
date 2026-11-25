@@ -6,7 +6,7 @@
 // `collections.owner_id` is polymorphic: `user_<ulid>` or `workspace_<ulid>`.
 
 import { randomBytes } from "node:crypto";
-import { BLOCKED_NODE_JSON_EDGE_FIELD_SET, WRITE_ALL, normalizeWriteTypes } from "@doco/shared";
+import { BLOCKED_NODE_JSON_EDGE_FIELD_SET, WRITE_ALL, normalizeWriteTypes } from "@braino/shared";
 import type pg from "pg";
 import { withClient } from "./client.js";
 import {

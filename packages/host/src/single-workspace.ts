@@ -1,5 +1,5 @@
-import type { PoolClient } from "@doco/db";
-import { generateUlid, makeEntityId } from "@doco/shared";
+import type { PoolClient } from "@braino/db";
+import { generateUlid, makeEntityId } from "@braino/shared";
 import { addWorkspaceByHandle } from "./host.js";
 
 export class SingleWorkspaceAlreadyInitializedError extends Error {
@@ -81,7 +81,7 @@ export async function initializeSingleWorkspace(
 
   await client.query("BEGIN");
   try {
-    await client.query("SELECT pg_advisory_xact_lock(hashtext('doco_single_workspace_setup'))");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('braino_single_workspace_setup'))");
     const state = await getSingleWorkspaceState(client);
     if (state.initialized) throw new SingleWorkspaceAlreadyInitializedError();
 

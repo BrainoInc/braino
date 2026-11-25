@@ -144,13 +144,13 @@ describe("automatic GitHub sync", () => {
     const configured = await configureGithubWebhook(scope, {
       connectionId: connection.id,
       userId: setup.owner.id,
-      publicHost: "https://doco.example.test",
+      publicHost: "https://braino.example.test",
       encryptionKey,
       fetcher,
     });
     expect(configured).toMatchObject({ webhookConfigured: true, webhookUrl: capture.webhookUrl });
     expect(capture.webhookUrl).toBe(
-      `https://doco.example.test/api/v1/github/webhooks/${connection.id}`,
+      `https://braino.example.test/api/v1/github/webhooks/${connection.id}`,
     );
     expect(capture.webhookSecret).toBeTruthy();
     const stored = await db.query<{ webhook_secret_sealed: string; webhook_id: string }>(
@@ -258,7 +258,7 @@ describe("automatic GitHub sync", () => {
     await configureGithubWebhook(scope, {
       connectionId: connection.id,
       userId: setup.owner.id,
-      publicHost: "https://doco.example.test",
+      publicHost: "https://braino.example.test",
       encryptionKey,
       fetcher,
     });

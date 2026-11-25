@@ -1,9 +1,9 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import type {
   ChatCompleteCapability,
   ChatCompleteRequest,
   ChatCompleteResponse,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 import { resolveActiveWorkspaceModelPlugin } from "./model-plugin-installation.js";
 import { type PluginHostConnection, invokePlugin } from "./plugin-invocation.js";
 

@@ -1,7 +1,7 @@
 // People sign in with their email, a password and a passkey
-// (decision_01M644G5305NGN9JB7XJPRGN9H in meta-doco-product-decisions).
+// (decision_01M644G5305NGN9JB7XJPRGN9H in meta-braino-product-decisions).
 // users.stamp is what every session and emailed link of theirs carries
-// (decision_01M644H4Y6SAKGVX7HK0TNG65R in meta-doco-security-decisions), and
+// (decision_01M644H4Y6SAKGVX7HK0TNG65R in meta-braino-security-decisions), and
 // users.password_hash came back empty the day after passwords were dropped.
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";

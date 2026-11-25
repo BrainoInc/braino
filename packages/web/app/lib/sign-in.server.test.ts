@@ -3,7 +3,7 @@ import { passwordAttemptBuckets } from "./sign-in.server.js";
 
 describe("sign-in attempt identity", () => {
   it("limits both the normalized account and Caddy's client address", () => {
-    const request = new Request("https://doco.example", {
+    const request = new Request("https://braino.example", {
       headers: { "x-forwarded-for": "203.0.113.4" },
     });
     expect(passwordAttemptBuckets(request, " Owner@Example.COM ")).toEqual([

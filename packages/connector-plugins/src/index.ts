@@ -5,7 +5,7 @@ import {
   type SourcePullCapability,
   definePlugin,
   pluginCapability,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 import { googleDriveConnector } from "./google-drive.js";
 import { notionConnector } from "./notion.js";
 import { slackConnector } from "./slack.js";

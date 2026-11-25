@@ -1,4 +1,4 @@
-import type { PoolClient } from "@doco/db";
+import type { PoolClient } from "@braino/db";
 import {
   EMAIL_CAPABILITY_CONTRACT_VERSIONS,
   type EmailCapabilityInput,
@@ -20,7 +20,7 @@ import {
   parseTeamChatCapabilityInput,
   parseTeamChatCapabilityOutput,
   pluginProvidesCapability,
-} from "@doco/plugin-runtime";
+} from "@braino/plugin-runtime";
 import { PluginInstallationError } from "./plugin-installations.js";
 import { openSecret } from "./secret-box.js";
 

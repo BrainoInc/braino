@@ -6,10 +6,10 @@ const EVALUATED_CATEGORIES = new Set([1, 2, 3, 4]);
 export function parseBenchmarkArgs(argv, env = process.env) {
   const parsed = {
     dataset: "",
-    databaseUrl: env.DOCO_BENCHMARK_DATABASE_URL ?? "",
+    databaseUrl: env.BRAINO_BENCHMARK_DATABASE_URL ?? "",
     output: resolve("locomo-pilot-results"),
     sampleRate: 0.1,
-    seed: "doco-locomo-pilot-v1",
+    seed: "braino-locomo-pilot-v1",
     topK: 20,
     graph: true,
     rerank: true,
@@ -45,7 +45,7 @@ export function parseBenchmarkArgs(argv, env = process.env) {
   }
   if (!parsed.dataset) throw new Error("Pass --dataset with locomo10.json");
   if (!parsed.databaseUrl) {
-    throw new Error("Set DOCO_BENCHMARK_DATABASE_URL or pass --database-url");
+    throw new Error("Set BRAINO_BENCHMARK_DATABASE_URL or pass --database-url");
   }
   const database = new URL(parsed.databaseUrl).pathname.slice(1).toLowerCase();
   if (!database.includes("locomo") && !database.includes("benchmark")) {

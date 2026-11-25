@@ -1,4 +1,4 @@
-import { type EmbeddingProviderLike, type QueryClient, ingestRetrievalDocument } from "@doco/db";
+import { type EmbeddingProviderLike, type QueryClient, ingestRetrievalDocument } from "@braino/db";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";
@@ -183,7 +183,7 @@ describe("Falkor-style retrieval graph ingestion", () => {
     expect(resolveGraphEnrichmentMode(undefined)).toBe("fast");
     expect(resolveGraphEnrichmentMode(" LLM-VALIDATED ")).toBe("llm-validated");
     expect(() => resolveGraphEnrichmentMode("expensive-magic")).toThrow(
-      /DOCO_GRAPH_ENRICHMENT_MODE/,
+      /BRAINO_GRAPH_ENRICHMENT_MODE/,
     );
   });
 

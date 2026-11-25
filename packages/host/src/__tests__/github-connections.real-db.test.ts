@@ -1,5 +1,5 @@
-import type { PoolClient } from "@doco/db";
-import type { CodeGraphClient } from "@doco/index";
+import type { PoolClient } from "@braino/db";
+import type { CodeGraphClient } from "@braino/index";
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { freshDb } from "../../../db/src/__tests__/fresh-db.js";

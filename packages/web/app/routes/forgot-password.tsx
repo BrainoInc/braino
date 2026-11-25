@@ -1,12 +1,12 @@
-import { withClient } from "@doco/db";
+import { withClient } from "@braino/db";
 import {
   createPasswordResetLink,
   getSingleWorkspaceState,
   resolveWorkspaceEmailPlugin,
-} from "@doco/host";
-import { useT } from "@doco/shared/i18n/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@doco/ui";
-import { NarrowPageMain } from "@doco/ui";
+} from "@braino/host";
+import { useT } from "@braino/shared/i18n/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@braino/ui";
+import { NarrowPageMain } from "@braino/ui";
 import { Form, Link, redirect, useActionData, useLoaderData } from "react-router";
 import { pluginHostConnection, pluginSecretsKey } from "~/lib/model-setup.server";
 import { publicOrigin } from "~/lib/public-origin.server";
