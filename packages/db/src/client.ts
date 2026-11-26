@@ -105,7 +105,9 @@ export async function withTransaction<T>(fn: (c: pg.PoolClient) => Promise<T>): 
   });
 }
 
-type QueryClient = { query<T>(sql: string, params?: unknown[]): Promise<{ rows: T[] }> };
+type QueryClient = {
+  query<T>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
+};
 
 interface AppliedMigration {
   version: number;
@@ -115,6 +117,27 @@ interface AppliedMigration {
 
 export const MIGRATION_LOCK_TIMEOUT_MS = 2_000;
 const BUSY = new Set(["55P03", "40P01"]);
+const OAUTH_TABLES = [
+  "oauth_clients",
+  "oauth_authorization_codes",
+  "oauth_access_tokens",
+  "oauth_refresh_tokens",
+  "oauth_device_authorizations",
+] as const;
+
+async function preserveOauthCredentialsDuringMachineContractMigration(
+  c: QueryClient,
+): Promise<void> {
+  for (const table of OAUTH_TABLES) {
+    await c.query(`CREATE TEMP TABLE braino_027_${table} ON COMMIT DROP AS SELECT * FROM ${table}`);
+  }
+}
+
+async function restoreOauthCredentialsAfterMachineContractMigration(c: QueryClient): Promise<void> {
+  for (const table of OAUTH_TABLES) {
+    await c.query(`INSERT INTO ${table} SELECT * FROM braino_027_${table}`);
+  }
+}
 
 async function appliedMigrations(c: QueryClient): Promise<AppliedMigration[]> {
   const present = await c.query<{ present: boolean }>(
@@ -192,11 +215,19 @@ export async function applyMigrations(c: QueryClient): Promise<string[]> {
       // v27 performs the one controlled rewrite of legacy product metadata in
       // append-only history. Its SQL replaces this trigger before committing;
       // disabling it here keeps the released migration immutable while making
-      // that data migration possible. A rollback restores the old trigger.
+      // that data migration possible. The released SQL also deleted OAuth
+      // clients, cascading through every credential they owned. Preserve that
+      // graph inside this transaction so existing connections survive the
+      // product rename. A rollback restores the old trigger and drops the
+      // temporary snapshots.
       if (migration.name === "027_braino_machine_contracts") {
         await c.query("ALTER TABLE changesets DISABLE TRIGGER changesets_append_only_row");
+        await preserveOauthCredentialsDuringMachineContractMigration(c);
       }
       await c.query(migration.sql);
+      if (migration.name === "027_braino_machine_contracts") {
+        await restoreOauthCredentialsAfterMachineContractMigration(c);
+      }
       await c.query("INSERT INTO schema_migrations (version, name, checksum) VALUES ($1, $2, $3)", [
         migration.version,
         migration.name,

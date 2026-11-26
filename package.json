@@ -1,6 +1,6 @@
 {
   "name": "@braino/core",
-  "version": "0.1.62",
+  "version": "0.1.63",
   "private": true,
   "type": "module",
   "description": "The open-source core of Braino.",

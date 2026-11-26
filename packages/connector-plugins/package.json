@@ -1,6 +1,6 @@
 {
   "name": "@braino/connector-plugins",
-  "version": "0.1.62",
+  "version": "0.1.63",
   "type": "module",
   "description": "Bundled provider adapters for Braino's connector runtime.",
   "license": "MPL-2.0",

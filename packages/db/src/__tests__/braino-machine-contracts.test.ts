@@ -57,6 +57,31 @@ describe("Braino machine-contract migration", () => {
       VALUES ('legacy_webhook_digest', 'collection_legacy', 'user_legacy', 'Legacy');
       INSERT INTO oauth_clients (client_id, redirect_uris)
       VALUES ('${legacyClient}', '{http://localhost/callback}');
+      INSERT INTO oauth_authorization_codes (
+        code, client_id, user_id, redirect_uri, code_challenge,
+        granted_collection_ids, resource, expires_at
+      ) VALUES (
+        'legacy_auth_code_digest', '${legacyClient}', 'user_legacy',
+        'http://localhost/callback', 'challenge', '{collection_legacy}',
+        'https://braino.dev/mcp', now() + interval '5 minutes'
+      );
+      INSERT INTO oauth_access_tokens (
+        token, client_id, user_id, granted_collection_ids, resource, expires_at
+      ) VALUES (
+        'legacy_access_digest', '${legacyClient}', 'user_legacy',
+        '{collection_legacy}', 'https://braino.dev/mcp', now() + interval '1 hour'
+      );
+      INSERT INTO oauth_refresh_tokens (
+        token, client_id, user_id, granted_collection_ids, resource, expires_at
+      ) VALUES (
+        'legacy_refresh_digest', '${legacyClient}', 'user_legacy',
+        '{collection_legacy}', 'https://braino.dev/mcp', now() + interval '30 days'
+      );
+      INSERT INTO oauth_device_authorizations (
+        device_code, user_code, client_id, expires_at
+      ) VALUES (
+        'legacy_device_digest', 'LEGACY01', '${legacyClient}', now() + interval '5 minutes'
+      );
 
       INSERT INTO changesets (collection_id, actor, source, metadata)
       VALUES (
@@ -111,19 +136,37 @@ describe("Braino machine-contract migration", () => {
     expect(result.rows[0]?.tool).toBe("braino_brief");
   });
 
-  it("revokes credentials whose holders still have the former prefix", async () => {
-    const hookTokens = await db.query<{ revoked: boolean; token_sealed: string | null }>(
-      "SELECT revoked, token_sealed FROM hook_tokens",
-    );
+  it("revokes non-OAuth credentials whose holders still have the former prefix", async () => {
+    const hookTokens = await db.query<{
+      revoked: boolean;
+      token_sealed: string | null;
+    }>("SELECT revoked, token_sealed FROM hook_tokens");
     expect(hookTokens.rows).toEqual([{ revoked: true, token_sealed: null }]);
 
     const webhooks = await db.query<{ revoked: boolean }>("SELECT revoked FROM incoming_webhooks");
     expect(webhooks.rows).toEqual([{ revoked: true }]);
+  });
 
-    const clients = await db.query<{ count: string }>(
-      "SELECT count(*)::text AS count FROM oauth_clients",
-    );
-    expect(clients.rows[0]?.count).toBe("0");
+  it("preserves OAuth clients and every credential issued to them", async () => {
+    const counts = await db.query<{ table_name: string; count: number }>(`
+      SELECT 'oauth_clients' AS table_name, count(*)::int AS count FROM oauth_clients
+      UNION ALL
+      SELECT 'oauth_authorization_codes', count(*)::int FROM oauth_authorization_codes
+      UNION ALL
+      SELECT 'oauth_access_tokens', count(*)::int FROM oauth_access_tokens
+      UNION ALL
+      SELECT 'oauth_refresh_tokens', count(*)::int FROM oauth_refresh_tokens
+      UNION ALL
+      SELECT 'oauth_device_authorizations', count(*)::int FROM oauth_device_authorizations
+      ORDER BY table_name
+    `);
+    expect(counts.rows).toEqual([
+      { table_name: "oauth_access_tokens", count: 1 },
+      { table_name: "oauth_authorization_codes", count: 1 },
+      { table_name: "oauth_clients", count: 1 },
+      { table_name: "oauth_device_authorizations", count: 1 },
+      { table_name: "oauth_refresh_tokens", count: 1 },
+    ]);
   });
 
   it("replaces database functions and views that carried the former contract", async () => {
