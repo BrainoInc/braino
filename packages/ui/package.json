@@ -13,10 +13,7 @@
     },
     "./styles.css": "./styles.css"
   },
-  "files": [
-    "dist",
-    "styles.css"
-  ],
+  "files": ["dist", "styles.css"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

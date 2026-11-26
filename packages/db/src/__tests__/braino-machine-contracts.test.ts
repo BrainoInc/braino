@@ -143,9 +143,7 @@ describe("Braino machine-contract migration", () => {
     }>("SELECT revoked, token_sealed FROM hook_tokens");
     expect(hookTokens.rows).toEqual([{ revoked: true, token_sealed: null }]);
 
-    const webhooks = await db.query<{ revoked: boolean }>(
-      "SELECT revoked FROM incoming_webhooks",
-    );
+    const webhooks = await db.query<{ revoked: boolean }>("SELECT revoked FROM incoming_webhooks");
     expect(webhooks.rows).toEqual([{ revoked: true }]);
   });
 
@@ -183,9 +181,7 @@ describe("Braino machine-contract migration", () => {
         "braino_block_history_mutation",
       ]),
     );
-    expect(JSON.stringify(functions.rows).toLowerCase()).not.toContain(
-      LEGACY_NAME,
-    );
+    expect(JSON.stringify(functions.rows).toLowerCase()).not.toContain(LEGACY_NAME);
 
     const activity = await db.query<{ definition: string }>(
       "SELECT pg_get_viewdef('activity_writes') AS definition",
@@ -201,9 +197,7 @@ describe("Braino machine-contract migration", () => {
 
   it("restores the append-only guard after the controlled history rewrite", async () => {
     await expect(
-      db.exec(
-        "UPDATE changesets SET metadata = '{}' WHERE actor = 'user_legacy'",
-      ),
+      db.exec("UPDATE changesets SET metadata = '{}' WHERE actor = 'user_legacy'"),
     ).rejects.toThrow("history append-only");
   });
 });

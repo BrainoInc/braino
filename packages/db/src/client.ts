@@ -30,13 +30,9 @@ function pem(value: string | undefined): string | undefined {
   return normalized || undefined;
 }
 
-export function databasePoolConfig(
-  env: NodeJS.ProcessEnv = process.env,
-): pg.PoolConfig {
+export function databasePoolConfig(env: NodeJS.ProcessEnv = process.env): pg.PoolConfig {
   const connectionString =
-    env.DOCO_DATABASE_URL ??
-    env.DATABASE_URL ??
-    "postgres://postgres:braino@127.0.0.1:5433/braino";
+    env.DOCO_DATABASE_URL ?? env.DATABASE_URL ?? "postgres://postgres:braino@127.0.0.1:5433/braino";
   const configuredMax = env.DOCO_DATABASE_POOL_MAX?.trim();
   const max = configuredMax ? Number(configuredMax) : 10;
   if (!Number.isInteger(max) || max < 1 || max > 100) {
@@ -47,9 +43,7 @@ export function databasePoolConfig(
   const cert = pem(env.DOCO_DATABASE_CERT);
   const key = pem(env.DOCO_DATABASE_KEY);
   if (Boolean(cert) !== Boolean(key)) {
-    throw new Error(
-      "DOCO_DATABASE_CERT and DOCO_DATABASE_KEY must be configured together",
-    );
+    throw new Error("DOCO_DATABASE_CERT and DOCO_DATABASE_KEY must be configured together");
   }
   if ((cert || key) && !ca) {
     throw new Error("DOCO_DATABASE_CA is required with TLS client credentials");
@@ -86,9 +80,7 @@ export async function closePool(): Promise<void> {
   _schemaReady = null;
 }
 
-export async function withClient<T>(
-  fn: (c: pg.PoolClient) => Promise<T>,
-): Promise<T> {
+export async function withClient<T>(fn: (c: pg.PoolClient) => Promise<T>): Promise<T> {
   if (_testClient) return fn(_testClient);
   await ensureSchema();
   const c = await getPool().connect();
@@ -99,9 +91,7 @@ export async function withClient<T>(
   }
 }
 
-export async function withTransaction<T>(
-  fn: (c: pg.PoolClient) => Promise<T>,
-): Promise<T> {
+export async function withTransaction<T>(fn: (c: pg.PoolClient) => Promise<T>): Promise<T> {
   return withClient(async (c) => {
     try {
       await c.query("BEGIN");
@@ -139,15 +129,11 @@ async function preserveOauthCredentialsDuringMachineContractMigration(
   c: QueryClient,
 ): Promise<void> {
   for (const table of OAUTH_TABLES) {
-    await c.query(
-      `CREATE TEMP TABLE braino_027_${table} ON COMMIT DROP AS SELECT * FROM ${table}`,
-    );
+    await c.query(`CREATE TEMP TABLE braino_027_${table} ON COMMIT DROP AS SELECT * FROM ${table}`);
   }
 }
 
-async function restoreOauthCredentialsAfterMachineContractMigration(
-  c: QueryClient,
-): Promise<void> {
+async function restoreOauthCredentialsAfterMachineContractMigration(c: QueryClient): Promise<void> {
   for (const table of OAUTH_TABLES) {
     await c.query(`INSERT INTO ${table} SELECT * FROM braino_027_${table}`);
   }
@@ -166,9 +152,7 @@ async function appliedMigrations(c: QueryClient): Promise<AppliedMigration[]> {
 }
 
 function verifyAppliedMigrations(rows: AppliedMigration[]): void {
-  const expected = new Map(
-    MIGRATIONS.map((migration) => [migration.version, migration]),
-  );
+  const expected = new Map(MIGRATIONS.map((migration) => [migration.version, migration]));
   for (const row of rows) {
     const migration = expected.get(row.version);
     if (!migration) {
@@ -190,9 +174,7 @@ export async function applyMigrations(c: QueryClient): Promise<string[]> {
   await c.query("BEGIN");
   try {
     await c.query(`SET LOCAL lock_timeout = ${MIGRATION_LOCK_TIMEOUT_MS}`);
-    await c.query(
-      "SELECT pg_advisory_xact_lock(hashtext('braino_schema_migrations'))",
-    );
+    await c.query("SELECT pg_advisory_xact_lock(hashtext('braino_schema_migrations'))");
     await c.query(
       `CREATE TABLE IF NOT EXISTS schema_migrations (
          version integer PRIMARY KEY CHECK (version >= 0),
@@ -239,19 +221,18 @@ export async function applyMigrations(c: QueryClient): Promise<string[]> {
       // product rename. A rollback restores the old trigger and drops the
       // temporary snapshots.
       if (migration.name === "027_braino_machine_contracts") {
-        await c.query(
-          "ALTER TABLE changesets DISABLE TRIGGER changesets_append_only_row",
-        );
+        await c.query("ALTER TABLE changesets DISABLE TRIGGER changesets_append_only_row");
         await preserveOauthCredentialsDuringMachineContractMigration(c);
       }
       await c.query(migration.sql);
       if (migration.name === "027_braino_machine_contracts") {
         await restoreOauthCredentialsAfterMachineContractMigration(c);
       }
-      await c.query(
-        "INSERT INTO schema_migrations (version, name, checksum) VALUES ($1, $2, $3)",
-        [migration.version, migration.name, migration.checksum],
-      );
+      await c.query("INSERT INTO schema_migrations (version, name, checksum) VALUES ($1, $2, $3)", [
+        migration.version,
+        migration.name,
+        migration.checksum,
+      ]);
       appliedNames.push(migration.name);
     }
     await c.query("COMMIT");
@@ -272,13 +253,9 @@ export async function assertMigrationsCurrent(c: QueryClient): Promise<void> {
   verifyAppliedMigrations(rows);
   if (
     rows.length !== MIGRATIONS.length ||
-    MIGRATIONS.some(
-      (migration, index) => rows[index]?.version !== migration.version,
-    )
+    MIGRATIONS.some((migration, index) => rows[index]?.version !== migration.version)
   ) {
-    throw new Error(
-      "Braino database migrations are pending; run the migration command first.",
-    );
+    throw new Error("Braino database migrations are pending; run the migration command first.");
   }
 }
 
@@ -295,9 +272,7 @@ export async function migrateDatabase({
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (!code || !BUSY.has(code) || attempt >= attempts) throw error;
-        console.info(
-          `[migrations] database busy (${code}); retrying ${attempt}/${attempts}`,
-        );
+        console.info(`[migrations] database busy (${code}); retrying ${attempt}/${attempts}`);
         await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
     }
