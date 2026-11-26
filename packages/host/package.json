@@ -1,6 +1,6 @@
 {
   "name": "@braino/host",
-  "version": "0.1.62",
+  "version": "0.1.63",
   "type": "module",
   "description": "Postgres-backed workspace, collection, user, and template services.",
   "license": "MPL-2.0",
@@ -16,7 +16,9 @@
       "import": "./dist/workspace-model-plugins.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

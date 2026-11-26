@@ -1,6 +1,6 @@
 {
   "name": "@braino/plugin-runtime",
-  "version": "0.1.62",
+  "version": "0.1.63",
   "type": "module",
   "description": "Versioned capability protocol for isolated Braino plugins.",
   "license": "MPL-2.0",
@@ -13,7 +13,10 @@
     },
     "./wit/plugin.wit": "./wit/plugin.wit"
   },
-  "files": ["dist", "wit"],
+  "files": [
+    "dist",
+    "wit"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

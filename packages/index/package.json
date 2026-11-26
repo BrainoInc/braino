@@ -1,6 +1,6 @@
 {
   "name": "@braino/index",
-  "version": "0.1.62",
+  "version": "0.1.63",
   "type": "module",
   "description": "PG-backed search indexer, PageRank, and embedding provider.",
   "license": "MPL-2.0",
@@ -20,7 +20,9 @@
       "import": "./dist/qdrant-record-projection.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
