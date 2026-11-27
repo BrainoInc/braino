@@ -1,4 +1,10 @@
 import type { PoolClient } from "@braino/db";
+import type {
+  EmailMessage,
+  EmailSendResponse,
+  TeamChatMessage,
+  TeamChatSendResponse,
+} from "@braino/plugin-runtime";
 
 export const DEFAULT_TIMES_TIME_ZONE = "America/Los_Angeles";
 export const TIMES_STORY_LIMIT = 15;
@@ -36,6 +42,15 @@ export type TimesEditionRead =
   | { kind: "hidden" }
   | { kind: "missing" }
   | ({ kind: "edition"; public: boolean } & TimesEdition);
+
+export interface TimesEmailTransport {
+  send(input: EmailMessage): Promise<EmailSendResponse>;
+}
+
+export interface TimesTeamChatTransport {
+  installation: { installationId: string };
+  send(input: TeamChatMessage): Promise<TeamChatSendResponse>;
+}
 
 const TYPE_POINTS: Record<string, number> = { rule: 3, decision: 2 };
 
@@ -227,6 +242,237 @@ export async function publishDueTimesEdition(
     .find((part) => part.type === "hour")?.value;
   if (createdDay === today && localHour !== "00") return null;
   return publishTimesEdition(client, input);
+}
+
+function cadenceDue(cadence: string, at: Date, timeZone: string): boolean {
+  if (cadence === "daily") return true;
+  if (cadence !== "weekly") return false;
+  return new Intl.DateTimeFormat("en", { timeZone, weekday: "short" }).format(at) === "Mon";
+}
+
+function timesUrl(baseUrl: string, day: string): string {
+  return `${baseUrl.replace(/\/+$/, "")}/times/${day}`;
+}
+
+function editionMessage(edition: TimesEdition, baseUrl: string): string {
+  const stories = edition.stories.length
+    ? edition.stories.map((story) => `• ${story.headline}\n${story.url}`).join("\n\n")
+    : "";
+  return [edition.title, edition.day, stories, timesUrl(baseUrl, edition.day)]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+async function claimDelivery(
+  client: PoolClient,
+  input: {
+    workspaceId: string;
+    day: string;
+    transport: "email" | "team_chat";
+    recipient: string;
+    at: Date;
+  },
+): Promise<boolean> {
+  const claimed = await client.query(
+    `INSERT INTO times_deliveries
+       (workspace_id, cadence, edition_day, transport, recipient, attempts, attempted_at)
+     VALUES ($1, 'daily', $2::date, $3, $4, 1, $5)
+     ON CONFLICT (workspace_id, cadence, edition_day, transport, recipient)
+     DO UPDATE SET attempts = times_deliveries.attempts + 1,
+                   attempted_at = EXCLUDED.attempted_at,
+                   last_error = NULL
+       WHERE times_deliveries.delivered_at IS NULL
+         AND (times_deliveries.attempted_at IS NULL
+              OR times_deliveries.attempted_at <= EXCLUDED.attempted_at - interval '5 minutes')
+     RETURNING recipient`,
+    [input.workspaceId, input.day, input.transport, input.recipient, input.at.toISOString()],
+  );
+  return claimed.rows.length > 0;
+}
+
+async function finishDelivery(
+  client: PoolClient,
+  input: {
+    workspaceId: string;
+    day: string;
+    transport: "email" | "team_chat";
+    recipient: string;
+    at: Date;
+    externalId?: string;
+    failed?: boolean;
+  },
+): Promise<void> {
+  await client.query(
+    `UPDATE times_deliveries
+        SET delivered_at = CASE WHEN $6::boolean THEN NULL ELSE $5::timestamptz END,
+            external_id = CASE WHEN $6::boolean THEN NULL ELSE $7::text END,
+            last_error = CASE WHEN $6::boolean THEN 'delivery_failed' ELSE NULL END
+      WHERE workspace_id = $1 AND cadence = 'daily' AND edition_day = $2::date
+        AND transport = $3 AND recipient = $4`,
+    [
+      input.workspaceId,
+      input.day,
+      input.transport,
+      input.recipient,
+      input.at.toISOString(),
+      input.failed ?? false,
+      input.externalId ?? null,
+    ],
+  );
+}
+
+/** Deliver today's already-published edition through the workspace's installed
+ * transports. Successful destinations are idempotent across scheduler ticks;
+ * failed ones become retryable after five minutes. */
+export async function deliverDueTimesEdition(
+  client: PoolClient,
+  input: {
+    workspaceId: string;
+    at: Date;
+    baseUrl: string;
+    email: TimesEmailTransport | null;
+    teamChat: TimesTeamChatTransport | null;
+  },
+): Promise<{ delivered: number; failed: number }> {
+  const workspace = await client.query<{ name: string; times_timezone: string }>(
+    "SELECT name, times_timezone FROM workspaces WHERE id = $1",
+    [input.workspaceId],
+  );
+  const workspaceRow = workspace.rows[0];
+  if (!workspaceRow) return { delivered: 0, failed: 0 };
+  const day = editionDay(input.at, workspaceRow.times_timezone);
+  const found = await client.query<{ published_at: Date | string; stories: TimesStory[] }>(
+    `SELECT published_at, stories
+       FROM times_editions
+      WHERE workspace_id = $1 AND cadence = 'daily' AND edition_day = $2::date`,
+    [input.workspaceId, day],
+  );
+  const row = found.rows[0];
+  if (!row) return { delivered: 0, failed: 0 };
+  const edition: TimesEdition = {
+    day,
+    title: `The ${workspaceRow.name} Times`,
+    publishedAt: new Date(row.published_at).toISOString(),
+    stories: row.stories,
+  };
+  const message = editionMessage(edition, input.baseUrl);
+  let delivered = 0;
+  let failed = 0;
+
+  if (input.email) {
+    const members = await client.query<{ user_id: string; email: string; digest: string }>(
+      `SELECT u.id AS user_id, u.email, wu.digest
+         FROM workspace_users wu
+         JOIN users u ON u.id = wu.user_id
+        WHERE wu.workspace_id = $1 AND u.deactivated_at IS NULL
+          AND coalesce(u.email, '') <> '' AND wu.digest <> 'off'
+        ORDER BY u.id`,
+      [input.workspaceId],
+    );
+    for (const member of members.rows) {
+      if (!cadenceDue(member.digest, input.at, workspaceRow.times_timezone)) continue;
+      if (
+        !(await claimDelivery(client, {
+          workspaceId: input.workspaceId,
+          day,
+          transport: "email",
+          recipient: member.user_id,
+          at: input.at,
+        }))
+      )
+        continue;
+      try {
+        const receipt = await input.email.send({
+          to: [member.email],
+          subject: `${edition.title} · ${edition.day}`,
+          text: message,
+        });
+        await finishDelivery(client, {
+          workspaceId: input.workspaceId,
+          day,
+          transport: "email",
+          recipient: member.user_id,
+          at: input.at,
+          externalId: receipt.externalId,
+        });
+        delivered += 1;
+      } catch {
+        await finishDelivery(client, {
+          workspaceId: input.workspaceId,
+          day,
+          transport: "email",
+          recipient: member.user_id,
+          at: input.at,
+          failed: true,
+        });
+        failed += 1;
+      }
+    }
+  }
+
+  if (input.teamChat) {
+    const setting = await client.query<{ default_channel_id: string | null; digest: string }>(
+      `SELECT default_channel_id, digest
+         FROM group_chat_installations
+        WHERE provider = 'slack' AND braino_workspace_id = $1
+        ORDER BY updated_at DESC LIMIT 1`,
+      [input.workspaceId],
+    );
+    const configured = setting.rows[0];
+    let target = configured?.default_channel_id ?? null;
+    if (!target) {
+      const direct = await client.query<{ channel_id: string }>(
+        `SELECT data->>'channelId' AS channel_id
+           FROM plugin_event_deliveries
+          WHERE workspace_id = $1 AND installation_id = $2
+            AND kind = 'team_chat.message' AND data->>'direct' = 'true'
+            AND coalesce(data->>'channelId', '') <> ''
+          ORDER BY occurred_at DESC, created_at DESC LIMIT 1`,
+        [input.workspaceId, input.teamChat.installation.installationId],
+      );
+      target = direct.rows[0]?.channel_id ?? null;
+    }
+    const digest = configured?.digest ?? "daily";
+    if (target && cadenceDue(digest, input.at, workspaceRow.times_timezone)) {
+      if (
+        await claimDelivery(client, {
+          workspaceId: input.workspaceId,
+          day,
+          transport: "team_chat",
+          recipient: target,
+          at: input.at,
+        })
+      ) {
+        try {
+          const receipt = await input.teamChat.send({
+            target: { kind: "channel", id: target },
+            text: message,
+          });
+          await finishDelivery(client, {
+            workspaceId: input.workspaceId,
+            day,
+            transport: "team_chat",
+            recipient: target,
+            at: input.at,
+            externalId: receipt.externalId,
+          });
+          delivered += 1;
+        } catch {
+          await finishDelivery(client, {
+            workspaceId: input.workspaceId,
+            day,
+            transport: "team_chat",
+            recipient: target,
+            at: input.at,
+            failed: true,
+          });
+          failed += 1;
+        }
+      }
+    }
+  }
+
+  return { delivered, failed };
 }
 
 export async function latestTimesEditionDay(
