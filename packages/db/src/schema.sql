@@ -1510,6 +1510,22 @@ CREATE TABLE IF NOT EXISTS times_editions (
   PRIMARY KEY (workspace_id, cadence, edition_day)
 );
 
+-- One durable receipt per Times edition and destination. The scheduler may
+-- run every minute; a successful email or team-chat post still goes out once.
+CREATE TABLE IF NOT EXISTS times_deliveries (
+  workspace_id text NOT NULL,
+  cadence      text NOT NULL CHECK (cadence IN ('daily', 'weekly')),
+  edition_day  date NOT NULL,
+  transport    text NOT NULL CHECK (transport IN ('email', 'team_chat')),
+  recipient    text NOT NULL CHECK (recipient <> ''),
+  attempts     integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  attempted_at timestamptz,
+  delivered_at timestamptz,
+  external_id  text,
+  last_error   text,
+  PRIMARY KEY (workspace_id, cadence, edition_day, transport, recipient)
+);
+
 -- Hook tokens: a person's read-only credential for one workspace, reading
 -- what its maker can read there (decision_01M4C2J610DPD028P55Q8X6VG2), with
 -- no expiry; revoking is the only kill switch. Any member mints their own; an

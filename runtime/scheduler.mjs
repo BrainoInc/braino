@@ -1,11 +1,13 @@
 import { withClient } from "@braino/db";
 import {
   answerWorkspaceQuestion,
+  deliverDueTimesEdition,
   getSingleWorkspaceState,
   pluginHostConnectionFromEnv,
   processNextTeamChatEvent,
   publishDueTimesEdition,
   resolveWorkspaceChatProvider,
+  resolveWorkspaceEmailPlugin,
   resolveWorkspaceEmbeddingProvider,
   resolveWorkspaceTeamChatPlugin,
 } from "@braino/host";
@@ -32,15 +34,40 @@ async function publish() {
   try {
     const state = await withClient(getSingleWorkspaceState);
     if (!state.initialized) return;
-    const edition = await withClient((client) =>
-      publishDueTimesEdition(client, {
+    const result = await withClient(async (client) => {
+      const at = new Date();
+      const edition = await publishDueTimesEdition(client, {
         workspaceId: state.workspace.id,
-        at: new Date(),
+        at,
         baseUrl,
-      }),
-    );
-    if (edition)
-      console.log(`[times] published ${edition.day} with ${edition.stories.length} stories`);
+      });
+      const connection = {
+        workspaceId: state.workspace.id,
+        encryptionKey: required("DOCO_ENCRYPTION_KEY"),
+        host: pluginHostConnection(),
+      };
+      const [email, teamChat] = await Promise.all([
+        resolveWorkspaceEmailPlugin(client, connection),
+        resolveWorkspaceTeamChatPlugin(client, connection),
+      ]);
+      const delivery = await deliverDueTimesEdition(client, {
+        workspaceId: state.workspace.id,
+        at,
+        baseUrl,
+        email,
+        teamChat,
+      });
+      return { edition, delivery };
+    });
+    if (result.edition)
+      console.log(
+        `[times] published ${result.edition.day} with ${result.edition.stories.length} stories`,
+      );
+    if (result.delivery.delivered > 0 || result.delivery.failed > 0) {
+      console.log(
+        `[times] delivered ${result.delivery.delivered}, failed ${result.delivery.failed}`,
+      );
+    }
   } catch (error) {
     console.error("[times] publication failed", error);
   } finally {
